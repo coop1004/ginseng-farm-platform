@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: ginseng-farm-backend
+    name: ginseng-farm-platform
     runtime: docker
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
@@ -12,3 +12,9 @@ services:
         sync: false
       - key: OPENWEATHER_API_KEY
         sync: false
+
+  - type: web
+    name: ginseng-farm-dashboard
+    runtime: static
+    staticPublishPath: ./admin_dashboard
+    plan: free

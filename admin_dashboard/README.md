@@ -12,7 +12,14 @@ cd admin_dashboard
 python3 -m http.server 8080
 ```
 
-브라우저에서 http://localhost:8080 접속. 좌측 하단에서 API 서버 주소(기본 `http://localhost:8000`)를 확인/변경할 수 있습니다.
+브라우저에서 http://localhost:8080 접속. 좌측 하단에서 API 서버 주소를 확인/변경할 수 있습니다
+(기본값은 배포된 백엔드 `https://ginseng-farm-platform.onrender.com`을 가리킵니다).
+
+## 배포 (Render Static Site)
+
+루트의 `render.yaml`에 `ginseng-farm-dashboard`라는 이름의 정적 사이트 설정이 포함되어 있습니다.
+Render 대시보드 → `New +` → `Blueprint` → 이 저장소 선택 시 백엔드와 함께 자동으로 배포됩니다.
+배포되면 `https://ginseng-farm-dashboard.onrender.com` 형태의 공개 주소가 생성됩니다.
 
 ## 구성
 

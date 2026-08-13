@@ -1,5 +1,5 @@
 const Api = (() => {
-  let baseUrl = localStorage.getItem("apiBaseUrl") || "http://localhost:8000";
+  let baseUrl = localStorage.getItem("apiBaseUrl") || "https://ginseng-farm-platform.onrender.com";
 
   function setBaseUrl(url) {
     baseUrl = url.replace(/\/$/, "");
