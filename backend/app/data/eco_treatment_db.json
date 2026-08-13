@@ -1,0 +1,238 @@
+{
+  "diseases": [
+    {
+      "id": "dis_001",
+      "name_kr": "점무늬병(반점병)",
+      "name_en": "Alternaria Leaf Spot",
+      "type": "병해",
+      "crop": "인삼",
+      "symptoms": "잎에 갈색~암갈색의 원형 또는 부정형 반점이 생기고, 병반 주위에 황색 무리(halo)가 나타남. 심하면 잎 전체가 고사.",
+      "cause": "고온다습 조건에서 Alternaria panax 곰팡이에 의해 발생. 장마철 및 통풍 불량 시 급속 확산.",
+      "favorable_conditions": {
+        "temp_range_c": [22, 28],
+        "humidity_min_percent": 80,
+        "rainfall": "많음"
+      },
+      "eco_treatments": [
+        {
+          "product_name": "그린가드 친환경 인삼 전용 미생물제제",
+          "active_ingredient": "바실러스 서브틸리스(Bacillus subtilis) 1억 CFU/g",
+          "usage": "물 1000L당 500g 희석, 7일 간격 2~3회 엽면살포",
+          "note": "예방 위주 사용 시 효과 극대화, 발병 초기 살포 권장"
+        },
+        {
+          "product_name": "친환경 님오일 방제액",
+          "active_ingredient": "님(Neem) 추출물 0.3%",
+          "usage": "1000배 희석 후 병반 부위 집중 살포, 5일 간격 반복",
+          "note": "유기농 인증 자재, 수확 전 제한 없음"
+        }
+      ],
+      "chemical_treatments": [
+        {
+          "product_name": "만코지 수화제",
+          "active_ingredient": "만코지 75%",
+          "usage": "1000배 희석 살포, 10일 간격, 수확 14일 전까지",
+          "note": "보조적 사용 권장, 연속 사용 시 저항성 유발 가능"
+        }
+      ]
+    },
+    {
+      "id": "dis_002",
+      "name_kr": "탄저병",
+      "name_en": "Anthracnose",
+      "type": "병해",
+      "crop": "인삼",
+      "symptoms": "잎과 줄기에 검은색 원형 병반, 병반 중심부 함몰 및 분생포자층 형성. 습한 환경에서 급속 전파.",
+      "cause": "Colletotrichum spp. 곰팡이. 강우 직후 고습 조건에서 다발.",
+      "favorable_conditions": {
+        "temp_range_c": [24, 30],
+        "humidity_min_percent": 85,
+        "rainfall": "많음"
+      },
+      "eco_treatments": [
+        {
+          "product_name": "바이오가드 코퍼 대체 친환경 살균제",
+          "active_ingredient": "고삼 추출물 + 자소엽 추출물 복합",
+          "usage": "800배 희석, 강우 직후 즉시 살포",
+          "note": "천연 유래 성분으로 인체·환경 안전성 높음"
+        }
+      ],
+      "chemical_treatments": [
+        {
+          "product_name": "프로피네브 수화제",
+          "active_ingredient": "프로피네브 70%",
+          "usage": "600배 희석, 수확 21일 전까지",
+          "note": "친환경 자재 효과 미흡 시 보조 사용"
+        }
+      ]
+    },
+    {
+      "id": "dis_003",
+      "name_kr": "뿌리썩음병(근부병)",
+      "name_en": "Root Rot",
+      "type": "병해",
+      "crop": "인삼",
+      "symptoms": "지상부 위조 및 황화, 뿌리 절단 시 갈변·연화 및 악취. 배수 불량 지역에서 다발.",
+      "cause": "Cylindrocarpon destructans, Fusarium spp. 등 토양전염성 병원균. 과습 토양에서 급증.",
+      "favorable_conditions": {
+        "temp_range_c": [18, 25],
+        "humidity_min_percent": 90,
+        "rainfall": "매우 많음"
+      },
+      "eco_treatments": [
+        {
+          "product_name": "트리코더마 친환경 토양미생물제",
+          "active_ingredient": "트리코더마 하지아눔(Trichoderma harzianum)",
+          "usage": "정식 전 토양관주 300L/10a, 생육기 월 1회 추가 관주",
+          "note": "예방적 토양 처리가 핵심, 발병 후 방제 효과 제한적"
+        },
+        {
+          "product_name": "게껍질 유래 키토산 토양개량제",
+          "active_ingredient": "키토산 5%",
+          "usage": "토양 관주 1000배 희석, 배수 개선과 병행",
+          "note": "배수로 정비 등 경종적 방법과 함께 사용 시 효과 상승"
+        }
+      ],
+      "chemical_treatments": [
+        {
+          "product_name": "메타락실-엠 입제",
+          "active_ingredient": "메타락실-엠 3.3%",
+          "usage": "토양 처리 3kg/10a, 정식 전 1회",
+          "note": "친환경 자재로 예방 실패 시에만 제한적 사용"
+        }
+      ]
+    },
+    {
+      "id": "pest_001",
+      "name_kr": "굼벵이(풍뎅이류 유충)",
+      "name_en": "White Grub",
+      "type": "해충",
+      "crop": "인삼",
+      "symptoms": "뿌리 표면 및 내부를 갉아먹어 상품성 저하. 토양 속 유충 형태로 서식하며 육안 확인 어려움.",
+      "cause": "풍뎅이류(콩풍뎅이, 참검정풍뎅이 등) 유충. 유기물 많은 사양토에서 다발.",
+      "favorable_conditions": {
+        "temp_range_c": [20, 28],
+        "humidity_min_percent": 60,
+        "rainfall": "보통"
+      },
+      "eco_treatments": [
+        {
+          "product_name": "곤충병원성 선충제(스타인네마)",
+          "active_ingredient": "Steinernema carpocapsae",
+          "usage": "토양 관주 1000만 마리/10a, 지온 15도 이상 시 처리",
+          "note": "친환경 인증 자재, 토양 습도 유지 시 효과 상승"
+        },
+        {
+          "product_name": "백강균 미생물 살충제",
+          "active_ingredient": "Beauveria bassiana",
+          "usage": "토양혼화 처리 2kg/10a, 정식 전 처리 권장",
+          "note": "유충 초기 단계에 처리 시 방제 효과 우수"
+        }
+      ],
+      "chemical_treatments": [
+        {
+          "product_name": "클로르피리포스 입제",
+          "active_ingredient": "클로르피리포스 5%",
+          "usage": "토양처리 6kg/10a",
+          "note": "잔류성 이슈로 친환경 자재 우선 권장, 최후 수단으로 사용"
+        }
+      ]
+    },
+    {
+      "id": "pest_002",
+      "name_kr": "진딧물",
+      "name_en": "Aphid",
+      "type": "해충",
+      "crop": "인삼",
+      "symptoms": "잎 뒷면 및 신초에 군집하여 흡즙, 그을음병 유발 및 생육 저하. 개미와 공생 관계 관찰됨.",
+      "cause": "복숭아혹진딧물 등. 건조하고 온화한 봄철 급증.",
+      "favorable_conditions": {
+        "temp_range_c": [15, 25],
+        "humidity_min_percent": 40,
+        "rainfall": "적음"
+      },
+      "eco_treatments": [
+        {
+          "product_name": "친환경 데리스 추출 살충제",
+          "active_ingredient": "로테논 함유 데리스 추출물",
+          "usage": "1000배 희석, 발생 초기 5일 간격 2회 살포",
+          "note": "천적(무당벌레) 보호를 위해 저녁 시간대 살포 권장"
+        },
+        {
+          "product_name": "자닮유황 친환경 방제액",
+          "active_ingredient": "석회유황합제 대체 자재",
+          "usage": "500배 희석 엽면살포",
+          "note": "예방 및 초기 방제에 효과적"
+        }
+      ],
+      "chemical_treatments": [
+        {
+          "product_name": "이미다클로프리드 액제",
+          "active_ingredient": "이미다클로프리드 10%",
+          "usage": "2000배 희석, 수확 7일 전까지",
+          "note": "밀도가 높아 친환경 자재로 제어 어려운 경우 사용"
+        }
+      ]
+    },
+    {
+      "id": "phys_001",
+      "name_kr": "일소(햇빛데임) 피해",
+      "name_en": "Sunscald",
+      "type": "생리장애",
+      "crop": "인삼",
+      "symptoms": "잎이 갈색~백색으로 탈색되며 마르는 증상. 해가림 시설 파손 부위 또는 직사광선 노출부에 집중.",
+      "cause": "여름철 고온 및 강한 직사광선. 해가림망 손상, 차광률 부족.",
+      "favorable_conditions": {
+        "temp_range_c": [30, 40],
+        "humidity_min_percent": 0,
+        "rainfall": "적음"
+      },
+      "eco_treatments": [
+        {
+          "product_name": "천연 칼슘제(패화석) 엽면시비",
+          "active_ingredient": "수용성 칼슘 8%",
+          "usage": "800배 희석 엽면살포, 폭염 예보 전 예방 살포",
+          "note": "세포벽 강화로 열 스트레스 저항성 증진, 화학 농약 아님"
+        }
+      ],
+      "chemical_treatments": [
+        {
+          "product_name": "해당 없음(경종적 방제 우선)",
+          "active_ingredient": "-",
+          "usage": "해가림 시설(차광율 75~85%) 즉시 보수",
+          "note": "화학적 처방보다 차광시설 점검이 근본 해결책"
+        }
+      ]
+    },
+    {
+      "id": "phys_002",
+      "name_kr": "칼슘결핍(생리장애)",
+      "name_en": "Calcium Deficiency",
+      "type": "생리장애",
+      "crop": "인삼",
+      "symptoms": "신엽 가장자리 괴사, 뿌리 표피 갈변 및 균열. 석회 부족 산성 토양에서 다발.",
+      "cause": "토양 내 칼슘 부족 또는 길항작용(과다 칼륨/마그네슘)으로 흡수 저해.",
+      "favorable_conditions": {
+        "temp_range_c": [15, 30],
+        "humidity_min_percent": 30,
+        "rainfall": "보통"
+      },
+      "eco_treatments": [
+        {
+          "product_name": "친환경 굴껍질 석회 자재",
+          "active_ingredient": "천연 탄산칼슘 90%",
+          "usage": "토양 살포 100kg/10a, 정식 전 20일 처리",
+          "note": "토양검정 후 시비량 조절 권장"
+        }
+      ],
+      "chemical_treatments": [
+        {
+          "product_name": "염화칼슘 엽면시비제",
+          "active_ingredient": "염화칼슘 4%",
+          "usage": "500배 희석 엽면살포 7일 간격",
+          "note": "속효성이 필요한 응급 상황에만 보조적으로 사용"
+        }
+      ]
+    }
+  ]
+}

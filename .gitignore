@@ -1,0 +1,20 @@
+# Python / Backend
+backend/venv/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/*.db
+backend/uploads/
+backend/.env
+
+# Node (관리자 대시보드는 정적 파일이므로 보통 불필요하지만 향후 대비)
+node_modules/
+
+# Flutter
+mobile/.dart_tool/
+mobile/build/
+mobile/android/
+mobile/ios/
+
+# OS
+.DS_Store
+.claude/

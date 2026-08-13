@@ -1,0 +1,96 @@
+import datetime as dt
+from collections import Counter, defaultdict
+from typing import Optional
+
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+
+from app import models, schemas
+from app.database import get_db
+
+router = APIRouter(prefix="/api/stats", tags=["stats"])
+
+
+@router.get("/summary", response_model=schemas.StatsSummary)
+def get_summary(farm_id: Optional[int] = None, db: Session = Depends(get_db)):
+    farm_query = db.query(models.Farm)
+    work_query = db.query(models.WorkLog)
+    diag_query = db.query(models.Diagnosis)
+
+    if farm_id:
+        work_query = work_query.filter(models.WorkLog.farm_id == farm_id)
+        diag_query = diag_query.filter(models.Diagnosis.farm_id == farm_id)
+
+    diagnoses = diag_query.all()
+
+    diagnoses_by_type = Counter(d.diagnosis_type for d in diagnoses)
+    pest_counter = Counter(d.ai_disease_name for d in diagnoses if d.ai_disease_name)
+    top_pests = [{"name": name, "count": count} for name, count in pest_counter.most_common(5)]
+
+    monthly_counter: Counter = Counter()
+    for d in diagnoses:
+        if d.occurrence_date:
+            key = d.occurrence_date.strftime("%Y-%m")
+            monthly_counter[key] += 1
+    monthly = [{"month": k, "count": v} for k, v in sorted(monthly_counter.items())]
+
+    farm_counter: Counter = Counter()
+    farm_names = {}
+    for d in diagnoses:
+        farm_counter[d.farm_id] += 1
+        if d.farm_id not in farm_names and d.farm:
+            farm_names[d.farm_id] = d.farm.farm_name
+    diagnoses_by_farm = [
+        {"farm_id": fid, "farm_name": farm_names.get(fid, f"농장#{fid}"), "count": c}
+        for fid, c in farm_counter.most_common()
+    ]
+
+    confirmed = [d for d in diagnoses if d.farmer_confirmed_correct is not None]
+    correct = sum(1 for d in confirmed if d.farmer_confirmed_correct)
+    ai_vs_actual = {
+        "total_feedback": len(confirmed),
+        "correct": correct,
+        "incorrect": len(confirmed) - correct,
+        "accuracy_percent": round((correct / len(confirmed)) * 100, 1) if confirmed else None,
+    }
+
+    return {
+        "total_farms": farm_query.count(),
+        "total_work_logs": work_query.count(),
+        "total_diagnoses": len(diagnoses),
+        "diagnoses_by_type": dict(diagnoses_by_type),
+        "top_pests": top_pests,
+        "monthly_diagnoses": monthly,
+        "diagnoses_by_farm": diagnoses_by_farm,
+        "ai_vs_actual": ai_vs_actual,
+    }
+
+
+@router.get("/calendar")
+def get_calendar(
+    farm_id: Optional[int] = None,
+    year: int = dt.date.today().year,
+    month: int = dt.date.today().month,
+    db: Session = Depends(get_db),
+):
+    """캘린더 뷰용: 해당 월의 날짜별 작업일지/진단 건수."""
+    start = dt.date(year, month, 1)
+    end = dt.date(year + (1 if month == 12 else 0), 1 if month == 12 else month + 1, 1)
+
+    work_query = db.query(models.WorkLog).filter(
+        models.WorkLog.work_date >= start, models.WorkLog.work_date < end
+    )
+    diag_query = db.query(models.Diagnosis).filter(
+        models.Diagnosis.occurrence_date >= start, models.Diagnosis.occurrence_date < end
+    )
+    if farm_id:
+        work_query = work_query.filter(models.WorkLog.farm_id == farm_id)
+        diag_query = diag_query.filter(models.Diagnosis.farm_id == farm_id)
+
+    day_map = defaultdict(lambda: {"work_logs": 0, "diagnoses": 0})
+    for w in work_query.all():
+        day_map[w.work_date.isoformat()]["work_logs"] += 1
+    for d in diag_query.all():
+        day_map[d.occurrence_date.isoformat()]["diagnoses"] += 1
+
+    return [{"date": k, **v} for k, v in sorted(day_map.items())]

@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>인삼 농장 통합 모니터링 대시보드</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">蔘</div>
+      <div>
+        <div class="brand-title">인삼 AI 영농 플랫폼</div>
+        <div class="brand-sub">농자재사 관리자 대시보드</div>
+      </div>
+    </div>
+    <nav class="nav">
+      <a href="#overview" class="nav-item active" data-section="overview">📊 종합 현황</a>
+      <a href="#map" class="nav-item" data-section="map">🗺️ 지역별 발생 지도</a>
+      <a href="#farms" class="nav-item" data-section="farms">🌱 농가 모니터링</a>
+      <a href="#feed" class="nav-item" data-section="feed">🔔 실시간 진단 피드</a>
+      <a href="#notifications" class="nav-item" data-section="notifications">📨 처방 알림 이력</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div id="connStatus" class="conn-status conn-pending">서버 연결 확인 중…</div>
+      <div class="api-config">
+        <label for="apiBaseInput">API 서버 주소</label>
+        <input id="apiBaseInput" type="text" value="http://localhost:8000" />
+        <button id="apiBaseSave">적용</button>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <h1 id="pageTitle">종합 현황</h1>
+      <div class="topbar-actions">
+        <span class="today" id="todayLabel"></span>
+        <button id="refreshBtn" class="btn btn-ghost">↻ 새로고침</button>
+      </div>
+    </header>
+
+    <section id="overview" class="section">
+      <div class="cards-grid">
+        <div class="stat-card">
+          <div class="stat-icon icon-green">🌾</div>
+          <div>
+            <div class="stat-value" id="statFarms">-</div>
+            <div class="stat-label">회원 농가 수</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon icon-blue">📝</div>
+          <div>
+            <div class="stat-value" id="statWorkLogs">-</div>
+            <div class="stat-label">누적 영농일지</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon icon-orange">🩺</div>
+          <div>
+            <div class="stat-value" id="statDiagnoses">-</div>
+            <div class="stat-label">누적 AI 진단 건수</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon icon-purple">🎯</div>
+          <div>
+            <div class="stat-value" id="statAccuracy">-</div>
+            <div class="stat-label">AI 예측 정확도 (농가 확인 기준)</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="panel">
+          <div class="panel-header">
+            <h2>병해충 유형별 비율</h2>
+          </div>
+          <div class="chart-wrap chart-wrap-sm"><canvas id="typeChart"></canvas></div>
+        </div>
+        <div class="panel">
+          <div class="panel-header">
+            <h2>월별 발생 추이</h2>
+          </div>
+          <div class="chart-wrap chart-wrap-sm"><canvas id="monthlyChart"></canvas></div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="panel">
+          <div class="panel-header">
+            <h2>자주 발생하는 병해충 TOP 5</h2>
+          </div>
+          <div class="chart-wrap chart-wrap-sm"><canvas id="topPestChart"></canvas></div>
+        </div>
+        <div class="panel">
+          <div class="panel-header">
+            <h2>AI 예측 vs 실제 발생 비교</h2>
+          </div>
+          <div class="chart-wrap chart-wrap-sm"><canvas id="aiAccuracyChart"></canvas></div>
+          <p class="panel-note" id="aiAccuracyNote">농가 확인(사후 피드백) 데이터를 기반으로 집계됩니다.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="map" class="section hidden">
+      <div class="panel">
+        <div class="panel-header">
+          <h2>지역별 병해충 발생 모니터링</h2>
+          <span class="panel-sub">원의 크기는 발생 건수에 비례합니다</span>
+        </div>
+        <div id="koreaMap" class="map-box"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><h2>지역별 발생 요약</h2></div>
+        <div class="table-wrap">
+          <table class="data-table" id="regionTable">
+            <thead>
+              <tr><th>지역</th><th>총 발생건수</th><th>주요 병해충</th><th>유형 분포</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="farms" class="section hidden">
+      <div class="panel">
+        <div class="panel-header">
+          <h2>농가별 실시간 모니터링</h2>
+          <span class="panel-sub">최근 30일 진단 건수 기준 위험도 정렬</span>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table" id="farmsTable">
+            <thead>
+              <tr>
+                <th>농가명</th><th>경영주</th><th>지역</th><th>시설구분</th><th>연차</th>
+                <th>최근진단</th><th>최근작업일</th><th>30일내 진단</th><th>위험도</th><th></th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="feed" class="section hidden">
+      <div class="panel">
+        <div class="panel-header">
+          <h2>실시간 AI 진단 피드</h2>
+          <span class="panel-sub">전체 농가에서 접수된 최근 진단 내역</span>
+        </div>
+        <div id="feedList" class="feed-list"></div>
+      </div>
+    </section>
+
+    <section id="notifications" class="section hidden">
+      <div class="panel">
+        <div class="panel-header"><h2>처방 알림 발송 이력</h2></div>
+        <div class="table-wrap">
+          <table class="data-table" id="notificationsTable">
+            <thead>
+              <tr><th>발송일시</th><th>농가</th><th>제목</th><th>추천 자재</th><th>상태</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="notifyModal" class="modal-backdrop hidden">
+  <div class="modal">
+    <h3>친환경 자재 처방 알림 전송</h3>
+    <p class="modal-farm" id="modalFarmName"></p>
+    <label>제목</label>
+    <input id="modalTitle" type="text" placeholder="예: 점무늬병 예방 처방 안내" />
+    <label>추천 자재</label>
+    <input id="modalProduct" type="text" placeholder="예: 그린가드 친환경 인삼 전용 미생물제제" />
+    <label>알림 메시지</label>
+    <textarea id="modalMessage" rows="4" placeholder="농가에 전달할 처방 내용을 입력하세요."></textarea>
+    <div class="modal-actions">
+      <button id="modalCancel" class="btn btn-ghost">취소</button>
+      <button id="modalSend" class="btn btn-primary">전송</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
+<script src="js/api.js"></script>
+<script src="js/dashboard.js"></script>
+</body>
+</html>
