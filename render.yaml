@@ -17,4 +17,3 @@ services:
     name: ginseng-farm-dashboard
     runtime: static
     staticPublishPath: ./admin_dashboard
-    plan: free
