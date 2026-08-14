@@ -55,7 +55,8 @@ const Api = (() => {
       request("/api/admin/auth/login", { method: "POST", body: JSON.stringify({ username, password }) }, false),
     getStatsSummary: () => request("/api/admin/stats/summary"),
     getFarmsOverview: () => request("/api/admin/farms/overview"),
-    getRegionalStats: () => request("/api/admin/regional-stats"),
+    getRegionalStats: (cropId) =>
+      request(`/api/admin/regional-stats${cropId ? `?crop_id=${cropId}` : ""}`),
     listReferences: () => request("/api/admin/reference"),
     createReference: (payload) =>
       request("/api/admin/reference", { method: "POST", body: JSON.stringify(payload) }),

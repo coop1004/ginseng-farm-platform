@@ -288,11 +288,23 @@ def admin_final_diagnosis(
 
 
 @router.get("/regional-stats")
-def regional_stats(db: Session = Depends(get_db), _admin: models.AdminUser = Depends(get_current_admin)):
+def regional_stats(
+    crop_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+    _admin: models.AdminUser = Depends(get_current_admin),
+):
     """지역별 병해충 발생 현황: 지도/차트용 집계. 작물별 분포(by_crop)도 함께 내려줘서
-    관리자 대시보드의 지역x작물 비교 차트에 사용한다."""
-    farms = {f.id: f for f in db.query(models.Farm).all()}
-    diagnoses = db.query(models.Diagnosis).all()
+    관리자 대시보드의 지역x작물 비교 차트에 사용한다. crop_id를 주면 그 작물 소속
+    필지의 진단만으로 좁혀서(예: 인삼만/고추만) 지역 통계를 볼 수 있다."""
+    farm_query = db.query(models.Farm)
+    if crop_id is not None:
+        farm_query = farm_query.filter(models.Farm.crop_id == crop_id)
+    farms = {f.id: f for f in farm_query.all()}
+
+    diag_query = db.query(models.Diagnosis)
+    if crop_id is not None:
+        diag_query = diag_query.join(models.Farm).filter(models.Farm.crop_id == crop_id)
+    diagnoses = diag_query.all()
 
     region_data: dict = {}
     for d in diagnoses:

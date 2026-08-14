@@ -278,6 +278,29 @@ function renderRegionCropChart(regionalStats) {
   });
 }
 
+// 지역별 발생 지도/차트/표를 특정 작물로 좁혀서 다시 불러온다. cropId가 falsy면(전체 작물
+// 선택) 필터 없이 전체를 보여준다 - 기존 동작과 동일.
+function loadRegionalStats(cropId) {
+  return Api.getRegionalStats(cropId || undefined)
+    .then((regional) => {
+      renderMap(regional);
+      renderRegionTable(regional);
+      renderRegionCropChart(regional);
+    })
+    .catch((e) => showToast(`지역 통계 로드 실패: ${e.message}`, true));
+}
+
+function populateRegionalCropFilter() {
+  ensureCropsLoaded().then((crops) => {
+    const select = document.getElementById("regionalCropFilter");
+    const current = select.value;
+    select.innerHTML =
+      `<option value="">전체 작물</option>` +
+      crops.map((c) => `<option value="${c.id}">${c.icon_emoji || ""} ${c.name_kr}</option>`).join("");
+    select.value = current;
+  });
+}
+
 // ---------- Farms / Households ----------
 
 // 농장(필지) 목록을 농가 단위로 집계한다. 농가와 농장이 많아져도 목록 화면은
@@ -1219,6 +1242,7 @@ async function loadAll() {
     renderMap(regional);
     renderRegionTable(regional);
     renderRegionCropChart(regional);
+    populateRegionalCropFilter();
     renderFeed(feed);
     renderNotifications(notifications);
     currentDiagnoses = diagnoses;
@@ -1252,6 +1276,7 @@ function init() {
   initPhotoTabs();
   document.getElementById("weatherFarmSelect").addEventListener("change", loadWeather);
   document.getElementById("weatherDaysSelect").addEventListener("change", loadWeather);
+  document.getElementById("regionalCropFilter").addEventListener("change", (e) => loadRegionalStats(e.target.value));
 
   document.getElementById("backToHouseholds").addEventListener("click", backToHouseholdList);
   document.getElementById("statFarmsCard").addEventListener("click", () => {
