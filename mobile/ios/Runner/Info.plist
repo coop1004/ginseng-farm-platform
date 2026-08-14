@@ -45,5 +45,7 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>촬영한 작물/병해충 사진을 업로드가 실패해도 잃어버리지 않도록 앨범에 함께 저장합니다.</string>
 </dict>
 </plist>

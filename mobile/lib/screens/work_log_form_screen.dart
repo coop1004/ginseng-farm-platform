@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -8,6 +9,7 @@ import 'package:provider/provider.dart';
 import '../models/farm.dart';
 import '../providers/farm_provider.dart';
 import '../services/api_service.dart';
+import '../services/gallery_saver.dart';
 import '../widgets/farm_selector.dart';
 
 class WorkLogFormScreen extends StatefulWidget {
@@ -64,7 +66,11 @@ class _WorkLogFormScreenState extends State<WorkLogFormScreen> {
 
   Future<void> _pickPhoto(ImageSource source) async {
     final picked = await ImagePicker().pickImage(source: source, imageQuality: 85);
-    if (picked != null) setState(() => _photo = File(picked.path));
+    if (picked != null) {
+      final file = File(picked.path);
+      setState(() => _photo = file);
+      if (source == ImageSource.camera) unawaited(saveToGalleryQuietly(file));
+    }
   }
 
   Future<void> _save() async {

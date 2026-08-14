@@ -62,6 +62,34 @@ class ApiService {
     return '$base/uploads/$photoPath';
   }
 
+  /// 사진 업로드(MultipartRequest)는 시골 현장 등 통신이 불안정한 곳에서 실패하기
+  /// 쉬운데, 지금까지는 실패하면 바로 사용자에게 에러만 보여주고 입력한 내용과
+  /// 사진이 그대로 사라졌다. 네트워크 순간 끊김 정도는 자동으로 복구되도록,
+  /// MultipartRequest를 매 시도마다 새로 만들어서(한 번 보낸 요청은 재사용 불가)
+  /// 지수 백오프로 재시도한다. 서버가 명확히 거부한 4xx는 재시도해도 결과가
+  /// 같으므로 재시도하지 않고 바로 반환한다.
+  Future<http.Response> _sendMultipartWithRetry(
+    Future<http.MultipartRequest> Function() buildRequest, {
+    int maxAttempts = 3,
+  }) async {
+    Object lastError = ApiException('알 수 없는 오류');
+    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        final request = await buildRequest();
+        final streamed = await request.send().timeout(const Duration(seconds: 30));
+        final res = await http.Response.fromStream(streamed);
+        if (res.statusCode < 500) return res; // 성공 또는 4xx(재시도해도 동일) -> 그대로 반환
+        lastError = ApiException('서버 오류 (${res.statusCode}): ${res.body}');
+      } catch (e) {
+        lastError = e;
+      }
+      if (attempt < maxAttempts) {
+        await Future.delayed(Duration(seconds: attempt * 2)); // 2초, 4초 대기 후 재시도
+      }
+    }
+    throw ApiException('네트워크 연결이 불안정합니다. 잠시 후 다시 시도해주세요. ($lastError)');
+  }
+
   // ---------- Auth ----------
   Future<TokenResponse> registerNewHousehold({
     required String phone,
@@ -196,18 +224,19 @@ class ApiService {
     required String content,
     File? photo,
   }) async {
-    final uri = await _uri('/api/work-logs');
-    final request = http.MultipartRequest('POST', uri)
-      ..headers.addAll(await _authHeaders())
-      ..fields['farm_id'] = farmId.toString()
-      ..fields['work_date'] = _dateStr(workDate)
-      ..fields['work_area_m2'] = workAreaM2.toString()
-      ..fields['content'] = content;
-    if (photo != null) {
-      request.files.add(await http.MultipartFile.fromPath('photo', photo.path));
-    }
-    final streamed = await request.send();
-    final res = await http.Response.fromStream(streamed);
+    final res = await _sendMultipartWithRetry(() async {
+      final uri = await _uri('/api/work-logs');
+      final request = http.MultipartRequest('POST', uri)
+        ..headers.addAll(await _authHeaders())
+        ..fields['farm_id'] = farmId.toString()
+        ..fields['work_date'] = _dateStr(workDate)
+        ..fields['work_area_m2'] = workAreaM2.toString()
+        ..fields['content'] = content;
+      if (photo != null) {
+        request.files.add(await http.MultipartFile.fromPath('photo', photo.path));
+      }
+      return request;
+    });
     _checkResponse(res);
     return WorkLog.fromJson(jsonDecode(utf8.decode(res.bodyBytes)));
   }
@@ -249,17 +278,18 @@ class ApiService {
     required String cropName,
     required List<File> photos,
   }) async {
-    final uri = await _uri('/api/diagnoses');
-    final request = http.MultipartRequest('POST', uri)
-      ..headers.addAll(await _authHeaders())
-      ..fields['farm_id'] = farmId.toString()
-      ..fields['diagnosis_type'] = diagnosisType
-      ..fields['crop_name'] = cropName;
-    for (final photo in photos) {
-      request.files.add(await http.MultipartFile.fromPath('photos', photo.path));
-    }
-    final streamed = await request.send();
-    final res = await http.Response.fromStream(streamed);
+    final res = await _sendMultipartWithRetry(() async {
+      final uri = await _uri('/api/diagnoses');
+      final request = http.MultipartRequest('POST', uri)
+        ..headers.addAll(await _authHeaders())
+        ..fields['farm_id'] = farmId.toString()
+        ..fields['diagnosis_type'] = diagnosisType
+        ..fields['crop_name'] = cropName;
+      for (final photo in photos) {
+        request.files.add(await http.MultipartFile.fromPath('photos', photo.path));
+      }
+      return request;
+    });
     _checkResponse(res);
     return Diagnosis.fromJson(jsonDecode(utf8.decode(res.bodyBytes)));
   }
@@ -323,6 +353,12 @@ class ApiService {
     final token = await AuthStore.getToken();
     return '$base/api/reports/farms/$farmId/pdf?start_date=${_dateStr(start)}&end_date=${_dateStr(end)}'
         '${token != null ? '&token=$token' : ''}';
+  }
+
+  Future<String> getMyDataExportUrl() async {
+    final base = await _base;
+    final token = await AuthStore.getToken();
+    return '$base/api/reports/my-data/export${token != null ? '?token=$token' : ''}';
   }
 
   String _dateStr(DateTime d) =>

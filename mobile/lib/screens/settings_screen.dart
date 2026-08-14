@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../models/auth.dart';
 import '../providers/auth_provider.dart';
@@ -68,6 +69,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
       // LoginScreen을 반환해도 그 위에 남아있으면 화면이 안 바뀐 것처럼 보인다.
       // 루트(AuthGate)까지 스택을 비워야 로그인 화면이 실제로 보인다.
       if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
+    }
+  }
+
+  Future<void> _downloadMyData() async {
+    final url = await _api.getMyDataExportUrl();
+    final uri = Uri.parse(url);
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('다운로드를 시작할 수 없습니다.')));
     }
   }
 
@@ -149,6 +158,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 const SizedBox(height: 12),
                 ElevatedButton(onPressed: _saveServerUrl, child: const Text('서버 주소 저장')),
+                const SizedBox(height: 28),
+                const Text('내 데이터', style: TextStyle(fontWeight: FontWeight.w700)),
+                const SizedBox(height: 6),
+                Text(
+                  '내가 등록한 농장·영농일지·AI진단 기록과 첨부 사진 전체를 CSV·ZIP 파일로 내려받습니다.',
+                  style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: _downloadMyData,
+                  icon: const Icon(Icons.download_outlined),
+                  label: const Text('내 데이터 다운로드(ZIP)'),
+                ),
                 const SizedBox(height: 28),
                 OutlinedButton.icon(
                   onPressed: _confirmLogout,

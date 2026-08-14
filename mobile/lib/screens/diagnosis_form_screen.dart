@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -8,6 +9,7 @@ import '../models/diagnosis.dart';
 import '../models/farm.dart';
 import '../providers/farm_provider.dart';
 import '../services/api_service.dart';
+import '../services/gallery_saver.dart';
 import '../widgets/farm_selector.dart';
 import 'diagnosis_result_screen.dart';
 
@@ -40,7 +42,11 @@ class _DiagnosisFormScreenState extends State<DiagnosisFormScreen> {
       if (picked.isNotEmpty) setState(() => _photos.addAll(picked.map((x) => File(x.path))));
     } else {
       final picked = await ImagePicker().pickImage(source: source, imageQuality: 90);
-      if (picked != null) setState(() => _photos.add(File(picked.path)));
+      if (picked != null) {
+        final file = File(picked.path);
+        setState(() => _photos.add(file));
+        if (source == ImageSource.camera) unawaited(saveToGalleryQuietly(file));
+      }
     }
   }
 
