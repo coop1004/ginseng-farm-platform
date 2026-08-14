@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../models/farm.dart';
 import '../models/stats.dart';
+import '../models/weather_record.dart';
 import '../providers/farm_provider.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
@@ -24,6 +25,9 @@ class _StatsScreenState extends State<StatsScreen> {
   StatsSummary? _summary;
   bool _loading = true;
   String? _error;
+
+  List<WeatherRecord> _weather = [];
+  int _weatherDays = 30;
 
   DateTime _reportStart = DateTime.now().subtract(const Duration(days: 90));
   DateTime _reportEnd = DateTime.now();
@@ -46,6 +50,16 @@ class _StatsScreenState extends State<StatsScreen> {
       setState(() => _error = e.toString());
     } finally {
       setState(() => _loading = false);
+    }
+    _loadWeather();
+  }
+
+  Future<void> _loadWeather() async {
+    try {
+      final w = await _api.getWeatherHistory(farmId: _filterFarm?.id, days: _weatherDays);
+      if (mounted) setState(() => _weather = w);
+    } catch (_) {
+      // 기상 데이터는 부가 정보라 실패해도 전체 통계 화면 표시를 막지 않는다.
     }
   }
 
@@ -101,6 +115,8 @@ class _StatsScreenState extends State<StatsScreen> {
               Padding(padding: const EdgeInsets.only(top: 60), child: ErrorView(message: '통계를 불러오지 못했습니다.\n$_error', onRetry: _load))
             else if (_summary != null)
               _buildStats(_summary!),
+            const SizedBox(height: 24),
+            _buildWeatherSection(),
             const SizedBox(height: 24),
             _buildReportSection(),
           ],
@@ -339,6 +355,117 @@ class _StatsScreenState extends State<StatsScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildWeatherSection() {
+    final sorted = [..._weather]..sort((a, b) => a.recordDate.compareTo(b.recordDate));
+    final totalRainfall = sorted.fold<double>(0, (sum, r) => sum + (r.rainfallMm ?? 0));
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Expanded(
+                  child: Text('기상 데이터', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                ),
+                _weatherDaysChip(14),
+                const SizedBox(width: 6),
+                _weatherDaysChip(30),
+                const SizedBox(width: 6),
+                _weatherDaysChip(90),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text('농장 위치 기준 일별 기온·습도 추이 (병해충 예찰 참고용)',
+                style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600)),
+            const SizedBox(height: 14),
+            if (sorted.isEmpty)
+              const EmptyView(message: '아직 축적된 기상 데이터가 없습니다.')
+            else ...[
+              SizedBox(height: 200, child: _weatherLineChart(sorted)),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Icon(Icons.water_drop_outlined, size: 15, color: Colors.grey.shade600),
+                  const SizedBox(width: 4),
+                  Text('누적 강수량 ${totalRainfall.toStringAsFixed(1)}mm (최근 $_weatherDays일)',
+                      style: TextStyle(fontSize: 12, color: Colors.grey.shade700, fontWeight: FontWeight.w600)),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _weatherDaysChip(int days) {
+    final selected = _weatherDays == days;
+    return ChoiceChip(
+      label: Text('$days일', style: const TextStyle(fontSize: 11)),
+      selected: selected,
+      onSelected: (_) {
+        setState(() => _weatherDays = days);
+        _loadWeather();
+      },
+      visualDensity: VisualDensity.compact,
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    );
+  }
+
+  Widget _weatherLineChart(List<WeatherRecord> sorted) {
+    return LineChart(
+      LineChartData(
+        gridData: const FlGridData(show: true, drawVerticalLine: false),
+        titlesData: FlTitlesData(
+          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 24,
+              interval: (sorted.length / 4).clamp(1, sorted.length).ceilToDouble(),
+              getTitlesWidget: (v, meta) {
+                final i = v.toInt();
+                if (i < 0 || i >= sorted.length) return const SizedBox.shrink();
+                return Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(DateFormat('MM/dd').format(sorted[i].recordDate), style: const TextStyle(fontSize: 9.5)),
+                );
+              },
+            ),
+          ),
+          leftTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 28,
+              getTitlesWidget: (v, m) => Text('${v.toInt()}', style: const TextStyle(fontSize: 10)),
+            ),
+          ),
+        ),
+        borderData: FlBorderData(show: false),
+        lineBarsData: [
+          LineChartBarData(
+            spots: sorted.asMap().entries.where((e) => e.value.tempC != null).map((e) => FlSpot(e.key.toDouble(), e.value.tempC!)).toList(),
+            isCurved: true,
+            color: AppColors.orange,
+            barWidth: 2.5,
+            dotData: const FlDotData(show: false),
+          ),
+          LineChartBarData(
+            spots: sorted.asMap().entries.where((e) => e.value.humidityPercent != null).map((e) => FlSpot(e.key.toDouble(), e.value.humidityPercent!)).toList(),
+            isCurved: true,
+            color: AppColors.blue,
+            barWidth: 2.5,
+            dotData: const FlDotData(show: false),
+          ),
+        ],
       ),
     );
   }

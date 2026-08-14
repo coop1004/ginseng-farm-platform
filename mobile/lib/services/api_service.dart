@@ -8,6 +8,7 @@ import '../models/auth.dart';
 import '../models/diagnosis.dart';
 import '../models/farm.dart';
 import '../models/stats.dart';
+import '../models/weather_record.dart';
 import '../models/work_log.dart';
 import 'app_config.dart';
 import 'auth_store.dart';
@@ -235,6 +236,17 @@ class ApiService {
     final res = await http.Response.fromStream(streamed);
     _checkResponse(res);
     return Diagnosis.fromJson(jsonDecode(utf8.decode(res.bodyBytes)));
+  }
+
+  // ---------- Weather ----------
+  Future<List<WeatherRecord>> getWeatherHistory({int? farmId, int days = 30}) async {
+    final res = await http.get(
+      await _uri('/api/weather/history', {'farm_id': farmId, 'days': days}),
+      headers: await _authHeaders(),
+    );
+    _checkResponse(res);
+    final list = jsonDecode(utf8.decode(res.bodyBytes)) as List<dynamic>;
+    return list.map((e) => WeatherRecord.fromJson(e)).toList();
   }
 
   // ---------- Stats ----------
