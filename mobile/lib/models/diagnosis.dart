@@ -58,6 +58,8 @@ class Diagnosis {
   final String? finalDiagnosisBy;
   final DateTime? finalDiagnosisAt;
 
+  final bool cropIsSampleData;
+
   final DateTime createdAt;
 
   /// 사람이 확인/정정한 최종 진단명이 있으면 그걸, 없으면 AI 진단명을 표시용으로 사용.
@@ -94,6 +96,7 @@ class Diagnosis {
     this.finalDiagnosisNote,
     this.finalDiagnosisBy,
     this.finalDiagnosisAt,
+    this.cropIsSampleData = false,
     required this.createdAt,
   });
 
@@ -133,6 +136,7 @@ class Diagnosis {
       finalDiagnosisNote: json['final_diagnosis_note'],
       finalDiagnosisBy: json['final_diagnosis_by'],
       finalDiagnosisAt: json['final_diagnosis_at'] != null ? DateTime.tryParse(json['final_diagnosis_at']) : null,
+      cropIsSampleData: json['crop_is_sample_data'] ?? false,
       createdAt: DateTime.parse(json['created_at']),
     );
   }

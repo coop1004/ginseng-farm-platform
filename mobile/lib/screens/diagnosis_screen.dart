@@ -155,10 +155,28 @@ class _DiagnosisCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(item.aiDiseaseName ?? '분석중', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(item.aiDiseaseName ?? '분석중',
+                              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                              overflow: TextOverflow.ellipsis),
+                        ),
+                        if (item.cropIsSampleData) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                            decoration: BoxDecoration(
+                                color: Colors.orange.shade50, borderRadius: BorderRadius.circular(999)),
+                            child: Text('샘플',
+                                style: TextStyle(fontSize: 9.5, color: Colors.orange.shade800, fontWeight: FontWeight.w700)),
+                          ),
+                        ],
+                      ],
+                    ),
                     const SizedBox(height: 3),
                     Text(
-                      '${item.farmName ?? ''} · ${DateFormat('yyyy.MM.dd').format(item.occurrenceDate)}',
+                      '${item.farmName ?? ''} · ${item.cropName} · ${DateFormat('yyyy.MM.dd').format(item.occurrenceDate)}',
                       style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600),
                     ),
                   ],

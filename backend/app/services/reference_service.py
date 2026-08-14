@@ -87,6 +87,33 @@ def build_treatment_lists(pest_disease: models.TreatmentReference) -> tuple[List
     return eco, chemical
 
 
+def to_reference_out(r: models.TreatmentReference) -> dict:
+    """관리자 CMS와 농가 앱의 병해충 참고자료 조회 화면이 공유하는 응답 형태."""
+    eco, chemical = build_treatment_lists(r)
+    return {
+        "id": r.id,
+        "crop_id": r.crop_id,
+        "crop_name": r.crop_name,
+        "type": r.type,
+        "name_kr": r.name_kr,
+        "name_en": r.name_en,
+        "symptoms": r.symptoms,
+        "cause": r.cause,
+        "favorable_temp_min": r.favorable_temp_min,
+        "favorable_temp_max": r.favorable_temp_max,
+        "favorable_humidity_min": r.favorable_humidity_min,
+        "favorable_rainfall_note": r.favorable_rainfall_note,
+        "photo_path": r.photo_path,
+        "is_sample_data": r.is_sample_data,
+        "eco_treatments": eco,
+        "chemical_treatments": chemical,
+        "is_active": r.is_active,
+        "updated_by": r.updated_by,
+        "created_at": r.created_at,
+        "updated_at": r.updated_at,
+    }
+
+
 def load_references_for_crop(db: Session, crop_id: Optional[int]) -> List[models.TreatmentReference]:
     """crop_id로 활성 참고자료를 조회한다. crop_id가 없거나 매칭되는 항목이 없으면
     (예: 아직 크롭 데이터가 없는 신규 작물) 안전장치로 전체 활성 참고자료를

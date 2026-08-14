@@ -135,6 +135,28 @@ class _DiagnosisResultScreenState extends State<DiagnosisResultScreen> {
                 ],
               ),
             ),
+          if (diagnosis.cropIsSampleData)
+            Container(
+              margin: const EdgeInsets.only(bottom: 14),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.orange.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.science_outlined, color: Colors.orange.shade800, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '베타/프로토타입 모델 안내 — ${diagnosis.cropName}은(는) 실제 학습 데이터 없이 구조 시연용으로 등록된 샘플 작물입니다. 진단 정확도가 낮을 수 있습니다.',
+                      style: TextStyle(fontSize: 12, color: Colors.orange.shade900, height: 1.4),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           if (diagnosis.photoPaths.isNotEmpty || diagnosis.photoPath != null)
             _PhotoCarousel(
               photoPaths: diagnosis.photoPaths.isNotEmpty ? diagnosis.photoPaths : [diagnosis.photoPath!],

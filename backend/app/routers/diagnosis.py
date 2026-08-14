@@ -76,6 +76,7 @@ def _to_response(d: models.Diagnosis) -> dict:
         "final_diagnosis_note": d.final_diagnosis_note,
         "final_diagnosis_by": d.final_diagnosis_by,
         "final_diagnosis_at": d.final_diagnosis_at,
+        "crop_is_sample_data": bool(d.farm.crop.is_sample_data) if d.farm and d.farm.crop else False,
         "created_at": d.created_at,
     }
 

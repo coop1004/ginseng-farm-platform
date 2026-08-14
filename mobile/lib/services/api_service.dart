@@ -8,6 +8,7 @@ import '../models/auth.dart';
 import '../models/crop.dart';
 import '../models/diagnosis.dart';
 import '../models/farm.dart';
+import '../models/pest_reference.dart';
 import '../models/stats.dart';
 import '../models/weather_record.dart';
 import '../models/work_log.dart';
@@ -164,6 +165,13 @@ class ApiService {
     _checkResponse(res);
     final list = jsonDecode(utf8.decode(res.bodyBytes)) as List<dynamic>;
     return list.map((e) => GrowthStage.fromJson(e)).toList();
+  }
+
+  Future<List<PestReference>> getPestReferences({int? cropId}) async {
+    final res = await http.get(await _uri('/api/reference', {'crop_id': cropId}), headers: await _authHeaders());
+    _checkResponse(res);
+    final list = jsonDecode(utf8.decode(res.bodyBytes)) as List<dynamic>;
+    return list.map((e) => PestReference.fromJson(e)).toList();
   }
 
   // ---------- Work Logs ----------

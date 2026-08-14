@@ -11,6 +11,7 @@ import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 import 'diagnosis_form_screen.dart';
 import 'farm_form_screen.dart';
+import 'pest_reference_screen.dart';
 import 'settings_screen.dart';
 import 'stats_screen.dart';
 import 'work_log_form_screen.dart';
@@ -110,36 +111,54 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _quickActions(BuildContext context) {
-    return Row(
+    return Column(
       children: [
-        Expanded(
-          child: _actionButton(
-            context,
-            icon: Icons.add_business_outlined,
-            label: '농장 등록',
-            color: AppColors.green,
-            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FarmFormScreen())),
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: _actionButton(
+                context,
+                icon: Icons.add_business_outlined,
+                label: '농장 등록',
+                color: AppColors.green,
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FarmFormScreen())),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _actionButton(
+                context,
+                icon: Icons.edit_note_outlined,
+                label: '작업 기록',
+                color: AppColors.blue,
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const WorkLogFormScreen())),
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _actionButton(
-            context,
-            icon: Icons.edit_note_outlined,
-            label: '작업 기록',
-            color: AppColors.blue,
-            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const WorkLogFormScreen())),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _actionButton(
-            context,
-            icon: Icons.biotech_outlined,
-            label: 'AI 진단',
-            color: AppColors.orange,
-            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DiagnosisFormScreen())),
-          ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: _actionButton(
+                context,
+                icon: Icons.biotech_outlined,
+                label: 'AI 진단',
+                color: AppColors.orange,
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DiagnosisFormScreen())),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _actionButton(
+                context,
+                icon: Icons.menu_book_outlined,
+                label: '병해충 정보',
+                color: Colors.purple,
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PestReferenceScreen())),
+              ),
+            ),
+          ],
         ),
       ],
     );

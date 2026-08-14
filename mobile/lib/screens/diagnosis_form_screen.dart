@@ -21,7 +21,6 @@ class DiagnosisFormScreen extends StatefulWidget {
 class _DiagnosisFormScreenState extends State<DiagnosisFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _api = ApiService();
-  final _cropCtrl = TextEditingController(text: '인삼');
 
   Farm? _farm;
   String _type = diagnosisTypes.first;
@@ -33,12 +32,6 @@ class _DiagnosisFormScreenState extends State<DiagnosisFormScreen> {
     super.initState();
     final farms = context.read<FarmProvider>().farms;
     if (farms.isNotEmpty) _farm = farms.first;
-  }
-
-  @override
-  void dispose() {
-    _cropCtrl.dispose();
-    super.dispose();
   }
 
   Future<void> _pickPhoto(ImageSource source) async {
@@ -66,7 +59,7 @@ class _DiagnosisFormScreenState extends State<DiagnosisFormScreen> {
       final result = await _api.createDiagnosis(
         farmId: _farm!.id,
         diagnosisType: _type,
-        cropName: _cropCtrl.text.trim().isEmpty ? '인삼' : _cropCtrl.text.trim(),
+        cropName: _farm?.cropName ?? '인삼',
         photos: _photos,
       );
       if (mounted) {
@@ -114,9 +107,9 @@ class _DiagnosisFormScreenState extends State<DiagnosisFormScreen> {
                           .toList(),
                     ),
                     const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _cropCtrl,
-                      decoration: const InputDecoration(labelText: '작물명', prefixIcon: Icon(Icons.eco_outlined)),
+                    InputDecorator(
+                      decoration: const InputDecoration(labelText: '작물(선택한 농장 기준)', prefixIcon: Icon(Icons.eco_outlined)),
+                      child: Text(_farm?.cropName ?? '인삼'),
                     ),
                     const SizedBox(height: 12),
                     InputDecorator(

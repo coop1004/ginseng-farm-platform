@@ -6,35 +6,10 @@ from sqlalchemy.orm import Session, selectinload
 from app import models, schemas
 from app.database import get_db
 from app.deps import get_current_admin
-from app.services.reference_service import build_treatment_lists, sync_pest_disease_materials
+from app.services.reference_service import sync_pest_disease_materials, to_reference_out
 
 router = APIRouter(prefix="/api/admin/reference", tags=["reference"])
-
-
-def _to_out(r: models.TreatmentReference) -> dict:
-    eco, chemical = build_treatment_lists(r)
-    return {
-        "id": r.id,
-        "crop_id": r.crop_id,
-        "crop_name": r.crop_name,
-        "type": r.type,
-        "name_kr": r.name_kr,
-        "name_en": r.name_en,
-        "symptoms": r.symptoms,
-        "cause": r.cause,
-        "favorable_temp_min": r.favorable_temp_min,
-        "favorable_temp_max": r.favorable_temp_max,
-        "favorable_humidity_min": r.favorable_humidity_min,
-        "favorable_rainfall_note": r.favorable_rainfall_note,
-        "photo_path": r.photo_path,
-        "is_sample_data": r.is_sample_data,
-        "eco_treatments": eco,
-        "chemical_treatments": chemical,
-        "is_active": r.is_active,
-        "updated_by": r.updated_by,
-        "created_at": r.created_at,
-        "updated_at": r.updated_at,
-    }
+_to_out = to_reference_out
 
 
 def _resolve_crop_name(db: Session, crop_id: int) -> str:

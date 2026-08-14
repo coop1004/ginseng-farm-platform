@@ -4,7 +4,20 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.database import Base, SessionLocal, engine, run_light_migrations
-from app.routers import admin, auth, crops, diagnosis, farms, notifications, reference, reports, stats, weather, work_logs
+from app.routers import (
+    admin,
+    auth,
+    crops,
+    diagnosis,
+    farms,
+    notifications,
+    pest_reference,
+    reference,
+    reports,
+    stats,
+    weather,
+    work_logs,
+)
 from app.seed import (
     backfill_crop_ids_if_missing,
     backfill_pest_disease_materials_if_missing,
@@ -47,6 +60,7 @@ app.include_router(weather.router)
 app.include_router(weather.farmer_router)
 app.include_router(reference.router)
 app.include_router(crops.router)
+app.include_router(pest_reference.router)
 
 
 @app.on_event("startup")

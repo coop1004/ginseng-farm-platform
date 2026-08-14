@@ -218,6 +218,10 @@ class DiagnosisCreateResponse(BaseModel):
     final_diagnosis_by: Optional[str] = None
     final_diagnosis_at: Optional[dt.datetime] = None
 
+    # 진단이 속한 농장의 작물이 실 학습 데이터 없는 파일럿(샘플) 작물인지 —
+    # 모바일 진단 결과 화면의 "베타/프로토타입 모델" 안내 문구 표시 기준.
+    crop_is_sample_data: bool = False
+
     created_at: dt.datetime
 
 
