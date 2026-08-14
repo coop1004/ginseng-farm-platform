@@ -215,11 +215,14 @@
 
     <section id="notifications" class="section hidden">
       <div class="panel">
-        <div class="panel-header"><h2>처방 알림 발송 이력</h2></div>
+        <div class="panel-header">
+          <h2>처방 알림 발송 이력</h2>
+          <button id="openBroadcastBtn" class="btn btn-primary btn-sm">📢 공지 발송</button>
+        </div>
         <div class="table-wrap">
           <table class="data-table" id="notificationsTable">
             <thead>
-              <tr><th>발송일시</th><th>농가</th><th>제목</th><th>추천 자재</th><th>상태</th></tr>
+              <tr><th>발송일시</th><th>농가</th><th>제목</th><th>추천 자재</th><th>발송방식</th><th>상태</th></tr>
             </thead>
             <tbody></tbody>
           </table>
@@ -242,6 +245,41 @@
     <div class="modal-actions">
       <button id="modalCancel" class="btn btn-ghost">취소</button>
       <button id="modalSend" class="btn btn-primary">전송</button>
+    </div>
+  </div>
+</div>
+
+<div id="broadcastModal" class="modal-backdrop hidden">
+  <div class="modal">
+    <h3>공지 알림 발송</h3>
+    <p class="modal-farm">여러 농가에 동일한 알림을 한 번에 보냅니다</p>
+
+    <label>발송 대상</label>
+    <div class="broadcast-target-options">
+      <label class="radio-label"><input type="radio" name="broadcastTarget" value="all" checked /> 전체 농가</label>
+      <label class="radio-label"><input type="radio" name="broadcastTarget" value="region" /> 지역 선택</label>
+      <label class="radio-label"><input type="radio" name="broadcastTarget" value="farms" /> 농가 직접 선택</label>
+    </div>
+
+    <div id="broadcastRegionWrap" class="broadcast-sub hidden">
+      <label>지역</label>
+      <select id="broadcastRegionSelect"></select>
+    </div>
+
+    <div id="broadcastFarmsWrap" class="broadcast-sub hidden">
+      <label>대상 농가 (복수 선택)</label>
+      <div id="broadcastFarmChecklist" class="broadcast-farm-checklist"></div>
+    </div>
+
+    <label>제목</label>
+    <input id="broadcastTitle" type="text" placeholder="예: 8월 인삼 병해충 예찰 정보" />
+    <label>추천 자재</label>
+    <input id="broadcastProduct" type="text" placeholder="선택 사항" />
+    <label>알림 메시지</label>
+    <textarea id="broadcastMessage" rows="4" placeholder="전체/선택 농가에 전달할 내용을 입력하세요."></textarea>
+    <div class="modal-actions">
+      <button id="broadcastCancel" class="btn btn-ghost">취소</button>
+      <button id="broadcastSend" class="btn btn-primary">발송</button>
     </div>
   </div>
 </div>

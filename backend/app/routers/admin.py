@@ -1,4 +1,5 @@
 import datetime as dt
+import uuid
 from collections import Counter
 from typing import List, Optional
 
@@ -279,6 +280,49 @@ def send_notification(
     out = schemas.NotificationOut.model_validate(notification)
     out.farm_name = farm.farm_name
     return out
+
+
+@router.post("/notifications/broadcast", response_model=schemas.NotificationBroadcastResult)
+def broadcast_notification(
+    payload: schemas.NotificationBroadcastRequest,
+    db: Session = Depends(get_db),
+    _admin: models.AdminUser = Depends(get_current_admin),
+):
+    """전체 농가, 특정 지역, 또는 선택한 여러 농가에 동일한 알림을 한 번에 발송한다.
+    농가별 GET /api/notifications 조회 방식(폴링)은 그대로 두고, 여기서는 대상 농가
+    수만큼 Notification 행을 만들어 같은 broadcast_group으로 묶는다."""
+    if payload.target_type == "all":
+        farms = db.query(models.Farm).all()
+    elif payload.target_type == "region":
+        if not payload.region:
+            raise HTTPException(status_code=400, detail="지역을 선택해주세요.")
+        farms = db.query(models.Farm).filter(models.Farm.region == payload.region).all()
+    elif payload.target_type == "farms":
+        if not payload.farm_ids:
+            raise HTTPException(status_code=400, detail="대상 농가를 선택해주세요.")
+        farms = db.query(models.Farm).filter(models.Farm.id.in_(payload.farm_ids)).all()
+    else:
+        raise HTTPException(status_code=400, detail="target_type은 all/region/farms 중 하나여야 합니다.")
+
+    if not farms:
+        raise HTTPException(status_code=404, detail="발송 대상 농가가 없습니다.")
+
+    group = uuid.uuid4().hex
+    for farm in farms:
+        db.add(
+            models.Notification(
+                farm_id=farm.id,
+                title=payload.title,
+                message=payload.message,
+                recommended_product=payload.recommended_product,
+                sent_by=payload.sent_by,
+                broadcast_group=group,
+            )
+        )
+    db.commit()
+    return schemas.NotificationBroadcastResult(
+        broadcast_group=group, sent_count=len(farms), farm_ids=[f.id for f in farms]
+    )
 
 
 @router.get("/notifications", response_model=List[schemas.NotificationOut])

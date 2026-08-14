@@ -71,6 +71,11 @@ const Api = (() => {
         method: "POST",
         body: JSON.stringify(payload),
       }),
+    broadcastNotification: (payload) =>
+      request("/api/admin/notifications/broadcast", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }),
     getMe: () => request("/api/admin/auth/me"),
     listAdmins: () => request("/api/admin/auth/list"),
     changePassword: (currentPassword, newPassword) =>

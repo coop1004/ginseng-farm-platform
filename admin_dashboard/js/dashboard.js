@@ -418,16 +418,24 @@ function renderNotifications(notifications) {
   const tbody = document.querySelector("#notificationsTable tbody");
   tbody.innerHTML = "";
   if (notifications.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5">발송된 알림이 없습니다.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6">발송된 알림이 없습니다.</td></tr>`;
     return;
   }
+  const broadcastCounts = {};
+  notifications.forEach((n) => {
+    if (n.broadcast_group) broadcastCounts[n.broadcast_group] = (broadcastCounts[n.broadcast_group] || 0) + 1;
+  });
   notifications.forEach((n) => {
     const tr = document.createElement("tr");
+    const methodCell = n.broadcast_group
+      ? `<span class="broadcast-group-badge">일괄 ${broadcastCounts[n.broadcast_group]}건</span>`
+      : "개별";
     tr.innerHTML = `
       <td>${new Date(n.created_at).toLocaleString("ko-KR")}</td>
       <td>${n.farm_name || "-"}</td>
       <td>${n.title}</td>
       <td>${n.recommended_product || "-"}</td>
+      <td>${methodCell}</td>
       <td><span class="badge badge-low">${n.status}</span></td>
     `;
     tbody.appendChild(tr);
@@ -473,6 +481,89 @@ async function submitNotify() {
   } catch (e) {
     if (e.isAuthError) {
       closeNotifyModal();
+      showLoginScreen();
+      return;
+    }
+    showToast(e.message, true);
+  }
+}
+
+// ---------- Broadcast modal ----------
+function openBroadcastModal() {
+  document.getElementById("broadcastTitle").value = "";
+  document.getElementById("broadcastProduct").value = "";
+  document.getElementById("broadcastMessage").value = "";
+  document.querySelector('input[name="broadcastTarget"][value="all"]').checked = true;
+  updateBroadcastTargetVisibility();
+
+  const regions = Array.from(new Set(currentFarms.map((f) => f.region).filter(Boolean))).sort();
+  const regionSelect = document.getElementById("broadcastRegionSelect");
+  regionSelect.innerHTML = regions.map((r) => `<option value="${r}">${r}</option>`).join("");
+
+  const checklist = document.getElementById("broadcastFarmChecklist");
+  checklist.innerHTML = currentFarms
+    .map(
+      (f) => `
+    <label><input type="checkbox" value="${f.farm_id}" /> ${f.household_name || "-"} · ${f.farm_name}</label>
+  `
+    )
+    .join("");
+
+  document.getElementById("broadcastModal").classList.remove("hidden");
+}
+
+function closeBroadcastModal() {
+  document.getElementById("broadcastModal").classList.add("hidden");
+}
+
+function updateBroadcastTargetVisibility() {
+  const target = document.querySelector('input[name="broadcastTarget"]:checked').value;
+  document.getElementById("broadcastRegionWrap").classList.toggle("hidden", target !== "region");
+  document.getElementById("broadcastFarmsWrap").classList.toggle("hidden", target !== "farms");
+}
+
+async function submitBroadcast() {
+  const target = document.querySelector('input[name="broadcastTarget"]:checked').value;
+  const title = document.getElementById("broadcastTitle").value.trim();
+  const message = document.getElementById("broadcastMessage").value.trim();
+  const product = document.getElementById("broadcastProduct").value.trim();
+  if (!title || !message) {
+    showToast("제목과 메시지를 입력해주세요.", true);
+    return;
+  }
+
+  const payload = {
+    target_type: target,
+    title,
+    message,
+    recommended_product: product || null,
+    sent_by: "관리자",
+  };
+  if (target === "region") {
+    payload.region = document.getElementById("broadcastRegionSelect").value;
+    if (!payload.region) {
+      showToast("지역을 선택해주세요.", true);
+      return;
+    }
+  } else if (target === "farms") {
+    const ids = Array.from(document.querySelectorAll("#broadcastFarmChecklist input:checked")).map((el) =>
+      Number(el.value)
+    );
+    if (ids.length === 0) {
+      showToast("대상 농가를 하나 이상 선택해주세요.", true);
+      return;
+    }
+    payload.farm_ids = ids;
+  }
+
+  try {
+    const result = await Api.broadcastNotification(payload);
+    showToast(`${result.sent_count}개 농가에 공지를 발송했습니다.`);
+    closeBroadcastModal();
+    loadNotifications();
+  } catch (e) {
+    if (e.isAuthError) {
+      closeBroadcastModal();
       showLoginScreen();
       return;
     }
@@ -719,6 +810,16 @@ function init() {
   document.getElementById("modalSend").addEventListener("click", submitNotify);
   document.getElementById("notifyModal").addEventListener("click", (e) => {
     if (e.target.id === "notifyModal") closeNotifyModal();
+  });
+
+  document.getElementById("openBroadcastBtn").addEventListener("click", openBroadcastModal);
+  document.getElementById("broadcastCancel").addEventListener("click", closeBroadcastModal);
+  document.getElementById("broadcastSend").addEventListener("click", submitBroadcast);
+  document.getElementById("broadcastModal").addEventListener("click", (e) => {
+    if (e.target.id === "broadcastModal") closeBroadcastModal();
+  });
+  document.querySelectorAll('input[name="broadcastTarget"]').forEach((radio) => {
+    radio.addEventListener("change", updateBroadcastTargetVisibility);
   });
 
   document.getElementById("loginForm").addEventListener("submit", handleLoginSubmit);

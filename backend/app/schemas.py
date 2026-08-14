@@ -223,6 +223,23 @@ class NotificationOut(NotificationCreate):
     status: str
     created_at: dt.datetime
     farm_name: Optional[str] = None
+    broadcast_group: Optional[str] = None
+
+
+class NotificationBroadcastRequest(BaseModel):
+    target_type: str  # "all" | "region" | "farms"
+    region: Optional[str] = None
+    farm_ids: Optional[List[int]] = None
+    title: str
+    message: str
+    recommended_product: Optional[str] = None
+    sent_by: str = "관리자"
+
+
+class NotificationBroadcastResult(BaseModel):
+    broadcast_group: str
+    sent_count: int
+    farm_ids: List[int]
 
 
 # ---------- Stats ----------

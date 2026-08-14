@@ -160,6 +160,9 @@ class Notification(Base):
     recommended_product = Column(String(150), nullable=True)
     sent_by = Column(String(50), default="관리자")
     status = Column(String(20), default="발송됨")  # 발송됨 / 확인됨
+    # 여러 농가에 한 번에 보낸 공지(브로드캐스트)일 때, 같은 발송 건임을 묶어주는 식별자.
+    # 개별 농가에 보낸 알림은 null.
+    broadcast_group = Column(String(40), nullable=True, index=True)
     created_at = Column(DateTime, default=dt.datetime.utcnow)
 
     farm = relationship("Farm", back_populates="notifications")
