@@ -7,6 +7,7 @@ from app.database import Base, SessionLocal, engine, run_light_migrations
 from app.routers import admin, auth, crops, diagnosis, farms, notifications, reference, reports, stats, weather, work_logs
 from app.seed import (
     backfill_crop_ids_if_missing,
+    backfill_pest_disease_materials_if_missing,
     ensure_protected_admin,
     seed_admin_if_empty,
     seed_crops_if_empty,
@@ -57,6 +58,7 @@ def on_startup():
         seed_admin_if_empty(db)
         ensure_protected_admin(db)
         seed_treatment_references_if_empty(db)
+        backfill_pest_disease_materials_if_missing(db)
     finally:
         db.close()
 

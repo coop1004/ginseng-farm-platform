@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app import models
 from app.config import settings
 from app.services.auth_service import hash_password
+from app.services.reference_service import sync_pest_disease_materials
 
 ECO_DB_PATH = Path(__file__).resolve().parent / "data" / "eco_treatment_db.json"
 
@@ -333,6 +334,25 @@ def backfill_crop_ids_if_missing(db: Session):
     )
     if farms_updated or refs_updated:
         db.commit()
+
+
+def backfill_pest_disease_materials_if_missing(db: Session):
+    """agri_materials/pest_disease_materials 조인 테이블 도입 이전에 만들어진
+    TreatmentReference 행(예: eco_treatment_db.json에서 1회 이관된 인삼 7종)은
+    eco_treatments_json/chemical_treatments_json에는 자재 정보가 있지만 조인 테이블에는
+    아무 연결이 없다. reference.py/gemini_service가 이제 조인 테이블만 신뢰하므로,
+    이 상태를 그대로 두면 AI 진단 결과에서 방제 자재가 조용히 비어버린다(인삼 기존
+    기능 회귀). 조인이 하나도 없는 행을 찾아 레거시 JSON에서 1회 채워 넣는다."""
+    rows = db.query(models.TreatmentReference).all()
+    for row in rows:
+        if row.materials:
+            continue
+        eco = json.loads(row.eco_treatments_json) if row.eco_treatments_json else []
+        chemical = json.loads(row.chemical_treatments_json) if row.chemical_treatments_json else []
+        if not eco and not chemical:
+            continue
+        sync_pest_disease_materials(db, row, eco, chemical)
+    db.commit()
 
 
 def seed_admin_if_empty(db: Session):
