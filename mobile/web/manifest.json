@@ -1,11 +1,11 @@
 {
-    "name": "mobile",
-    "short_name": "mobile",
+    "name": "인삼 AI 영농일지",
+    "short_name": "인삼영농일지",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#F7F8F7",
+    "theme_color": "#2E7D32",
+    "description": "인삼 농장 전용 AI 병해충 진단 및 영농일지 앱",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

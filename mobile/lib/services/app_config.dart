@@ -8,7 +8,9 @@ class AppConfig {
   static String? _cachedBaseUrl;
 
   static String get defaultBaseUrl {
-    if (kIsWeb) return 'http://localhost:8000';
+    // 웹(PWA)은 로컬 개발이 아니라 실제 배포된 백엔드를 기본으로 바라본다.
+    // 로컬에서 flutter run -d chrome으로 개발할 땐 설정 화면에서 localhost로 바꾸면 된다.
+    if (kIsWeb) return 'https://ginseng-farm-platform.onrender.com';
     if (Platform.isAndroid) return 'http://10.0.2.2:8000'; // 안드로이드 에뮬레이터에서 호스트 PC 접근용
     return 'http://localhost:8000'; // iOS 시뮬레이터 / macOS
   }
