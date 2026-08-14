@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app import models
 from app.database import get_db
-from app.services.auth_service import decode_access_token
+from app.services.auth_service import decode_access_token, decode_admin_access_token
 
 
 def get_current_user(authorization: str = Header(None), db: Session = Depends(get_db)) -> models.User:
@@ -40,3 +40,19 @@ def get_current_household_id(
 def ensure_farm_access(farm: models.Farm, household_id: int) -> None:
     if farm.household_id != household_id:
         raise HTTPException(status_code=404, detail="농장을 찾을 수 없습니다.")
+
+
+def get_current_admin(authorization: str = Header(None), db: Session = Depends(get_db)) -> models.AdminUser:
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="관리자 로그인이 필요합니다.")
+
+    token = authorization[len("Bearer "):].strip()
+    try:
+        admin_id = decode_admin_access_token(token)
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=401, detail="유효하지 않거나 만료된 토큰입니다.")
+
+    admin = db.query(models.AdminUser).filter(models.AdminUser.id == admin_id).first()
+    if not admin:
+        raise HTTPException(status_code=401, detail="관리자 계정을 찾을 수 없습니다.")
+    return admin

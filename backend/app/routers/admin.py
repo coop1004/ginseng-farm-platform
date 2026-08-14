@@ -7,13 +7,29 @@ from sqlalchemy.orm import Session
 
 from app import models, schemas
 from app.database import get_db
+from app.deps import get_current_admin
 from app.routers.stats import build_summary
+from app.services.auth_service import create_admin_access_token, verify_password
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
 
+@router.post("/auth/login", response_model=schemas.AdminTokenResponse)
+def admin_login(payload: schemas.AdminLoginRequest, db: Session = Depends(get_db)):
+    admin = db.query(models.AdminUser).filter(models.AdminUser.username == payload.username).first()
+    if not admin or not verify_password(payload.password, admin.password_hash):
+        raise HTTPException(status_code=401, detail="아이디 또는 비밀번호가 올바르지 않습니다.")
+    token = create_admin_access_token(admin.id)
+    return schemas.AdminTokenResponse(access_token=token, admin=schemas.AdminUserOut.model_validate(admin))
+
+
+@router.get("/auth/me", response_model=schemas.AdminUserOut)
+def admin_me(current_admin: models.AdminUser = Depends(get_current_admin)):
+    return schemas.AdminUserOut.model_validate(current_admin)
+
+
 @router.get("/stats/summary", response_model=schemas.StatsSummary)
-def admin_stats_summary(db: Session = Depends(get_db)):
+def admin_stats_summary(db: Session = Depends(get_db), _admin: models.AdminUser = Depends(get_current_admin)):
     """관리자 대시보드용 전사(全社) 통계 - 특정 농가로 필터링하지 않고 전체 집계."""
     summary = build_summary(db.query(models.Farm), db.query(models.WorkLog), db.query(models.Diagnosis))
     summary["total_households"] = db.query(models.Household).count()
@@ -21,7 +37,7 @@ def admin_stats_summary(db: Session = Depends(get_db)):
 
 
 @router.get("/farms/overview")
-def farms_overview(db: Session = Depends(get_db)):
+def farms_overview(db: Session = Depends(get_db), _admin: models.AdminUser = Depends(get_current_admin)):
     """농가별 최근 활동 요약: 관리자 대시보드 메인 테이블용."""
     farms = db.query(models.Farm).all()
     result = []
@@ -78,7 +94,7 @@ def farms_overview(db: Session = Depends(get_db)):
 
 
 @router.get("/regional-stats")
-def regional_stats(db: Session = Depends(get_db)):
+def regional_stats(db: Session = Depends(get_db), _admin: models.AdminUser = Depends(get_current_admin)):
     """지역별 병해충 발생 현황: 지도/차트용 집계."""
     farms = {f.id: f for f in db.query(models.Farm).all()}
     diagnoses = db.query(models.Diagnosis).all()
@@ -120,7 +136,9 @@ def regional_stats(db: Session = Depends(get_db)):
 
 
 @router.get("/feed")
-def recent_activity_feed(limit: int = 20, db: Session = Depends(get_db)):
+def recent_activity_feed(
+    limit: int = 20, db: Session = Depends(get_db), _admin: models.AdminUser = Depends(get_current_admin)
+):
     """최근 발생 진단 실시간 피드."""
     diagnoses = (
         db.query(models.Diagnosis)
@@ -145,7 +163,11 @@ def recent_activity_feed(limit: int = 20, db: Session = Depends(get_db)):
 
 
 @router.post("/notifications", response_model=schemas.NotificationOut)
-def send_notification(payload: schemas.NotificationCreate, db: Session = Depends(get_db)):
+def send_notification(
+    payload: schemas.NotificationCreate,
+    db: Session = Depends(get_db),
+    _admin: models.AdminUser = Depends(get_current_admin),
+):
     """농가에 친환경 자재 처방 알림 전송 (시뮬레이션 - DB 저장 후 모바일 앱에서 조회 가능)."""
     farm = db.query(models.Farm).filter(models.Farm.id == payload.farm_id).first()
     if not farm:
@@ -161,7 +183,11 @@ def send_notification(payload: schemas.NotificationCreate, db: Session = Depends
 
 
 @router.get("/notifications", response_model=List[schemas.NotificationOut])
-def list_notifications(farm_id: Optional[int] = None, db: Session = Depends(get_db)):
+def list_notifications(
+    farm_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+    _admin: models.AdminUser = Depends(get_current_admin),
+):
     query = db.query(models.Notification)
     if farm_id:
         query = query.filter(models.Notification.farm_id == farm_id)

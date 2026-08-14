@@ -5,6 +5,7 @@ import random
 from sqlalchemy.orm import Session
 
 from app import models
+from app.config import settings
 from app.services.auth_service import hash_password
 
 DEMO_PASSWORD = "farm1234"  # 데모 계정 공통 비밀번호
@@ -275,6 +276,21 @@ def _seed_weather_history(db: Session, farm: models.Farm, today: dt.date, days: 
                 source="demo",
             )
         )
+
+
+def seed_admin_if_empty(db: Session):
+    """운영 DB에 이미 농가 데이터가 있어도(= seed_if_empty가 건너뛰어도) 관리자 계정이
+    하나도 없으면 부트스트랩 계정을 만든다. 최초 배포 시 1회만 실행됨."""
+    if db.query(models.AdminUser).count() > 0:
+        return
+    db.add(
+        models.AdminUser(
+            username=settings.admin_bootstrap_username,
+            name="관리자",
+            password_hash=hash_password(settings.admin_bootstrap_password),
+        )
+    )
+    db.commit()
 
 
 def seed_if_empty(db: Session):

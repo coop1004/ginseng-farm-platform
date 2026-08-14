@@ -5,7 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from app.config import settings
 from app.database import Base, SessionLocal, engine
 from app.routers import admin, auth, diagnosis, farms, notifications, reports, stats, weather, work_logs
-from app.seed import seed_if_empty
+from app.seed import seed_admin_if_empty, seed_if_empty
 
 Base.metadata.create_all(bind=engine)
 
@@ -41,6 +41,7 @@ def on_startup():
     db = SessionLocal()
     try:
         seed_if_empty(db)
+        seed_admin_if_empty(db)
     finally:
         db.close()
 

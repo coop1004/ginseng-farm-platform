@@ -28,6 +28,21 @@ def decode_access_token(token: str) -> int:
     return int(payload["sub"])
 
 
+def create_admin_access_token(admin_id: int) -> str:
+    """농가용 토큰과 클레임 이름을 다르게 하여(admin_sub), 농가 로그인 토큰이
+    관리자 API에 잘못 쓰이거나 그 반대로 쓰이는 것을 원천적으로 막는다."""
+    expire = dt.datetime.utcnow() + dt.timedelta(minutes=settings.jwt_expire_minutes)
+    payload = {"admin_sub": str(admin_id), "exp": expire}
+    return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+
+
+def decode_admin_access_token(token: str) -> int:
+    payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
+    if "admin_sub" not in payload:
+        raise jwt.InvalidTokenError("관리자 토큰이 아닙니다.")
+    return int(payload["admin_sub"])
+
+
 def generate_join_code(length: int = 6) -> str:
     alphabet = string.ascii_uppercase + string.digits
     return "".join(random.choices(alphabet, k=length))

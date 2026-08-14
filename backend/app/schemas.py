@@ -51,6 +51,25 @@ class TokenResponse(BaseModel):
     household: HouseholdOut
 
 
+# ---------- Admin Auth ----------
+class AdminLoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class AdminUserOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    username: str
+    name: str
+
+
+class AdminTokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    admin: AdminUserOut
+
+
 # ---------- Farm ----------
 class FarmBase(BaseModel):
     farm_name: str

@@ -424,8 +424,49 @@ async function submitNotify() {
     closeNotifyModal();
     loadNotifications();
   } catch (e) {
+    if (e.isAuthError) {
+      closeNotifyModal();
+      showLoginScreen();
+      return;
+    }
     showToast(e.message, true);
   }
+}
+
+// ---------- Auth ----------
+function showLoginScreen() {
+  document.getElementById("loginScreen").classList.remove("hidden");
+  document.getElementById("appShell").classList.add("hidden");
+}
+
+function showAppShell() {
+  document.getElementById("loginScreen").classList.add("hidden");
+  document.getElementById("appShell").classList.remove("hidden");
+}
+
+async function handleLoginSubmit(e) {
+  e.preventDefault();
+  const username = document.getElementById("loginUsername").value.trim();
+  const password = document.getElementById("loginPassword").value;
+  const errorBox = document.getElementById("loginError");
+  errorBox.classList.add("hidden");
+  if (!username || !password) return;
+
+  try {
+    const resp = await Api.login(username, password);
+    Api.setToken(resp.access_token);
+    showAppShell();
+    loadAll();
+  } catch (err) {
+    errorBox.textContent = "아이디 또는 비밀번호가 올바르지 않습니다.";
+    errorBox.classList.remove("hidden");
+  }
+}
+
+function handleLogout() {
+  Api.setToken(null);
+  showLoginScreen();
+  document.getElementById("loginPassword").value = "";
 }
 
 // ---------- Load & bootstrap ----------
@@ -454,6 +495,10 @@ async function loadAll() {
     renderFeed(feed);
     renderNotifications(notifications);
   } catch (e) {
+    if (e.isAuthError) {
+      showLoginScreen();
+      return;
+    }
     showToast(`데이터 로드 실패: ${e.message}`, true);
   }
 }
@@ -492,7 +537,15 @@ function init() {
     if (e.target.id === "notifyModal") closeNotifyModal();
   });
 
-  loadAll();
+  document.getElementById("loginForm").addEventListener("submit", handleLoginSubmit);
+  document.getElementById("logoutBtn").addEventListener("click", handleLogout);
+
+  if (Api.isLoggedIn()) {
+    showAppShell();
+    loadAll();
+  } else {
+    showLoginScreen();
+  }
 }
 
 document.addEventListener("DOMContentLoaded", init);

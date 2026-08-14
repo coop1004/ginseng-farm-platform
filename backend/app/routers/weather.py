@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app import models, schemas
 from app.config import settings
 from app.database import get_db
+from app.deps import get_current_admin
 from app.services.weather_collector import collect_daily_weather_for_all_farms
 
 router = APIRouter(prefix="/api/admin/weather", tags=["weather"])
@@ -32,6 +33,7 @@ def get_weather_history(
     farm_id: Optional[int] = None,
     days: int = 30,
     db: Session = Depends(get_db),
+    _admin: models.AdminUser = Depends(get_current_admin),
 ):
     """축적된 일별 기상 기록 조회 (상관관계 분석/그래프용)."""
     since = dt.date.today() - dt.timedelta(days=days)

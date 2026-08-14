@@ -21,6 +21,10 @@ class Settings(BaseSettings):
 
     cron_secret: str = ""  # 설정 시, 날씨 수집 배치 엔드포인트 호출에 이 값과 일치하는 헤더가 필요
 
+    # 최초 배포 시 관리자 계정이 하나도 없으면 이 값으로 자동 생성됨 (운영 환경에서는 반드시 재정의)
+    admin_bootstrap_username: str = "admin"
+    admin_bootstrap_password: str = "changeme123"
+
     class Config:
         env_file = str(BASE_DIR / ".env")
         env_file_encoding = "utf-8"

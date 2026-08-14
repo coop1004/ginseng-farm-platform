@@ -1,5 +1,6 @@
 const Api = (() => {
   let baseUrl = localStorage.getItem("apiBaseUrl") || "https://ginseng-farm-platform.onrender.com";
+  let adminToken = localStorage.getItem("adminToken") || null;
 
   function setBaseUrl(url) {
     baseUrl = url.replace(/\/$/, "");
@@ -10,11 +11,32 @@ const Api = (() => {
     return baseUrl;
   }
 
-  async function request(path, options = {}) {
-    const res = await fetch(`${baseUrl}${path}`, {
-      headers: { "Content-Type": "application/json" },
-      ...options,
-    });
+  function setToken(token) {
+    adminToken = token;
+    if (token) localStorage.setItem("adminToken", token);
+    else localStorage.removeItem("adminToken");
+  }
+
+  function getToken() {
+    return adminToken;
+  }
+
+  function isLoggedIn() {
+    return !!adminToken;
+  }
+
+  async function request(path, options = {}, auth = true) {
+    const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
+    if (auth && adminToken) headers["Authorization"] = `Bearer ${adminToken}`;
+
+    const res = await fetch(`${baseUrl}${path}`, { ...options, headers });
+
+    if (res.status === 401 && auth) {
+      setToken(null);
+      const err = new Error("로그인이 만료되었습니다. 다시 로그인해주세요.");
+      err.isAuthError = true;
+      throw err;
+    }
     if (!res.ok) {
       const text = await res.text().catch(() => "");
       throw new Error(`API 오류 (${res.status}): ${text}`);
@@ -25,7 +47,12 @@ const Api = (() => {
   return {
     setBaseUrl,
     getBaseUrl,
-    health: () => request("/api/health"),
+    setToken,
+    getToken,
+    isLoggedIn,
+    health: () => request("/api/health", {}, false),
+    login: (username, password) =>
+      request("/api/admin/auth/login", { method: "POST", body: JSON.stringify({ username, password }) }, false),
     getStatsSummary: () => request("/api/admin/stats/summary"),
     getFarmsOverview: () => request("/api/admin/farms/overview"),
     getRegionalStats: () => request("/api/admin/regional-stats"),

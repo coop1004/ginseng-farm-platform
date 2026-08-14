@@ -12,6 +12,10 @@ services:
         generateValue: true
       - key: CRON_SECRET
         generateValue: true
+      - key: ADMIN_BOOTSTRAP_USERNAME
+        value: admin
+      - key: ADMIN_BOOTSTRAP_PASSWORD
+        generateValue: true
       - key: GEMINI_API_KEY
         sync: false
       - key: OPENWEATHER_API_KEY
