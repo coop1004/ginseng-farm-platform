@@ -35,3 +35,8 @@ def run_light_migrations():
     inspector = inspect(engine)
     _add_column_if_missing(inspector, "admin_users", "is_protected", "BOOLEAN NOT NULL DEFAULT 0")
     _add_column_if_missing(inspector, "notifications", "broadcast_group", "VARCHAR(40)")
+    _add_column_if_missing(inspector, "diagnoses", "final_disease_name", "VARCHAR(100)")
+    _add_column_if_missing(inspector, "diagnoses", "final_diagnosis_source", "VARCHAR(20)")
+    _add_column_if_missing(inspector, "diagnoses", "final_diagnosis_note", "TEXT")
+    _add_column_if_missing(inspector, "diagnoses", "final_diagnosis_by", "VARCHAR(50)")
+    _add_column_if_missing(inspector, "diagnoses", "final_diagnosis_at", "DATETIME")

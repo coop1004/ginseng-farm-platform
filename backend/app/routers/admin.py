@@ -189,8 +189,37 @@ def admin_diagnoses(
         out.farm_name = d.farm.farm_name if d.farm else None
         out.household_name = d.farm.household.name if d.farm and d.farm.household else None
         out.region = d.farm.region if d.farm else None
+        out.photo_paths = [p.photo_path for p in d.photos] if d.photos else ([d.photo_path] if d.photo_path else [])
         results.append(out)
     return results
+
+
+@router.patch("/diagnoses/{diagnosis_id}/final-diagnosis", response_model=schemas.AdminDiagnosisOut)
+def admin_final_diagnosis(
+    diagnosis_id: int,
+    payload: schemas.DiagnosisFinalRequest,
+    db: Session = Depends(get_db),
+    current_admin: models.AdminUser = Depends(get_current_admin),
+):
+    """전문가(농자재사 담당자)가 현장 확인 결과 AI 진단과 다르다고 판단했을 때
+    최종 진단명을 정정한다. 농가가 직접 입력한 값이 있어도 전문가 입력이 최종
+    권위를 갖도록 덮어쓴다(현장 재확인이 더 신뢰도가 높다고 보기 때문)."""
+    d = db.query(models.Diagnosis).filter(models.Diagnosis.id == diagnosis_id).first()
+    if not d:
+        raise HTTPException(status_code=404, detail="진단 기록을 찾을 수 없습니다.")
+    d.final_disease_name = payload.disease_name
+    d.final_diagnosis_source = "expert"
+    d.final_diagnosis_note = payload.note
+    d.final_diagnosis_by = current_admin.name
+    d.final_diagnosis_at = dt.datetime.utcnow()
+    db.commit()
+    db.refresh(d)
+    out = schemas.AdminDiagnosisOut.model_validate(d)
+    out.farm_name = d.farm.farm_name if d.farm else None
+    out.household_name = d.farm.household.name if d.farm and d.farm.household else None
+    out.region = d.farm.region if d.farm else None
+    out.photo_paths = [p.photo_path for p in d.photos] if d.photos else ([d.photo_path] if d.photo_path else [])
+    return out
 
 
 @router.get("/regional-stats")

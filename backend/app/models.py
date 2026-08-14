@@ -144,8 +144,34 @@ class Diagnosis(Base):
     # 농가 사후 피드백: AI 예측이 실제와 맞았는지 (통계 - AI 예측 대비 실제 발생 비교용)
     farmer_confirmed_correct = Column(Boolean, nullable=True)
 
+    # 사람(농가 본인 또는 전문가)이 AI 판단과 다르게 확인/정정한 최종 진단명.
+    # AI가 진단 실패했거나(status=분석실패), 확신도가 낮거나, 단순히 AI 결과가 틀렸을 때
+    # 현장을 실제로 본 사람의 판단을 최종 처방/통계의 기준으로 삼기 위함.
+    # 존재하면 ai_disease_name보다 항상 우선한다.
+    final_disease_name = Column(String(100), nullable=True)
+    final_diagnosis_source = Column(String(20), nullable=True)  # farmer / expert
+    final_diagnosis_note = Column(Text, nullable=True)
+    final_diagnosis_by = Column(String(50), nullable=True)  # 입력자 이름
+    final_diagnosis_at = Column(DateTime, nullable=True)
+
     farm = relationship("Farm", back_populates="diagnoses")
+    photos = relationship("DiagnosisPhoto", back_populates="diagnosis", cascade="all, delete-orphan")
     notifications = relationship("Notification", back_populates="diagnosis")
+
+
+class DiagnosisPhoto(Base):
+    """진단 1건에 여러 장의 피해 사진을 첨부할 수 있도록 하는 자식 테이블.
+    Diagnosis.photo_path는 기존 화면(관리자 갤러리 썸네일, PDF 등) 호환을 위해
+    첫 번째 사진 경로를 그대로 유지한다."""
+
+    __tablename__ = "diagnosis_photos"
+
+    id = Column(Integer, primary_key=True, index=True)
+    diagnosis_id = Column(Integer, ForeignKey("diagnoses.id"), nullable=False)
+    photo_path = Column(String(255), nullable=False)
+    created_at = Column(DateTime, default=dt.datetime.utcnow)
+
+    diagnosis = relationship("Diagnosis", back_populates="photos")
 
 
 class Notification(Base):

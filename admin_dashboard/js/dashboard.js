@@ -489,19 +489,32 @@ function renderPhotoGrid() {
   filtered.forEach((d) => {
     const card = document.createElement("div");
     card.className = "photo-card";
-    const imgSrc = d.photo_path ? `${Api.getBaseUrl()}/uploads/${d.photo_path}` : "";
+    const photoPaths = d.photo_paths && d.photo_paths.length ? d.photo_paths : d.photo_path ? [d.photo_path] : [];
+    const imgSrc = photoPaths.length ? `${Api.getBaseUrl()}/uploads/${photoPaths[0]}` : "";
+    const effectiveName = d.final_disease_name || d.ai_disease_name || "진단명 없음";
+    const finalBadge = d.final_disease_name
+      ? `<span class="final-diagnosis-badge">${d.final_diagnosis_source === "expert" ? "전문가 확정" : "농가 직접확인"}</span>`
+      : "";
     card.innerHTML = `
-      ${imgSrc ? `<img src="${imgSrc}" alt="진단 사진" loading="lazy" />` : `<div class="photo-card-noimg">사진 없음</div>`}
+      <div class="photo-card-img-wrap">
+        ${imgSrc ? `<img src="${imgSrc}" alt="진단 사진" loading="lazy" />` : `<div class="photo-card-noimg">사진 없음</div>`}
+        ${photoPaths.length > 1 ? `<span class="photo-count-badge">📷 ${photoPaths.length}</span>` : ""}
+      </div>
       <div class="photo-card-body">
-        <div class="photo-card-title">${d.ai_disease_name || "진단명 없음"}</div>
+        <div class="photo-card-title">${effectiveName} ${finalBadge}</div>
         <div class="photo-card-sub">${d.household_name || "-"} · ${d.farm_name || "-"} · ${fmtDate(d.occurrence_date)}</div>
         <div class="photo-card-footer">
           <span class="status-badge status-${d.status}">${d.status}</span>
           <span class="feed-confidence">${d.ai_confidence != null ? Math.round(d.ai_confidence * 100) + "%" : ""}</span>
         </div>
+        <button class="btn btn-ghost btn-sm photo-expert-btn" data-id="${d.id}" data-name="${(d.final_disease_name || d.ai_disease_name || "").replace(/"/g, "&quot;")}" data-note="${(d.final_diagnosis_note || "").replace(/"/g, "&quot;")}">🩺 전문가 소견 입력</button>
       </div>
     `;
     grid.appendChild(card);
+  });
+
+  grid.querySelectorAll(".photo-expert-btn").forEach((btn) => {
+    btn.addEventListener("click", () => openExpertDiagnosisModal(btn.dataset.id, btn.dataset.name, btn.dataset.note));
   });
 }
 
@@ -843,6 +856,46 @@ async function deleteAdmin(adminId, name) {
   }
 }
 
+// ---------- Expert diagnosis override ----------
+let expertDiagnosisTargetId = null;
+
+function openExpertDiagnosisModal(diagnosisId, currentName, currentNote) {
+  expertDiagnosisTargetId = diagnosisId;
+  document.getElementById("expertDiagnosisSub").textContent = `진단 #${diagnosisId}`;
+  document.getElementById("expertDiagnosisName").value = currentName || "";
+  document.getElementById("expertDiagnosisNote").value = currentNote || "";
+  document.getElementById("expertDiagnosisModal").classList.remove("hidden");
+}
+
+function closeExpertDiagnosisModal() {
+  document.getElementById("expertDiagnosisModal").classList.add("hidden");
+  expertDiagnosisTargetId = null;
+}
+
+async function submitExpertDiagnosis() {
+  const name = document.getElementById("expertDiagnosisName").value.trim();
+  const note = document.getElementById("expertDiagnosisNote").value.trim();
+  if (!name) {
+    showToast("진단명을 입력해주세요.", true);
+    return;
+  }
+  try {
+    await Api.submitAdminFinalDiagnosis(expertDiagnosisTargetId, name, note);
+    showToast("전문가 진단이 저장되었습니다.");
+    closeExpertDiagnosisModal();
+    const diagnoses = await Api.getAdminDiagnoses({ limit: 200 });
+    currentDiagnoses = diagnoses;
+    renderPhotoGrid();
+  } catch (e) {
+    if (e.isAuthError) {
+      closeExpertDiagnosisModal();
+      showLoginScreen();
+      return;
+    }
+    showToast(e.message, true);
+  }
+}
+
 // ---------- Load & bootstrap ----------
 async function loadAll() {
   try {
@@ -939,6 +992,12 @@ function init() {
   });
   document.getElementById("pwSubmit").addEventListener("click", submitChangePassword);
   document.getElementById("adminAddSubmit").addEventListener("click", submitAddAdmin);
+
+  document.getElementById("expertDiagnosisCancel").addEventListener("click", closeExpertDiagnosisModal);
+  document.getElementById("expertDiagnosisSubmit").addEventListener("click", submitExpertDiagnosis);
+  document.getElementById("expertDiagnosisModal").addEventListener("click", (e) => {
+    if (e.target.id === "expertDiagnosisModal") closeExpertDiagnosisModal();
+  });
 
   if (Api.isLoggedIn()) {
     showAppShell();

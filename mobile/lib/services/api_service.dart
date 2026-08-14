@@ -223,7 +223,7 @@ class ApiService {
     required int farmId,
     required String diagnosisType,
     required String cropName,
-    required File photo,
+    required List<File> photos,
   }) async {
     final uri = await _uri('/api/diagnoses');
     final request = http.MultipartRequest('POST', uri)
@@ -231,9 +231,25 @@ class ApiService {
       ..fields['farm_id'] = farmId.toString()
       ..fields['diagnosis_type'] = diagnosisType
       ..fields['crop_name'] = cropName;
-    request.files.add(await http.MultipartFile.fromPath('photo', photo.path));
+    for (final photo in photos) {
+      request.files.add(await http.MultipartFile.fromPath('photos', photo.path));
+    }
     final streamed = await request.send();
     final res = await http.Response.fromStream(streamed);
+    _checkResponse(res);
+    return Diagnosis.fromJson(jsonDecode(utf8.decode(res.bodyBytes)));
+  }
+
+  Future<Diagnosis> submitFinalDiagnosis({
+    required int diagnosisId,
+    required String diseaseName,
+    String? note,
+  }) async {
+    final res = await http.patch(
+      await _uri('/api/diagnoses/$diagnosisId/final-diagnosis'),
+      headers: {...await _authHeaders(), 'Content-Type': 'application/json'},
+      body: jsonEncode({'disease_name': diseaseName, 'note': note}),
+    );
     _checkResponse(res);
     return Diagnosis.fromJson(jsonDecode(utf8.decode(res.bodyBytes)));
   }

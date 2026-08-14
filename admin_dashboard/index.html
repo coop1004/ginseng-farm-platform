@@ -340,6 +340,21 @@
   </div>
 </div>
 
+<div id="expertDiagnosisModal" class="modal-backdrop hidden">
+  <div class="modal">
+    <h3>전문가 진단 확정</h3>
+    <p class="modal-farm" id="expertDiagnosisSub"></p>
+    <label>진단명(병해충명) *</label>
+    <input id="expertDiagnosisName" type="text" placeholder="AI 판단과 다르면 실제 진단명을 입력하세요" />
+    <label>메모(선택)</label>
+    <textarea id="expertDiagnosisNote" rows="3" placeholder="현장 확인 소견 등"></textarea>
+    <div class="modal-actions">
+      <button id="expertDiagnosisCancel" class="btn btn-ghost">취소</button>
+      <button id="expertDiagnosisSubmit" class="btn btn-primary">저장</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast" class="toast hidden"></div>
 
 <script src="js/api.js"></script>

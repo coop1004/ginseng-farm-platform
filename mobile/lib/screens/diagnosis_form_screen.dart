@@ -25,7 +25,7 @@ class _DiagnosisFormScreenState extends State<DiagnosisFormScreen> {
 
   Farm? _farm;
   String _type = diagnosisTypes.first;
-  File? _photo;
+  final List<File> _photos = [];
   bool _analyzing = false;
 
   @override
@@ -42,14 +42,23 @@ class _DiagnosisFormScreenState extends State<DiagnosisFormScreen> {
   }
 
   Future<void> _pickPhoto(ImageSource source) async {
-    final picked = await ImagePicker().pickImage(source: source, imageQuality: 90);
-    if (picked != null) setState(() => _photo = File(picked.path));
+    if (source == ImageSource.gallery) {
+      final picked = await ImagePicker().pickMultiImage(imageQuality: 90);
+      if (picked.isNotEmpty) setState(() => _photos.addAll(picked.map((x) => File(x.path))));
+    } else {
+      final picked = await ImagePicker().pickImage(source: source, imageQuality: 90);
+      if (picked != null) setState(() => _photos.add(File(picked.path)));
+    }
+  }
+
+  void _removePhoto(int index) {
+    setState(() => _photos.removeAt(index));
   }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate() || _farm == null) return;
-    if (_photo == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('피해 부위 사진을 업로드해주세요.')));
+    if (_photos.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('피해 부위 사진을 1장 이상 업로드해주세요.')));
       return;
     }
     setState(() => _analyzing = true);
@@ -58,7 +67,7 @@ class _DiagnosisFormScreenState extends State<DiagnosisFormScreen> {
         farmId: _farm!.id,
         diagnosisType: _type,
         cropName: _cropCtrl.text.trim().isEmpty ? '인삼' : _cropCtrl.text.trim(),
-        photo: _photo!,
+        photos: _photos,
       );
       if (mounted) {
         Navigator.of(context).pushReplacement(
@@ -115,9 +124,9 @@ class _DiagnosisFormScreenState extends State<DiagnosisFormScreen> {
                       child: Text('${today.year}년 ${today.month}월 ${today.day}일'),
                     ),
                     const SizedBox(height: 16),
-                    Text('피해 부위 사진 *', style: TextStyle(fontSize: 12.5, color: Colors.grey.shade700)),
+                    Text('피해 부위 사진 * (여러 장 첨부 가능)', style: TextStyle(fontSize: 12.5, color: Colors.grey.shade700)),
                     const SizedBox(height: 6),
-                    _PhotoBox(photo: _photo, onPick: _pickPhoto, onClear: () => setState(() => _photo = null)),
+                    _PhotoBox(photos: _photos, onPick: _pickPhoto, onRemove: _removePhoto),
                     const SizedBox(height: 6),
                     Text(
                       '※ 사진에 GPS 위치정보가 포함되어 있으면 촬영 당시 기상 조건을 자동으로 분석에 반영합니다.',
@@ -141,40 +150,70 @@ class _DiagnosisFormScreenState extends State<DiagnosisFormScreen> {
 }
 
 class _PhotoBox extends StatelessWidget {
-  final File? photo;
+  final List<File> photos;
   final void Function(ImageSource) onPick;
-  final VoidCallback onClear;
+  final void Function(int) onRemove;
 
-  const _PhotoBox({required this.photo, required this.onPick, required this.onClear});
+  const _PhotoBox({required this.photos, required this.onPick, required this.onRemove});
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            height: 200,
-            width: double.infinity,
-            color: Colors.grey.shade200,
-            child: photo != null
-                ? Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      Image.file(photo!, fit: BoxFit.cover),
-                      Positioned(
-                        top: 6,
-                        right: 6,
-                        child: CircleAvatar(
+        if (photos.isEmpty)
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              height: 160,
+              width: double.infinity,
+              color: Colors.grey.shade200,
+              child: const Center(child: Icon(Icons.add_a_photo_outlined, size: 40, color: Colors.grey)),
+            ),
+          )
+        else
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: photos.length,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 8,
+            ),
+            itemBuilder: (context, i) {
+              return ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.file(photos[i], fit: BoxFit.cover),
+                    Positioned(
+                      top: 3,
+                      right: 3,
+                      child: GestureDetector(
+                        onTap: () => onRemove(i),
+                        child: const CircleAvatar(
+                          radius: 11,
                           backgroundColor: Colors.black54,
-                          child: IconButton(icon: const Icon(Icons.close, color: Colors.white, size: 18), onPressed: onClear),
+                          child: Icon(Icons.close, color: Colors.white, size: 14),
                         ),
                       ),
-                    ],
-                  )
-                : const Center(child: Icon(Icons.add_a_photo_outlined, size: 40, color: Colors.grey)),
+                    ),
+                    if (i == 0)
+                      Positioned(
+                        bottom: 3,
+                        left: 3,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                          decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(4)),
+                          child: const Text('대표', style: TextStyle(color: Colors.white, fontSize: 9)),
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            },
           ),
-        ),
         const SizedBox(height: 8),
         Row(
           children: [

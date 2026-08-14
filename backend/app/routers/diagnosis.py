@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app import models, schemas
 from app.config import settings
 from app.database import get_db
-from app.deps import ensure_farm_access, get_current_household_id
+from app.deps import ensure_farm_access, get_current_household_id, get_current_user
 from app.services import exif_service, gemini_service, weather_service
 
 router = APIRouter(prefix="/api/diagnoses", tags=["diagnosis"])
@@ -53,6 +53,7 @@ def _to_response(d: models.Diagnosis) -> dict:
         "crop_name": d.crop_name,
         "occurrence_date": d.occurrence_date,
         "photo_path": d.photo_path,
+        "photo_paths": [p.photo_path for p in d.photos] if d.photos else ([d.photo_path] if d.photo_path else []),
         "gps_lat": d.gps_lat,
         "gps_lng": d.gps_lng,
         "photo_taken_at": d.photo_taken_at,
@@ -70,6 +71,11 @@ def _to_response(d: models.Diagnosis) -> dict:
         "ai_source": d.ai_source,
         "status": d.status,
         "farmer_confirmed_correct": d.farmer_confirmed_correct,
+        "final_disease_name": d.final_disease_name,
+        "final_diagnosis_source": d.final_diagnosis_source,
+        "final_diagnosis_note": d.final_diagnosis_note,
+        "final_diagnosis_by": d.final_diagnosis_by,
+        "final_diagnosis_at": d.final_diagnosis_at,
         "created_at": d.created_at,
     }
 
@@ -80,7 +86,7 @@ async def create_diagnosis(
     diagnosis_type: str = Form(...),  # 병해 / 해충 / 생리장애
     crop_name: str = Form("인삼"),
     occurrence_date: Optional[dt.date] = Form(None),
-    photo: UploadFile = File(...),
+    photos: List[UploadFile] = File(...),
     household_id: int = Depends(get_current_household_id),
     db: Session = Depends(get_db),
 ):
@@ -89,8 +95,12 @@ async def create_diagnosis(
         raise HTTPException(status_code=404, detail="농장을 찾을 수 없습니다.")
     ensure_farm_access(farm, household_id)
 
-    photo_path = _save_upload(photo)
-    full_path = os.path.join(settings.upload_dir, photo_path)
+    photos = [p for p in photos if p.filename]
+    if not photos:
+        raise HTTPException(status_code=400, detail="피해 사진을 1장 이상 첨부해주세요.")
+
+    photo_paths = [_save_upload(p) for p in photos]
+    full_path = os.path.join(settings.upload_dir, photo_paths[0])
 
     gps_lat, gps_lng, taken_at = exif_service.extract_gps_and_datetime(full_path)
     if gps_lat is None:
@@ -105,7 +115,7 @@ async def create_diagnosis(
         diagnosis_type=diagnosis_type,
         crop_name=crop_name,
         occurrence_date=occurrence_date or (taken_at.date() if taken_at else dt.date.today()),
-        photo_path=photo_path,
+        photo_path=photo_paths[0],
         gps_lat=gps_lat,
         gps_lng=gps_lng,
         photo_taken_at=taken_at,
@@ -125,6 +135,9 @@ async def create_diagnosis(
         status=_determine_status(ai_result),
     )
     db.add(diagnosis)
+    db.flush()
+    for path in photo_paths:
+        db.add(models.DiagnosisPhoto(diagnosis_id=diagnosis.id, photo_path=path))
     db.commit()
     db.refresh(diagnosis)
     return _to_response(diagnosis)
@@ -181,6 +194,31 @@ def submit_diagnosis_feedback(
         raise HTTPException(status_code=404, detail="진단 기록을 찾을 수 없습니다.")
     ensure_farm_access(d.farm, household_id)
     d.farmer_confirmed_correct = payload.correct
+    db.commit()
+    db.refresh(d)
+    return _to_response(d)
+
+
+@router.patch("/{diagnosis_id}/final-diagnosis", response_model=schemas.DiagnosisCreateResponse)
+def submit_final_diagnosis(
+    diagnosis_id: int,
+    payload: schemas.DiagnosisFinalRequest,
+    current_user: models.User = Depends(get_current_user),
+    household_id: int = Depends(get_current_household_id),
+    db: Session = Depends(get_db),
+):
+    """AI 진단이 실패했거나(status=분석실패) 확신도가 낮거나, 단순히 AI 결과가
+    실제 현장 상황과 다를 때, 농가가 직접 확인한 진단명을 최종 결과로 기록한다.
+    이후 처방/통계는 final_disease_name(있으면)을 ai_disease_name보다 우선한다."""
+    d = db.query(models.Diagnosis).filter(models.Diagnosis.id == diagnosis_id).first()
+    if not d:
+        raise HTTPException(status_code=404, detail="진단 기록을 찾을 수 없습니다.")
+    ensure_farm_access(d.farm, household_id)
+    d.final_disease_name = payload.disease_name
+    d.final_diagnosis_source = "farmer"
+    d.final_diagnosis_note = payload.note
+    d.final_diagnosis_by = current_user.name
+    d.final_diagnosis_at = dt.datetime.utcnow()
     db.commit()
     db.refresh(d)
     return _to_response(d)

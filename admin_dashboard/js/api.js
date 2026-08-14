@@ -56,6 +56,11 @@ const Api = (() => {
     getStatsSummary: () => request("/api/admin/stats/summary"),
     getFarmsOverview: () => request("/api/admin/farms/overview"),
     getRegionalStats: () => request("/api/admin/regional-stats"),
+    submitAdminFinalDiagnosis: (diagnosisId, diseaseName, note) =>
+      request(`/api/admin/diagnoses/${diagnosisId}/final-diagnosis`, {
+        method: "PATCH",
+        body: JSON.stringify({ disease_name: diseaseName, note: note || null }),
+      }),
     getWeatherHistory: (farmId, days = 30) => {
       const qs = new URLSearchParams({ days });
       if (farmId) qs.set("farm_id", farmId);

@@ -18,11 +18,73 @@ class DiagnosisResultScreen extends StatefulWidget {
 class _DiagnosisResultScreenState extends State<DiagnosisResultScreen> {
   late Diagnosis diagnosis;
   bool _submittingFeedback = false;
+  bool _submittingFinal = false;
 
   @override
   void initState() {
     super.initState();
     diagnosis = widget.diagnosis;
+  }
+
+  Future<void> _openFinalDiagnosisDialog() async {
+    final nameCtrl = TextEditingController(text: diagnosis.finalDiseaseName ?? '');
+    final noteCtrl = TextEditingController(text: diagnosis.finalDiagnosisNote ?? '');
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('진단명 직접 입력'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('현장을 직접 확인하신 결과를 입력해주세요. AI 판단보다 우선 반영됩니다.',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+            const SizedBox(height: 14),
+            TextField(
+              controller: nameCtrl,
+              decoration: const InputDecoration(labelText: '진단명(병해충명) *'),
+              autofocus: true,
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: noteCtrl,
+              decoration: const InputDecoration(labelText: '메모(선택)'),
+              maxLines: 2,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('취소')),
+          FilledButton(
+            onPressed: () {
+              if (nameCtrl.text.trim().isEmpty) return;
+              Navigator.pop(context, true);
+            },
+            child: const Text('저장'),
+          ),
+        ],
+      ),
+    );
+    if (result != true) return;
+
+    setState(() => _submittingFinal = true);
+    try {
+      final updated = await ApiService().submitFinalDiagnosis(
+        diagnosisId: diagnosis.id,
+        diseaseName: nameCtrl.text.trim(),
+        note: noteCtrl.text.trim().isEmpty ? null : noteCtrl.text.trim(),
+      );
+      setState(() => diagnosis = updated);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('진단명이 저장되었습니다.')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('저장 실패: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _submittingFinal = false);
+    }
   }
 
   Future<void> _submitFeedback(bool correct) async {
@@ -73,17 +135,10 @@ class _DiagnosisResultScreenState extends State<DiagnosisResultScreen> {
                 ],
               ),
             ),
-          if (diagnosis.photoPath != null)
-            FutureBuilder<String>(
-              future: api.photoUrlAsync(diagnosis.photoPath),
-              builder: (context, snap) {
-                if (!snap.hasData || snap.data!.isEmpty) return const SizedBox.shrink();
-                return ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.network(snap.data!, height: 200, width: double.infinity, fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(height: 200, color: Colors.grey.shade200)),
-                );
-              },
+          if (diagnosis.photoPaths.isNotEmpty || diagnosis.photoPath != null)
+            _PhotoCarousel(
+              photoPaths: diagnosis.photoPaths.isNotEmpty ? diagnosis.photoPaths : [diagnosis.photoPath!],
+              api: api,
             ),
           const SizedBox(height: 14),
           Row(
@@ -97,9 +152,23 @@ class _DiagnosisResultScreenState extends State<DiagnosisResultScreen> {
             ],
           ),
           const SizedBox(height: 10),
-          Text(diagnosis.aiDiseaseName ?? '진단 결과 없음',
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-          if (diagnosis.aiDiseaseNameEn != null)
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(diagnosis.effectiveDiseaseName ?? '진단 결과 없음',
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+              ),
+              if (diagnosis.finalDiseaseName != null)
+                _chip(diagnosis.finalDiagnosisSource == 'expert' ? '전문가 확정' : '농가 직접확인', AppColors.blue),
+            ],
+          ),
+          if (diagnosis.finalDiseaseName != null && diagnosis.aiDiseaseName != null && diagnosis.aiDiseaseName != diagnosis.finalDiseaseName)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text('AI 판단: ${diagnosis.aiDiseaseName}', style: TextStyle(fontSize: 11.5, color: Colors.grey.shade500)),
+            ),
+          if (diagnosis.finalDiseaseName == null && diagnosis.aiDiseaseNameEn != null)
             Text(diagnosis.aiDiseaseNameEn!, style: TextStyle(fontSize: 12.5, color: Colors.grey.shade500)),
           const SizedBox(height: 6),
           if (diagnosis.aiConfidence != null)
@@ -111,6 +180,8 @@ class _DiagnosisResultScreenState extends State<DiagnosisResultScreen> {
                     style: TextStyle(fontSize: 12.5, color: Colors.grey.shade600, fontWeight: FontWeight.w600)),
               ],
             ),
+          const SizedBox(height: 14),
+          _buildFinalDiagnosisCard(),
           const SizedBox(height: 14),
           if (diagnosis.aiSymptoms != null)
             Card(
@@ -146,6 +217,51 @@ class _DiagnosisResultScreenState extends State<DiagnosisResultScreen> {
           _buildFeedbackCard(),
         ],
       ),
+    );
+  }
+
+  Widget _buildFinalDiagnosisCard() {
+    if (diagnosis.finalDiseaseName != null) {
+      return Card(
+        color: const Color(0xFFEAF1FB),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.fact_check_outlined, size: 17, color: AppColors.blue),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      diagnosis.finalDiagnosisSource == 'expert' ? '전문가가 확정한 진단' : '직접 확인한 진단',
+                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: _submittingFinal ? null : _openFinalDiagnosisDialog,
+                    child: const Text('수정', style: TextStyle(fontSize: 12)),
+                  ),
+                ],
+              ),
+              if (diagnosis.finalDiagnosisNote != null && diagnosis.finalDiagnosisNote!.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(diagnosis.finalDiagnosisNote!, style: const TextStyle(fontSize: 12.5, height: 1.4)),
+              ],
+              if (diagnosis.finalDiagnosisBy != null) ...[
+                const SizedBox(height: 4),
+                Text('입력: ${diagnosis.finalDiagnosisBy}', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+              ],
+            ],
+          ),
+        ),
+      );
+    }
+    return OutlinedButton.icon(
+      onPressed: _submittingFinal ? null : _openFinalDiagnosisDialog,
+      icon: const Icon(Icons.edit_note, size: 17),
+      label: const Text('AI 진단이 실제와 다른가요? 직접 입력하기'),
     );
   }
 
@@ -308,6 +424,78 @@ class _TreatmentCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _PhotoCarousel extends StatefulWidget {
+  final List<String> photoPaths;
+  final ApiService api;
+  const _PhotoCarousel({required this.photoPaths, required this.api});
+
+  @override
+  State<_PhotoCarousel> createState() => _PhotoCarouselState();
+}
+
+class _PhotoCarouselState extends State<_PhotoCarousel> {
+  final _pageController = PageController();
+  int _index = 0;
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<String>>(
+      future: Future.wait(widget.photoPaths.map(widget.api.photoUrlAsync)),
+      builder: (context, snap) {
+        if (!snap.hasData) return const SizedBox(height: 200);
+        final urls = snap.data!.where((u) => u.isNotEmpty).toList();
+        if (urls.isEmpty) return const SizedBox.shrink();
+
+        return Column(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: SizedBox(
+                height: 200,
+                child: PageView.builder(
+                  controller: _pageController,
+                  itemCount: urls.length,
+                  onPageChanged: (i) => setState(() => _index = i),
+                  itemBuilder: (context, i) => Image.network(
+                    urls[i],
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    errorBuilder: (_, __, ___) => Container(color: Colors.grey.shade200),
+                  ),
+                ),
+              ),
+            ),
+            if (urls.length > 1) ...[
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(
+                  urls.length,
+                  (i) => Container(
+                    width: 6,
+                    height: 6,
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: i == _index ? AppColors.green : Colors.grey.shade300,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        );
+      },
     );
   }
 }

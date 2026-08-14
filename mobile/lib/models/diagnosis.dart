@@ -29,6 +29,7 @@ class Diagnosis {
   final String cropName;
   final DateTime occurrenceDate;
   final String? photoPath;
+  final List<String> photoPaths;
 
   final double? gpsLat;
   final double? gpsLng;
@@ -50,7 +51,17 @@ class Diagnosis {
 
   final String status;
   final bool? farmerConfirmedCorrect;
+
+  final String? finalDiseaseName;
+  final String? finalDiagnosisSource; // farmer / expert
+  final String? finalDiagnosisNote;
+  final String? finalDiagnosisBy;
+  final DateTime? finalDiagnosisAt;
+
   final DateTime createdAt;
+
+  /// 사람이 확인/정정한 최종 진단명이 있으면 그걸, 없으면 AI 진단명을 표시용으로 사용.
+  String? get effectiveDiseaseName => finalDiseaseName ?? aiDiseaseName;
 
   Diagnosis({
     required this.id,
@@ -60,6 +71,7 @@ class Diagnosis {
     required this.cropName,
     required this.occurrenceDate,
     this.photoPath,
+    this.photoPaths = const [],
     this.gpsLat,
     this.gpsLng,
     this.photoTakenAt,
@@ -77,6 +89,11 @@ class Diagnosis {
     this.aiSource,
     required this.status,
     this.farmerConfirmedCorrect,
+    this.finalDiseaseName,
+    this.finalDiagnosisSource,
+    this.finalDiagnosisNote,
+    this.finalDiagnosisBy,
+    this.finalDiagnosisAt,
     required this.createdAt,
   });
 
@@ -89,6 +106,7 @@ class Diagnosis {
       cropName: json['crop_name'] ?? '인삼',
       occurrenceDate: DateTime.parse(json['occurrence_date']),
       photoPath: json['photo_path'],
+      photoPaths: (json['photo_paths'] as List<dynamic>? ?? []).map((e) => e as String).toList(),
       gpsLat: (json['gps_lat'] as num?)?.toDouble(),
       gpsLng: (json['gps_lng'] as num?)?.toDouble(),
       photoTakenAt: json['photo_taken_at'] != null ? DateTime.tryParse(json['photo_taken_at']) : null,
@@ -110,6 +128,11 @@ class Diagnosis {
       aiSource: json['ai_source'],
       status: json['status'] ?? '',
       farmerConfirmedCorrect: json['farmer_confirmed_correct'] as bool?,
+      finalDiseaseName: json['final_disease_name'],
+      finalDiagnosisSource: json['final_diagnosis_source'],
+      finalDiagnosisNote: json['final_diagnosis_note'],
+      finalDiagnosisBy: json['final_diagnosis_by'],
+      finalDiagnosisAt: json['final_diagnosis_at'] != null ? DateTime.tryParse(json['final_diagnosis_at']) : null,
       createdAt: DateTime.parse(json['created_at']),
     );
   }
