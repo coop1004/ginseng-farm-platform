@@ -474,6 +474,31 @@ function loadWeather() {
 // ---------- Reference CMS ----------
 let currentReferences = [];
 let editingReferenceId = null;
+let currentCrops = [];
+let currentAgriMaterials = [];
+
+function ensureCropsLoaded() {
+  if (currentCrops.length > 0) return Promise.resolve(currentCrops);
+  return Api.listCrops().then((crops) => {
+    currentCrops = crops;
+    const select = document.getElementById("refCropId");
+    select.innerHTML = crops
+      .map((c) => `<option value="${c.id}">${c.icon_emoji || ""} ${c.name_kr}${c.is_sample_data ? " (샘플)" : ""}</option>`)
+      .join("");
+    return crops;
+  });
+}
+
+function ensureAgriMaterialsLoaded() {
+  return Api.listAgriMaterials()
+    .then((materials) => {
+      currentAgriMaterials = materials;
+      const datalist = document.getElementById("materialsDatalist");
+      datalist.innerHTML = materials.map((m) => `<option value="${m.name}"></option>`).join("");
+      return materials;
+    })
+    .catch(() => {});
+}
 
 function loadReferences() {
   Api.listReferences()
@@ -517,7 +542,7 @@ function _treatmentItemRow(item) {
   const row = document.createElement("div");
   row.className = "treatment-item-row";
   row.innerHTML = `
-    <input class="ti-product" type="text" placeholder="제품명" value="${(item?.product_name || "").replace(/"/g, "&quot;")}" />
+    <input class="ti-product" type="text" list="materialsDatalist" placeholder="제품명" value="${(item?.product_name || "").replace(/"/g, "&quot;")}" />
     <input class="ti-ingredient" type="text" placeholder="성분" value="${(item?.active_ingredient || "").replace(/"/g, "&quot;")}" />
     <input class="ti-usage" type="text" placeholder="사용법" value="${(item?.usage || "").replace(/"/g, "&quot;")}" />
     <input class="ti-note" type="text" placeholder="비고" value="${(item?.note || "").replace(/"/g, "&quot;")}" />
@@ -540,10 +565,20 @@ function _readTreatmentList(containerId) {
   return items;
 }
 
-function openReferenceModal(ref) {
+async function openReferenceModal(ref) {
   editingReferenceId = ref ? ref.id : null;
   document.getElementById("referenceModalTitle").textContent = ref ? "자료 수정" : "신규 자료 추가";
-  document.getElementById("refCropName").value = ref?.crop_name || "인삼";
+
+  await ensureCropsLoaded();
+  ensureAgriMaterialsLoaded();
+
+  const cropSelect = document.getElementById("refCropId");
+  if (ref?.crop_id) {
+    cropSelect.value = String(ref.crop_id);
+  } else if (currentCrops.length > 0) {
+    cropSelect.value = String(currentCrops[0].id);
+  }
+
   document.getElementById("refType").value = ref?.type || "병해";
   document.getElementById("refNameKr").value = ref?.name_kr || "";
   document.getElementById("refNameEn").value = ref?.name_en || "";
@@ -572,7 +607,7 @@ function closeReferenceModal() {
 
 async function submitReference() {
   const payload = {
-    crop_name: document.getElementById("refCropName").value.trim() || "인삼",
+    crop_id: Number(document.getElementById("refCropId").value),
     type: document.getElementById("refType").value,
     name_kr: document.getElementById("refNameKr").value.trim(),
     name_en: document.getElementById("refNameEn").value.trim() || null,

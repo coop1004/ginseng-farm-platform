@@ -62,6 +62,8 @@ const Api = (() => {
     updateReference: (id, payload) =>
       request(`/api/admin/reference/${id}`, { method: "PUT", body: JSON.stringify(payload) }),
     deleteReference: (id) => request(`/api/admin/reference/${id}`, { method: "DELETE" }),
+    listCrops: () => request("/api/crops", {}, false),
+    listAgriMaterials: () => request("/api/admin/reference/agri-materials"),
     submitAdminFinalDiagnosis: (diagnosisId, diseaseName, note) =>
       request(`/api/admin/diagnoses/${diagnosisId}/final-diagnosis`, {
         method: "PATCH",

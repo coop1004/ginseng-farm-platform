@@ -380,8 +380,8 @@
 
     <div class="form-grid-2">
       <div>
-        <label>작물명 *</label>
-        <input id="refCropName" type="text" value="인삼" />
+        <label>작물 *</label>
+        <select id="refCropId"></select>
       </div>
       <div>
         <label>유형 *</label>
@@ -415,6 +415,8 @@
         <input id="refHumidityMin" type="number" step="1" />
       </div>
     </div>
+
+    <datalist id="materialsDatalist"></datalist>
 
     <label>친환경 방제 자재</label>
     <div id="refEcoList" class="treatment-item-list"></div>
