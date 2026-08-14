@@ -71,6 +71,24 @@ def admin_list(db: Session = Depends(get_db), _current_admin: models.AdminUser =
     return db.query(models.AdminUser).order_by(models.AdminUser.created_at).all()
 
 
+@router.delete("/auth/{admin_id}")
+def admin_delete(
+    admin_id: int,
+    db: Session = Depends(get_db),
+    current_admin: models.AdminUser = Depends(get_current_admin),
+):
+    if admin_id == current_admin.id:
+        raise HTTPException(status_code=400, detail="본인 계정은 삭제할 수 없습니다.")
+    target = db.query(models.AdminUser).filter(models.AdminUser.id == admin_id).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="관리자를 찾을 수 없습니다.")
+    if db.query(models.AdminUser).count() <= 1:
+        raise HTTPException(status_code=400, detail="마지막 남은 관리자 계정은 삭제할 수 없습니다.")
+    db.delete(target)
+    db.commit()
+    return {"ok": True}
+
+
 @router.get("/stats/summary", response_model=schemas.StatsSummary)
 def admin_stats_summary(db: Session = Depends(get_db), _admin: models.AdminUser = Depends(get_current_admin)):
     """관리자 대시보드용 전사(全社) 통계 - 특정 농가로 필터링하지 않고 전체 집계."""

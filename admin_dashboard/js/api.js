@@ -75,5 +75,7 @@ const Api = (() => {
         method: "POST",
         body: JSON.stringify({ username, password, name }),
       }),
+    deleteAdmin: (adminId) =>
+      request(`/api/admin/auth/${adminId}`, { method: "DELETE" }),
   };
 })();

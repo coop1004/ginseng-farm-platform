@@ -470,6 +470,8 @@ function handleLogout() {
 }
 
 // ---------- Account management ----------
+let currentAdminId = null;
+
 async function openAccountModal() {
   document.getElementById("pwCurrent").value = "";
   document.getElementById("pwNew").value = "";
@@ -479,6 +481,7 @@ async function openAccountModal() {
   document.getElementById("accountModal").classList.remove("hidden");
   try {
     const me = await Api.getMe();
+    currentAdminId = me.id;
     document.getElementById("accountMeLabel").textContent = `현재 로그인: ${me.name} (${me.username})`;
   } catch (e) {
     // 조회 실패해도 모달 자체는 그대로 사용 가능하도록 무시
@@ -497,7 +500,25 @@ function loadAdminList() {
       ul.innerHTML = "";
       admins.forEach((a) => {
         const li = document.createElement("li");
-        li.textContent = `${a.name} (${a.username})`;
+        li.className = "admin-list-item";
+
+        const label = document.createElement("span");
+        label.textContent = `${a.name} (${a.username})`;
+        li.appendChild(label);
+
+        if (a.id !== currentAdminId) {
+          const delBtn = document.createElement("button");
+          delBtn.textContent = "삭제";
+          delBtn.className = "admin-delete-btn";
+          delBtn.addEventListener("click", () => deleteAdmin(a.id, a.name));
+          li.appendChild(delBtn);
+        } else {
+          const meTag = document.createElement("span");
+          meTag.className = "admin-me-tag";
+          meTag.textContent = "나";
+          li.appendChild(meTag);
+        }
+
         ul.appendChild(li);
       });
     })
@@ -548,6 +569,22 @@ async function submitAddAdmin() {
     document.getElementById("adminNewName").value = "";
     document.getElementById("adminNewUsername").value = "";
     document.getElementById("adminNewPassword").value = "";
+    loadAdminList();
+  } catch (e) {
+    if (e.isAuthError) {
+      closeAccountModal();
+      showLoginScreen();
+      return;
+    }
+    showToast(e.message, true);
+  }
+}
+
+async function deleteAdmin(adminId, name) {
+  if (!confirm(`${name} 관리자 계정을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`)) return;
+  try {
+    await Api.deleteAdmin(adminId);
+    showToast(`${name} 관리자 계정이 삭제되었습니다.`);
     loadAdminList();
   } catch (e) {
     if (e.isAuthError) {
