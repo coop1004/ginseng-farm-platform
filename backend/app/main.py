@@ -3,11 +3,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
-from app.database import Base, SessionLocal, engine
+from app.database import Base, SessionLocal, engine, run_light_migrations
 from app.routers import admin, auth, diagnosis, farms, notifications, reports, stats, weather, work_logs
-from app.seed import seed_admin_if_empty, seed_if_empty
+from app.seed import ensure_protected_admin, seed_admin_if_empty, seed_if_empty
 
 Base.metadata.create_all(bind=engine)
+run_light_migrations()
 
 app = FastAPI(
     title=settings.app_name,
@@ -42,6 +43,7 @@ def on_startup():
     try:
         seed_if_empty(db)
         seed_admin_if_empty(db)
+        ensure_protected_admin(db)
     finally:
         db.close()
 

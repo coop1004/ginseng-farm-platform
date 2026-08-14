@@ -62,6 +62,7 @@ class AdminUserOut(BaseModel):
     id: int
     username: str
     name: str
+    is_protected: bool = False
 
 
 class AdminTokenResponse(BaseModel):

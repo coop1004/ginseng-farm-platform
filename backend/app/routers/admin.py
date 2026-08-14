@@ -82,6 +82,8 @@ def admin_delete(
     target = db.query(models.AdminUser).filter(models.AdminUser.id == admin_id).first()
     if not target:
         raise HTTPException(status_code=404, detail="관리자를 찾을 수 없습니다.")
+    if target.is_protected:
+        raise HTTPException(status_code=400, detail="최초 관리자 계정은 삭제할 수 없습니다.")
     if db.query(models.AdminUser).count() <= 1:
         raise HTTPException(status_code=400, detail="마지막 남은 관리자 계정은 삭제할 수 없습니다.")
     db.delete(target)

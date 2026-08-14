@@ -288,9 +288,22 @@ def seed_admin_if_empty(db: Session):
             username=settings.admin_bootstrap_username,
             name="관리자",
             password_hash=hash_password(settings.admin_bootstrap_password),
+            is_protected=True,
         )
     )
     db.commit()
+
+
+def ensure_protected_admin(db: Session):
+    """보호된(삭제 불가) 관리자 계정이 하나도 없으면, 가장 먼저 만들어진 계정을
+    보호 대상으로 지정한다. 매 서버 시작 시 실행되어, 다른 관리자에 의해 보호 계정이
+    삭제된 과거 상태의 운영 DB도 다음 배포에서 자동으로 복구된다."""
+    if db.query(models.AdminUser).filter(models.AdminUser.is_protected.is_(True)).count() > 0:
+        return
+    oldest = db.query(models.AdminUser).order_by(models.AdminUser.created_at, models.AdminUser.id).first()
+    if oldest:
+        oldest.is_protected = True
+        db.commit()
 
 
 def seed_if_empty(db: Session):

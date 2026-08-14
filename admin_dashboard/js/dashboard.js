@@ -504,19 +504,25 @@ function loadAdminList() {
 
         const label = document.createElement("span");
         label.textContent = `${a.name} (${a.username})`;
+        if (a.is_protected) label.textContent += " · 최초 관리자";
         li.appendChild(label);
 
-        if (a.id !== currentAdminId) {
+        if (a.id === currentAdminId) {
+          const meTag = document.createElement("span");
+          meTag.className = "admin-me-tag";
+          meTag.textContent = "나";
+          li.appendChild(meTag);
+        } else if (a.is_protected) {
+          const protectedTag = document.createElement("span");
+          protectedTag.className = "admin-protected-tag";
+          protectedTag.textContent = "삭제 불가";
+          li.appendChild(protectedTag);
+        } else {
           const delBtn = document.createElement("button");
           delBtn.textContent = "삭제";
           delBtn.className = "admin-delete-btn";
           delBtn.addEventListener("click", () => deleteAdmin(a.id, a.name));
           li.appendChild(delBtn);
-        } else {
-          const meTag = document.createElement("span");
-          meTag.className = "admin-me-tag";
-          meTag.textContent = "나";
-          li.appendChild(meTag);
         }
 
         ul.appendChild(li);

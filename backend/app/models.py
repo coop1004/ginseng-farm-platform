@@ -24,6 +24,9 @@ class AdminUser(Base):
     username = Column(String(50), unique=True, nullable=False, index=True)
     name = Column(String(50), nullable=False)
     password_hash = Column(String(255), nullable=False)
+    # 최초(부트스트랩) 관리자 계정 표시. 이 계정은 다른 관리자가 삭제할 수 없다
+    # (신규로 추가된 관리자가 실수/악의로 나머지 계정을 전부 지워 아무도 못 들어오는 상황 방지).
+    is_protected = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, default=dt.datetime.utcnow)
 
 
