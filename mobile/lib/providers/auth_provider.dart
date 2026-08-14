@@ -56,6 +56,7 @@ class AuthProvider extends ChangeNotifier {
     required String password,
     required String name,
     required String householdName,
+    List<int> cropIds = const [],
   }) async {
     isLoading = true;
     error = null;
@@ -66,6 +67,7 @@ class AuthProvider extends ChangeNotifier {
         password: password,
         name: name,
         householdName: householdName,
+        cropIds: cropIds,
       );
       await _applyToken(res);
       return true;

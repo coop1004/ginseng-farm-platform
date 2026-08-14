@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../models/crop.dart';
 import '../providers/auth_provider.dart';
+import '../services/api_service.dart';
+import '../theme/app_theme.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -12,6 +15,7 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _api = ApiService();
   final _nameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
@@ -19,6 +23,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _joinCodeCtrl = TextEditingController();
 
   bool _isNewHousehold = true;
+
+  List<Crop> _crops = [];
+  final Set<int> _selectedCropIds = {};
+  bool _loadingCrops = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCrops();
+  }
+
+  Future<void> _loadCrops() async {
+    try {
+      final crops = await _api.getCrops();
+      final ginseng = crops.where((c) => c.nameKr == '인삼').toList();
+      setState(() {
+        _crops = crops;
+        if (ginseng.isNotEmpty) _selectedCropIds.add(ginseng.first.id);
+      });
+    } catch (_) {
+      // 목록을 못 불러와도 회원가입 자체는 진행할 수 있어야 한다(선택 없이 제출하면
+      // 서버가 인삼으로 기본 등록해준다).
+    } finally {
+      if (mounted) setState(() => _loadingCrops = false);
+    }
+  }
 
   @override
   void dispose() {
@@ -32,6 +62,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_isNewHousehold && _selectedCropIds.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('재배 작물을 최소 1개 선택해주세요.')));
+      return;
+    }
     final auth = context.read<AuthProvider>();
 
     final ok = _isNewHousehold
@@ -40,6 +74,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             password: _passwordCtrl.text,
             name: _nameCtrl.text.trim(),
             householdName: _householdNameCtrl.text.trim(),
+            cropIds: _selectedCropIds.toList(),
           )
         : await auth.registerJoinHousehold(
             phone: _phoneCtrl.text.trim(),
@@ -102,13 +137,47 @@ class _RegisterScreenState extends State<RegisterScreen> {
               validator: (v) => (v == null || v.length < 4) ? '비밀번호는 4자 이상 입력해주세요.' : null,
             ),
             const SizedBox(height: 12),
-            if (_isNewHousehold)
+            if (_isNewHousehold) ...[
               TextFormField(
                 controller: _householdNameCtrl,
                 decoration: const InputDecoration(labelText: '농가명 *', hintText: '예: 김인삼 농가', prefixIcon: Icon(Icons.home_outlined)),
                 validator: (v) => (v == null || v.trim().isEmpty) ? '농가명을 입력해주세요.' : null,
-              )
-            else
+              ),
+              const SizedBox(height: 20),
+              Text('재배 작물 *', style: TextStyle(fontSize: 12.5, color: Colors.grey.shade700)),
+              const SizedBox(height: 4),
+              Text(
+                '하나 이상 선택해주세요. 선택한 작물만 앱 화면에 표시됩니다.',
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+              ),
+              const SizedBox(height: 8),
+              _loadingCrops
+                  ? const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: LinearProgressIndicator(),
+                    )
+                  : Wrap(
+                      spacing: 8,
+                      children: _crops
+                          .map((c) => FilterChip(
+                                label: Text('${c.iconEmoji ?? ''} ${c.nameKr}'.trim()),
+                                selected: _selectedCropIds.contains(c.id),
+                                onSelected: (selected) => setState(() {
+                                  if (selected) {
+                                    _selectedCropIds.add(c.id);
+                                  } else {
+                                    _selectedCropIds.remove(c.id);
+                                  }
+                                }),
+                              ))
+                          .toList(),
+                    ),
+              if (!_loadingCrops && _selectedCropIds.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.only(top: 6),
+                  child: Text('최소 1개는 선택해주세요.', style: TextStyle(fontSize: 11, color: AppColors.red)),
+                ),
+            ] else
               TextFormField(
                 controller: _joinCodeCtrl,
                 textCapitalization: TextCapitalization.characters,

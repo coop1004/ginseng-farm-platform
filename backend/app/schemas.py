@@ -4,12 +4,24 @@ from typing import List, Optional
 from pydantic import BaseModel, ConfigDict
 
 
+class CropOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    name_kr: str
+    name_en: Optional[str] = None
+    icon_emoji: Optional[str] = None
+    is_active: bool
+    is_sample_data: bool
+    sort_order: int
+
+
 # ---------- Auth / Household ----------
 class RegisterNewHousehold(BaseModel):
     phone: str
     password: str
     name: str
     household_name: str  # 새로 만들 농가명
+    crop_ids: List[int] = []  # 등록할 재배 작물(복수 선택 가능). 생략 시(구버전 클라이언트) 인삼으로 기본 등록
 
 
 class RegisterJoinHousehold(BaseModel):
@@ -29,6 +41,7 @@ class HouseholdOut(BaseModel):
     id: int
     name: str
     join_code: str
+    crops: List[CropOut] = []  # 이 농가가 등록한(=화면에 노출할) 작물 목록
 
 
 class UserOut(BaseModel):
@@ -90,17 +103,6 @@ class GrowthStageOut(BaseModel):
     name_kr: str
     sort_order: int
     description: Optional[str] = None
-
-
-class CropOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-    id: int
-    name_kr: str
-    name_en: Optional[str] = None
-    icon_emoji: Optional[str] = None
-    is_active: bool
-    is_sample_data: bool
-    sort_order: int
 
 
 # ---------- Farm ----------

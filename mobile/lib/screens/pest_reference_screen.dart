@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../models/crop.dart';
 import '../models/diagnosis.dart';
 import '../models/pest_reference.dart';
+import '../providers/crop_provider.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
@@ -38,10 +40,13 @@ class _PestReferenceScreenState extends State<PestReferenceScreen> {
       _error = null;
     });
     try {
-      final crops = await _api.getCrops();
+      // 이 농가가 등록한 작물만 칩으로 보여준다 — 인삼만 등록한 농가는 칩 자체가 하나뿐이라
+      // 사실상 선택 UI가 없는 것과 동일하게 보인다.
+      final cropProvider = context.read<CropProvider>();
+      final crops = cropProvider.myCrops;
       setState(() {
         _crops = crops;
-        _selectedCrop = crops.isNotEmpty ? crops.first : null;
+        _selectedCrop = cropProvider.activeCrop ?? (crops.isNotEmpty ? crops.first : null);
       });
       if (_selectedCrop != null) await _loadReferences(_selectedCrop!.id);
     } catch (e) {

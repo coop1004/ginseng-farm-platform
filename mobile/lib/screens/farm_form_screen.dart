@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../models/crop.dart';
 import '../models/farm.dart';
+import '../providers/crop_provider.dart';
 import '../services/api_service.dart';
 
 class FarmFormScreen extends StatefulWidget {
@@ -65,26 +67,24 @@ class _FarmFormScreenState extends State<FarmFormScreen> {
   }
 
   Future<void> _loadCrops() async {
-    try {
-      final crops = await _api.getCrops();
-      final existingCropId = widget.farm?.cropId;
-      Crop? initial;
-      for (final c in crops) {
-        if (c.id == existingCropId) {
-          initial = c;
-          break;
-        }
+    // 전체 작물이 아니라 이 농가가 등록한 작물 중에서만 고를 수 있다(CropProvider는 로그인
+    // 시점에 이미 채워져 있으므로 네트워크 호출 없이 바로 읽는다).
+    final crops = context.read<CropProvider>().myCrops;
+    final existingCropId = widget.farm?.cropId;
+    Crop? initial;
+    for (final c in crops) {
+      if (c.id == existingCropId) {
+        initial = c;
+        break;
       }
-      setState(() {
-        _crops = crops;
-        _selectedCrop = initial ?? (crops.isNotEmpty ? crops.first : null);
-        _loadingCrops = false;
-      });
-      if (_selectedCrop != null && !_isGinseng) {
-        await _loadGrowthStages(_selectedCrop!.id);
-      }
-    } catch (_) {
-      if (mounted) setState(() => _loadingCrops = false);
+    }
+    setState(() {
+      _crops = crops;
+      _selectedCrop = initial ?? (crops.isNotEmpty ? crops.first : null);
+      _loadingCrops = false;
+    });
+    if (_selectedCrop != null && !_isGinseng) {
+      await _loadGrowthStages(_selectedCrop!.id);
     }
   }
 

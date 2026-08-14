@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../models/farm.dart';
 import '../models/stats.dart';
 import '../models/weather_record.dart';
+import '../providers/crop_provider.dart';
 import '../providers/farm_provider.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
@@ -87,7 +88,8 @@ class _StatsScreenState extends State<StatsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final farms = context.watch<FarmProvider>().farms;
+    final activeCropId = context.watch<CropProvider>().activeCrop?.id;
+    final farms = context.watch<FarmProvider>().forCrop(activeCropId);
 
     return Scaffold(
       appBar: AppBar(title: const Text('통계 · 리포트')),

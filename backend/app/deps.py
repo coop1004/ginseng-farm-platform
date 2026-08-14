@@ -1,3 +1,5 @@
+from typing import List
+
 import jwt
 from fastapi import Depends, Header, HTTPException
 from sqlalchemy.orm import Session
@@ -40,6 +42,16 @@ def get_current_household_id(
 def ensure_farm_access(farm: models.Farm, household_id: int) -> None:
     if farm.household_id != household_id:
         raise HTTPException(status_code=404, detail="농장을 찾을 수 없습니다.")
+
+
+def get_household_crop_ids(
+    household_id: int = Depends(get_current_household_id),
+    db: Session = Depends(get_db),
+) -> List[int]:
+    """로그인한 농가가 등록한(=화면에 노출받을) crop_id 목록. 병해충 참고자료, 농장 생성 등
+    작물별로 접근을 제한해야 하는 라우터에서 공통으로 재사용한다."""
+    rows = db.query(models.HouseholdCrop.crop_id).filter(models.HouseholdCrop.household_id == household_id).all()
+    return [r[0] for r in rows]
 
 
 def get_current_admin(authorization: str = Header(None), db: Session = Depends(get_db)) -> models.AdminUser:

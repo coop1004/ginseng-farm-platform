@@ -349,6 +349,8 @@ function showHouseholdDetail(householdId) {
   document.getElementById("householdDetailPanel").classList.remove("hidden");
   document.getElementById("householdDetailTitle").textContent = `${household.household_name} · 농장 목록`;
 
+  renderHouseholdCrops(householdId);
+
   const farms = currentFarms.filter((f) => f.household_id === householdId);
   const tbody = document.querySelector("#householdFarmsTable tbody");
   tbody.innerHTML = "";
@@ -371,6 +373,63 @@ function showHouseholdDetail(householdId) {
   tbody.querySelectorAll("button[data-farm-id]").forEach((btn) => {
     btn.addEventListener("click", () => openNotifyModal(btn.dataset.farmId, btn.dataset.farmName));
   });
+}
+
+// 농가가 새 작물을 재배하기 시작했을 때 관리자가 노출 작물을 직접 추가/제거할 수 있게 한다.
+// 최소 1개는 항상 남아있어야 한다(서버에서도 마지막 1개는 삭제를 막지만, UI에서도 미리
+// x 버튼을 숨겨서 헛된 요청을 안 보내게 한다).
+function renderHouseholdCrops(householdId) {
+  const container = document.getElementById("householdCropChips");
+  container.innerHTML = "로딩 중...";
+
+  Promise.all([ensureCropsLoaded(), Api.getHouseholdCrops(householdId)])
+    .then(([allCrops, myCrops]) => {
+      container.innerHTML = "";
+      const myCropIds = new Set(myCrops.map((c) => c.id));
+
+      myCrops.forEach((c) => {
+        const chip = document.createElement("span");
+        chip.className = "badge badge-low";
+        chip.style.display = "inline-flex";
+        chip.style.alignItems = "center";
+        chip.style.gap = "4px";
+        chip.innerHTML = `${c.icon_emoji || ""} ${c.name_kr}`;
+        if (myCrops.length > 1) {
+          const removeBtn = document.createElement("button");
+          removeBtn.textContent = "×";
+          removeBtn.title = "노출 작물에서 제거";
+          removeBtn.style.cssText = "border:none;background:none;cursor:pointer;font-weight:800;padding:0 0 0 2px;";
+          removeBtn.addEventListener("click", () => {
+            Api.removeHouseholdCrop(householdId, c.id)
+              .then(() => renderHouseholdCrops(householdId))
+              .catch((e) => showToast(`작물 제거 실패: ${e.message}`, true));
+          });
+          chip.appendChild(removeBtn);
+        }
+        container.appendChild(chip);
+      });
+
+      const remaining = allCrops.filter((c) => !myCropIds.has(c.id));
+      if (remaining.length > 0) {
+        const select = document.createElement("select");
+        select.style.cssText = "font-size:12px;padding:2px 4px;";
+        select.innerHTML = remaining.map((c) => `<option value="${c.id}">${c.icon_emoji || ""} ${c.name_kr}</option>`).join("");
+        const addBtn = document.createElement("button");
+        addBtn.className = "btn btn-ghost btn-sm";
+        addBtn.textContent = "+ 작물 추가";
+        addBtn.addEventListener("click", () => {
+          Api.addHouseholdCrop(householdId, select.value)
+            .then(() => renderHouseholdCrops(householdId))
+            .catch((e) => showToast(`작물 추가 실패: ${e.message}`, true));
+        });
+        container.appendChild(select);
+        container.appendChild(addBtn);
+      }
+    })
+    .catch((e) => {
+      container.innerHTML = "";
+      showToast(`노출 작물 정보를 불러오지 못했습니다: ${e.message}`, true);
+    });
 }
 
 function backToHouseholdList() {

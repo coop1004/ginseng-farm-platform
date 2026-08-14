@@ -20,6 +20,7 @@ from app.routers import (
 )
 from app.seed import (
     backfill_crop_ids_if_missing,
+    backfill_household_crops_if_missing,
     backfill_pest_disease_materials_if_missing,
     ensure_protected_admin,
     seed_admin_if_empty,
@@ -77,6 +78,7 @@ def on_startup():
         backfill_pest_disease_materials_if_missing(db)
         seed_pilot_crop_pest_diseases_if_empty(db)
         seed_regional_pilot_crop_demo_if_empty(db)
+        backfill_household_crops_if_missing(db)
     finally:
         db.close()
 

@@ -52,6 +52,10 @@ class Household(Base):
 
     members = relationship("HouseholdMember", back_populates="household", cascade="all, delete-orphan")
     farms = relationship("Farm", back_populates="household", cascade="all, delete-orphan")
+    # HouseholdOut.model_validate(household)가 crops를 바로 읽을 수 있도록 하는 읽기 전용 편의
+    # 릴레이션 — 실제 등록/해제는 HouseholdCrop 행을 직접 추가/삭제해서 한다(unique 제약,
+    # created_at 등을 다루려면 이쪽이 더 명확함).
+    crops = relationship("Crop", secondary="household_crops", viewonly=True, order_by="Crop.sort_order")
 
 
 class HouseholdMember(Base):
@@ -65,6 +69,24 @@ class HouseholdMember(Base):
 
     household = relationship("Household", back_populates="members")
     user = relationship("User", back_populates="memberships")
+
+
+class HouseholdCrop(Base):
+    """농가(household)가 "등록한" 작물 목록 — Farm.crop_id(그 필지가 어떤 작물인지)와는
+    다른 개념으로, 농가 계정이 앱에서 노출받을 작물 범위를 나타낸다. 인삼만 등록된 농가는
+    모바일 화면에서 다른 작물을 아예 볼 수 없고(작물 선택/전환 UI도 안 보임), API 레벨에서도
+    등록하지 않은 crop_id는 조회/생성이 막힌다."""
+
+    __tablename__ = "household_crops"
+    __table_args__ = (UniqueConstraint("household_id", "crop_id", name="uq_household_crop"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    household_id = Column(Integer, ForeignKey("households.id"), nullable=False)
+    crop_id = Column(Integer, ForeignKey("crops.id"), nullable=False)
+    created_at = Column(DateTime, default=dt.datetime.utcnow)
+
+    household = relationship("Household")
+    crop = relationship("Crop")
 
 
 class Crop(Base):

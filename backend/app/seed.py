@@ -355,6 +355,35 @@ def backfill_pest_disease_materials_if_missing(db: Session):
     db.commit()
 
 
+def backfill_household_crops_if_missing(db: Session):
+    """household_crops(농가가 등록한 작물 범위)가 하나도 없는 household마다 채운다.
+    모든 데모/파일럿 작물 Farm이 이미 시딩된 뒤에 호출되어야 한다 — 각 household가
+    실제로 보유한 Farm.crop_id들의 distinct 값을 등록하고(2/3단계에서 만든 고추/배추
+    전용 샘플 household가 엉뚱하게 인삼까지 등록되는 걸 방지), 필지가 하나도 없는
+    household만 인삼을 기본값으로 채운다(신규 가입 직후 농장을 아직 안 만든 인삼 농가는
+    이 케이스에 해당하지 않는다 — register_new_household가 가입 시점에 이미 채워준다)."""
+    ginseng_id = get_ginseng_crop_id(db)
+
+    households = db.query(models.Household).all()
+    for household in households:
+        if db.query(models.HouseholdCrop).filter(models.HouseholdCrop.household_id == household.id).first():
+            continue
+
+        crop_ids = {
+            row[0]
+            for row in db.query(models.Farm.crop_id)
+            .filter(models.Farm.household_id == household.id, models.Farm.crop_id.isnot(None))
+            .distinct()
+            .all()
+        }
+        if not crop_ids:
+            crop_ids = {ginseng_id}
+
+        for crop_id in crop_ids:
+            db.add(models.HouseholdCrop(household_id=household.id, crop_id=crop_id))
+    db.commit()
+
+
 def seed_admin_if_empty(db: Session):
     """운영 DB에 이미 농가 데이터가 있어도(= seed_if_empty가 건너뛰어도) 관리자 계정이
     하나도 없으면 부트스트랩 계정을 만든다. 최초 배포 시 1회만 실행됨."""

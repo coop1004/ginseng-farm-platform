@@ -1,3 +1,5 @@
+import 'crop.dart';
+
 class AuthUser {
   final int id;
   final String phone;
@@ -14,11 +16,17 @@ class HouseholdInfo {
   final int id;
   final String name;
   final String joinCode;
+  final List<Crop> crops;
 
-  HouseholdInfo({required this.id, required this.name, required this.joinCode});
+  HouseholdInfo({required this.id, required this.name, required this.joinCode, this.crops = const []});
 
   factory HouseholdInfo.fromJson(Map<String, dynamic> json) {
-    return HouseholdInfo(id: json['id'], name: json['name'] ?? '', joinCode: json['join_code'] ?? '');
+    return HouseholdInfo(
+      id: json['id'],
+      name: json['name'] ?? '',
+      joinCode: json['join_code'] ?? '',
+      crops: (json['crops'] as List<dynamic>? ?? []).map((e) => Crop.fromJson(e)).toList(),
+    );
   }
 }
 

@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../models/auth.dart';
 import '../providers/auth_provider.dart';
+import '../providers/crop_provider.dart';
 import '../services/api_service.dart';
 import '../services/app_config.dart';
 import '../theme/app_theme.dart';
@@ -65,6 +66,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
     if (confirmed == true && mounted) {
       await context.read<AuthProvider>().logout();
+      if (mounted) await context.read<CropProvider>().clear();
       // SettingsScreen은 Navigator.push로 쌓인 화면이라, AuthGate가 다시 빌드되어
       // LoginScreen을 반환해도 그 위에 남아있으면 화면이 안 바뀐 것처럼 보인다.
       // 루트(AuthGate)까지 스택을 비워야 로그인 화면이 실제로 보인다.

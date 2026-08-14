@@ -3,8 +3,10 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../models/app_notification.dart';
+import '../models/crop.dart';
 import '../models/stats.dart';
 import '../providers/auth_provider.dart';
+import '../providers/crop_provider.dart';
 import '../providers/farm_provider.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
@@ -28,6 +30,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   StatsSummary? _summary;
   List<AppNotification> _notifications = [];
   bool _loading = true;
+  int? _lastLoadedCropId;
 
   @override
   void initState() {
@@ -38,8 +41,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
+      final cropId = mounted ? context.read<CropProvider>().activeCrop?.id : null;
       final results = await Future.wait([
-        _api.getStatsSummary(),
+        _api.getStatsSummary(cropId: cropId),
         _api.getNotifications(),
       ]);
       setState(() {
@@ -57,12 +61,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     final farmProvider = context.watch<FarmProvider>();
     final auth = context.watch<AuthProvider>();
+    final cropProvider = context.watch<CropProvider>();
     final today = DateFormat('yyyy년 MM월 dd일 (E)', 'ko_KR').format(DateTime.now());
+
+    // CropProvider는 로그인 직후 비동기로 채워지고(작물 전환 시에도 바뀜) 활성 작물이
+    // 달라지면 그 작물 기준으로 요약을 다시 불러온다. 등록 작물이 1개뿐인 농가는 activeCrop이
+    // 한 번 정해진 뒤로는 안 바뀌므로 최초 1회만 다시 로드되고 이후엔 지금과 동일하게 동작한다.
+    final activeCropId = cropProvider.activeCrop?.id;
+    if (activeCropId != _lastLoadedCropId) {
+      _lastLoadedCropId = activeCropId;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+    }
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('인삼 AI 영농일지'),
         actions: [
+          if (cropProvider.hasMultipleCrops) _CropSwitcher(cropProvider: cropProvider),
           IconButton(
             icon: const Icon(Icons.settings_outlined),
             onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsScreen())),
@@ -210,6 +225,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
             const SizedBox(height: 2),
             Text(label, style: TextStyle(fontSize: 10.5, color: Colors.grey.shade600)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CropSwitcher extends StatelessWidget {
+  final CropProvider cropProvider;
+  const _CropSwitcher({required this.cropProvider});
+
+  @override
+  Widget build(BuildContext context) {
+    final active = cropProvider.activeCrop;
+    return PopupMenuButton<Crop>(
+      tooltip: '작물 전환',
+      initialValue: active,
+      onSelected: (crop) => cropProvider.setActiveCrop(crop),
+      itemBuilder: (context) => cropProvider.myCrops
+          .map((c) => PopupMenuItem(value: c, child: Text('${c.iconEmoji ?? ''} ${c.nameKr}'.trim())))
+          .toList(),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('${active?.iconEmoji ?? ''} ${active?.nameKr ?? ''}'.trim(),
+                style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: Colors.white)),
+            const Icon(Icons.expand_more, color: Colors.white, size: 18),
           ],
         ),
       ),

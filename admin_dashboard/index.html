@@ -130,8 +130,8 @@
 
     <section id="map" class="section hidden">
       <div class="sample-banner">
-        🧪 지역x작물 비교 차트는 <strong>샘플 데이터 기반 프로토타입</strong>입니다. 실제 인삼 지역 데이터는 반영되어 있으나,
-        고추·배추는 다작물 확장 구조를 보여주기 위해 가상으로 생성한 시연용 데이터입니다.
+        🧪 지역별 발생 지도·지역x작물 비교 차트는 <strong>샘플 데이터 기반 프로토타입</strong>입니다. 인삼을 포함한 모든 작물의
+        지역·발생 데이터가 실제 농가 제출 기록이 아니라 구조 시연을 위해 생성한 가상 데이터입니다.
       </div>
       <div class="panel">
         <div class="panel-header">
@@ -186,6 +186,8 @@
             <h2 id="householdDetailTitle" class="panel-detail-title">농장 목록</h2>
           </div>
         </div>
+        <div class="panel-sub" style="margin-bottom: 8px;">노출 작물 (이 농가 앱 화면에 표시되는 작물)</div>
+        <div id="householdCropChips" style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 16px;"></div>
         <div class="table-wrap">
           <table class="data-table" id="householdFarmsTable">
             <thead>

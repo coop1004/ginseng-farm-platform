@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../models/farm.dart';
+import '../providers/crop_provider.dart';
 import '../providers/farm_provider.dart';
 import '../services/api_service.dart';
 import '../services/gallery_saver.dart';
@@ -33,7 +34,8 @@ class _WorkLogFormScreenState extends State<WorkLogFormScreen> {
   @override
   void initState() {
     super.initState();
-    final farms = context.read<FarmProvider>().farms;
+    final activeCropId = context.read<CropProvider>().activeCrop?.id;
+    final farms = context.read<FarmProvider>().forCrop(activeCropId);
     if (farms.isNotEmpty) {
       _farm = farms.first;
       _areaCtrl.text = _farm!.areaM2.toStringAsFixed(0);
@@ -94,7 +96,8 @@ class _WorkLogFormScreenState extends State<WorkLogFormScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final farms = context.watch<FarmProvider>().farms;
+    final activeCropId = context.watch<CropProvider>().activeCrop?.id;
+    final farms = context.watch<FarmProvider>().forCrop(activeCropId);
 
     return Scaffold(
       appBar: AppBar(title: const Text('영농작업 기록')),

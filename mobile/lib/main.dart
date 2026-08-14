@@ -3,6 +3,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 
 import 'providers/auth_provider.dart';
+import 'providers/crop_provider.dart';
 import 'providers/farm_provider.dart';
 import 'screens/auth_gate.dart';
 import 'theme/app_theme.dart';
@@ -22,6 +23,7 @@ class GinsengFarmApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => FarmProvider()),
+        ChangeNotifierProvider(create: (_) => CropProvider()),
       ],
       child: MaterialApp(
         title: '인삼 AI 영농일지',

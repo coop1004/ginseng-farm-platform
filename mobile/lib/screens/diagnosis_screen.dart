@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../models/diagnosis.dart';
 import '../models/farm.dart';
+import '../providers/crop_provider.dart';
 import '../providers/farm_provider.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
@@ -50,7 +51,8 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final farms = context.watch<FarmProvider>().farms;
+    final activeCropId = context.watch<CropProvider>().activeCrop?.id;
+    final farms = context.watch<FarmProvider>().forCrop(activeCropId);
 
     return Scaffold(
       appBar: AppBar(title: const Text('AI 병해충 진단')),

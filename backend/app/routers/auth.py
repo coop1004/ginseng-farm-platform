@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app import models, schemas
 from app.database import get_db
 from app.deps import get_current_household_id, get_current_user
+from app.seed import get_ginseng_crop_id
 from app.services.auth_service import (
     create_access_token,
     generate_join_code,
@@ -41,6 +42,11 @@ def register_new_household(payload: schemas.RegisterNewHousehold, db: Session = 
     db.flush()
 
     db.add(models.HouseholdMember(household_id=household.id, user_id=user.id))
+
+    crop_ids = payload.crop_ids or [get_ginseng_crop_id(db)]  # 구버전 클라이언트는 crop_ids를 안 보냄 -> 인삼 기본값
+    for crop_id in set(crop_ids):
+        db.add(models.HouseholdCrop(household_id=household.id, crop_id=crop_id))
+
     db.commit()
     db.refresh(user)
     db.refresh(household)

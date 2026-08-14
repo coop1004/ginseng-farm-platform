@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/farm.dart';
+import '../providers/crop_provider.dart';
 import '../providers/farm_provider.dart';
 import '../widgets/common.dart';
 import 'farm_form_screen.dart';
@@ -12,6 +13,8 @@ class FarmListScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<FarmProvider>();
+    final activeCropId = context.watch<CropProvider>().activeCrop?.id;
+    final farms = provider.forCrop(activeCropId);
 
     return Scaffold(
       appBar: AppBar(title: const Text('농장 관리')),
@@ -33,12 +36,12 @@ class FarmListScreen extends StatelessWidget {
             ? const LoadingView()
             : provider.error != null && provider.farms.isEmpty
                 ? ErrorView(message: '농장 목록을 불러오지 못했습니다.\n${provider.error}', onRetry: provider.load)
-                : provider.farms.isEmpty
+                : farms.isEmpty
                     ? const EmptyView(message: '등록된 농장이 없습니다.\n우측 하단 버튼으로 농장을 등록해보세요.', icon: Icons.grass_outlined)
                     : ListView.builder(
                         padding: const EdgeInsets.fromLTRB(16, 16, 16, 90),
-                        itemCount: provider.farms.length,
-                        itemBuilder: (context, i) => _FarmCard(farm: provider.farms[i]),
+                        itemCount: farms.length,
+                        itemBuilder: (context, i) => _FarmCard(farm: farms[i]),
                       ),
       ),
     );

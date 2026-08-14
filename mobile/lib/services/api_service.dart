@@ -96,6 +96,7 @@ class ApiService {
     required String password,
     required String name,
     required String householdName,
+    List<int> cropIds = const [],
   }) async {
     final res = await http.post(
       await _uri('/api/auth/register/new-household'),
@@ -105,6 +106,7 @@ class ApiService {
         'password': password,
         'name': name,
         'household_name': householdName,
+        'crop_ids': cropIds,
       }),
     );
     _checkResponse(res);
@@ -320,9 +322,9 @@ class ApiService {
   }
 
   // ---------- Stats ----------
-  Future<StatsSummary> getStatsSummary({int? farmId}) async {
+  Future<StatsSummary> getStatsSummary({int? farmId, int? cropId}) async {
     final res = await http.get(
-      await _uri('/api/stats/summary', {'farm_id': farmId}),
+      await _uri('/api/stats/summary', {'farm_id': farmId, 'crop_id': cropId}),
       headers: await _authHeaders(),
     );
     _checkResponse(res);

@@ -157,6 +157,71 @@ def farms_overview(db: Session = Depends(get_db), _admin: models.AdminUser = Dep
     return result
 
 
+@router.get("/households/{household_id}/crops", response_model=List[schemas.CropOut])
+def get_household_crops(
+    household_id: int, db: Session = Depends(get_db), _admin: models.AdminUser = Depends(get_current_admin)
+):
+    """이 농가에게 현재 노출된(등록된) 작물 목록. 농가 상세 화면에서 관리자가 직접
+    추가/제거할 수 있도록 하기 위한 조회용 엔드포인트."""
+    household = db.query(models.Household).filter(models.Household.id == household_id).first()
+    if not household:
+        raise HTTPException(status_code=404, detail="농가를 찾을 수 없습니다.")
+    return household.crops
+
+
+@router.post("/households/{household_id}/crops/{crop_id}", response_model=List[schemas.CropOut])
+def add_household_crop(
+    household_id: int,
+    crop_id: int,
+    db: Session = Depends(get_db),
+    _admin: models.AdminUser = Depends(get_current_admin),
+):
+    """농가가 새로운 작물을 추가로 재배하기 시작했을 때, 관리자가 수동으로 노출 작물을
+    추가한다(농가 본인이 셀프서비스로 작물을 추가하는 화면은 아직 없음)."""
+    household = db.query(models.Household).filter(models.Household.id == household_id).first()
+    if not household:
+        raise HTTPException(status_code=404, detail="농가를 찾을 수 없습니다.")
+    crop = db.query(models.Crop).filter(models.Crop.id == crop_id).first()
+    if not crop:
+        raise HTTPException(status_code=404, detail="작물을 찾을 수 없습니다.")
+
+    exists = (
+        db.query(models.HouseholdCrop)
+        .filter(models.HouseholdCrop.household_id == household_id, models.HouseholdCrop.crop_id == crop_id)
+        .first()
+    )
+    if not exists:
+        db.add(models.HouseholdCrop(household_id=household_id, crop_id=crop_id))
+        db.commit()
+    db.refresh(household)
+    return household.crops
+
+
+@router.delete("/households/{household_id}/crops/{crop_id}", response_model=List[schemas.CropOut])
+def remove_household_crop(
+    household_id: int,
+    crop_id: int,
+    db: Session = Depends(get_db),
+    _admin: models.AdminUser = Depends(get_current_admin),
+):
+    household = db.query(models.Household).filter(models.Household.id == household_id).first()
+    if not household:
+        raise HTTPException(status_code=404, detail="농가를 찾을 수 없습니다.")
+
+    remaining = (
+        db.query(models.HouseholdCrop).filter(models.HouseholdCrop.household_id == household_id).count()
+    )
+    if remaining <= 1:
+        raise HTTPException(status_code=400, detail="농가에는 최소 1개의 작물이 등록되어 있어야 합니다.")
+
+    db.query(models.HouseholdCrop).filter(
+        models.HouseholdCrop.household_id == household_id, models.HouseholdCrop.crop_id == crop_id
+    ).delete(synchronize_session=False)
+    db.commit()
+    db.refresh(household)
+    return household.crops
+
+
 @router.get("/diagnoses", response_model=List[schemas.AdminDiagnosisOut])
 def admin_diagnoses(
     status: Optional[str] = None,

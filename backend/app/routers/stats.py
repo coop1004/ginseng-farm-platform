@@ -62,12 +62,21 @@ def build_summary(farm_query: Query, work_query: Query, diag_query: Query) -> di
 @router.get("/summary", response_model=schemas.StatsSummary)
 def get_summary(
     farm_id: Optional[int] = None,
+    crop_id: Optional[int] = None,
     household_id: int = Depends(get_current_household_id),
     db: Session = Depends(get_db),
 ):
+    """crop_id를 주면 홈 화면 요약을 그 작물의 필지로만 좁힌다 — 모바일이 현재 활성 작물
+    기준으로 대시보드를 보여줄 때 사용. 등록 여부 검증은 하지 않는다(단순 조회 필터라
+    다른 작물 crop_id를 넣어도 그 작물 소속 필지가 없으면 0건으로 나올 뿐 정보 노출이 없음)."""
     farm_query = db.query(models.Farm).filter(models.Farm.household_id == household_id)
     work_query = db.query(models.WorkLog).join(models.Farm).filter(models.Farm.household_id == household_id)
     diag_query = db.query(models.Diagnosis).join(models.Farm).filter(models.Farm.household_id == household_id)
+
+    if crop_id:
+        farm_query = farm_query.filter(models.Farm.crop_id == crop_id)
+        work_query = work_query.filter(models.Farm.crop_id == crop_id)
+        diag_query = diag_query.filter(models.Farm.crop_id == crop_id)
 
     if farm_id:
         work_query = work_query.filter(models.WorkLog.farm_id == farm_id)

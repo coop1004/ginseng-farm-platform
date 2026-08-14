@@ -63,6 +63,11 @@ const Api = (() => {
       request(`/api/admin/reference/${id}`, { method: "PUT", body: JSON.stringify(payload) }),
     deleteReference: (id) => request(`/api/admin/reference/${id}`, { method: "DELETE" }),
     listCrops: () => request("/api/crops", {}, false),
+    getHouseholdCrops: (householdId) => request(`/api/admin/households/${householdId}/crops`),
+    addHouseholdCrop: (householdId, cropId) =>
+      request(`/api/admin/households/${householdId}/crops/${cropId}`, { method: "POST" }),
+    removeHouseholdCrop: (householdId, cropId) =>
+      request(`/api/admin/households/${householdId}/crops/${cropId}`, { method: "DELETE" }),
     listAgriMaterials: () => request("/api/admin/reference/agri-materials"),
     submitAdminFinalDiagnosis: (diagnosisId, diseaseName, note) =>
       request(`/api/admin/diagnoses/${diagnosisId}/final-diagnosis`, {
