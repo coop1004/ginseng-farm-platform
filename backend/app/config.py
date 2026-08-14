@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60 * 24 * 30  # 30일
 
+    cron_secret: str = ""  # 설정 시, 날씨 수집 배치 엔드포인트 호출에 이 값과 일치하는 헤더가 필요
+
     class Config:
         env_file = str(BASE_DIR / ".env")
         env_file_encoding = "utf-8"

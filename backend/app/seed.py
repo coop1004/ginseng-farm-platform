@@ -238,6 +238,45 @@ def _seed_farm_records(db: Session, farm: models.Farm, today: dt.date):
         )
 
 
+def _seasonal_weather(d: dt.date) -> dict:
+    """월별로 그럴듯한 기상값을 생성한다 (weather_service의 데모 로직과 동일한 패턴)."""
+    if d.month in (6, 7, 8):
+        temp = round(random.uniform(24, 31), 1)
+        humidity = round(random.uniform(75, 95), 1)
+        rainfall = round(random.uniform(0, 25), 1)
+    elif d.month in (3, 4, 5, 9, 10, 11):
+        temp = round(random.uniform(10, 22), 1)
+        humidity = round(random.uniform(45, 75), 1)
+        rainfall = round(random.uniform(0, 10), 1)
+    else:
+        temp = round(random.uniform(-5, 5), 1)
+        humidity = round(random.uniform(30, 55), 1)
+        rainfall = 0.0
+    wind = round(random.uniform(0.5, 4.0), 1)
+    return {"temp_c": temp, "humidity_percent": humidity, "rainfall_mm": rainfall, "wind_ms": wind}
+
+
+def _seed_weather_history(db: Session, farm: models.Farm, today: dt.date, days: int = 45):
+    """진단 발생 여부와 무관하게 매일 쌓이는 기상 기록을 과거 N일치 미리 채워둔다
+    (실제 운영에서는 /api/admin/weather/collect가 매일 이 역할을 대신한다)."""
+    if farm.latitude is None or farm.longitude is None:
+        return
+    for days_ago in range(days):
+        record_date = today - dt.timedelta(days=days_ago)
+        weather = _seasonal_weather(record_date)
+        db.add(
+            models.WeatherRecord(
+                farm_id=farm.id,
+                record_date=record_date,
+                temp_c=weather["temp_c"],
+                humidity_percent=weather["humidity_percent"],
+                rainfall_mm=weather["rainfall_mm"],
+                wind_ms=weather["wind_ms"],
+                source="demo",
+            )
+        )
+
+
 def seed_if_empty(db: Session):
     if db.query(models.Household).count() > 0:
         return
@@ -291,6 +330,7 @@ def seed_if_empty(db: Session):
 
     for farm in all_farms:
         _seed_farm_records(db, farm, today)
+        _seed_weather_history(db, farm, today)
     db.commit()
 
     # 관리자 알림 시뮬레이션 샘플

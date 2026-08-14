@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.database import Base, SessionLocal, engine
-from app.routers import admin, auth, diagnosis, farms, notifications, reports, stats, work_logs
+from app.routers import admin, auth, diagnosis, farms, notifications, reports, stats, weather, work_logs
 from app.seed import seed_if_empty
 
 Base.metadata.create_all(bind=engine)
@@ -33,6 +33,7 @@ app.include_router(stats.router)
 app.include_router(admin.router)
 app.include_router(reports.router)
 app.include_router(notifications.router)
+app.include_router(weather.router)
 
 
 @app.on_event("startup")

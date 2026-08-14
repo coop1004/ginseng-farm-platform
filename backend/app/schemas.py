@@ -197,3 +197,24 @@ class StatsSummary(BaseModel):
     monthly_diagnoses: List[MonthlyCount]
     diagnoses_by_farm: List[FarmStatCount]
     ai_vs_actual: dict
+
+
+# ---------- Weather ----------
+class WeatherRecordOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    farm_id: int
+    farm_name: Optional[str] = None
+    record_date: dt.date
+    temp_c: Optional[float] = None
+    humidity_percent: Optional[float] = None
+    rainfall_mm: Optional[float] = None
+    wind_ms: Optional[float] = None
+    source: Optional[str] = None
+
+
+class WeatherCollectResult(BaseModel):
+    collected: int
+    skipped_existing: int
+    skipped_no_location: int
+    total_farms: int

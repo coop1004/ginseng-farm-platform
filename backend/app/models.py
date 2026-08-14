@@ -151,3 +151,25 @@ class Notification(Base):
 
     farm = relationship("Farm", back_populates="notifications")
     diagnosis = relationship("Diagnosis", back_populates="notifications")
+
+
+class WeatherRecord(Base):
+    """농장 위치의 일별 기상 스냅샷. 진단이 없는 날에도 매일 쌓여서
+    추후 병해충 발생과 기상 패턴의 상관관계 분석(예측 모델 등)에 사용된다."""
+
+    __tablename__ = "weather_records"
+    __table_args__ = (UniqueConstraint("farm_id", "record_date", name="uq_weather_farm_date"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    farm_id = Column(Integer, ForeignKey("farms.id"), nullable=False)
+    record_date = Column(Date, nullable=False, index=True)
+
+    temp_c = Column(Float, nullable=True)
+    humidity_percent = Column(Float, nullable=True)
+    rainfall_mm = Column(Float, nullable=True)
+    wind_ms = Column(Float, nullable=True)
+    source = Column(String(20), nullable=True)  # openweather_current / demo
+
+    created_at = Column(DateTime, default=dt.datetime.utcnow)
+
+    farm = relationship("Farm")
