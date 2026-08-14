@@ -56,6 +56,12 @@ const Api = (() => {
     getStatsSummary: () => request("/api/admin/stats/summary"),
     getFarmsOverview: () => request("/api/admin/farms/overview"),
     getRegionalStats: () => request("/api/admin/regional-stats"),
+    listReferences: () => request("/api/admin/reference"),
+    createReference: (payload) =>
+      request("/api/admin/reference", { method: "POST", body: JSON.stringify(payload) }),
+    updateReference: (id, payload) =>
+      request(`/api/admin/reference/${id}`, { method: "PUT", body: JSON.stringify(payload) }),
+    deleteReference: (id) => request(`/api/admin/reference/${id}`, { method: "DELETE" }),
     submitAdminFinalDiagnosis: (diagnosisId, diseaseName, note) =>
       request(`/api/admin/diagnoses/${diagnosisId}/final-diagnosis`, {
         method: "PATCH",

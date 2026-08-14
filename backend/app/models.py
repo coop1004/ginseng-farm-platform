@@ -215,3 +215,32 @@ class WeatherRecord(Base):
     created_at = Column(DateTime, default=dt.datetime.utcnow)
 
     farm = relationship("Farm")
+
+
+class TreatmentReference(Base):
+    """회사가 보유한 병해충/생리장애 참고자료 + 방제 자재 정보. AI 진단 프롬프트의
+    근거 자료로 쓰이고, 관리자 대시보드 CMS에서 직접 추가/수정한다."""
+
+    __tablename__ = "treatment_references"
+
+    id = Column(Integer, primary_key=True, index=True)
+    crop_name = Column(String(50), nullable=False, default="인삼")
+    type = Column(String(20), nullable=False)  # 병해 / 해충 / 생리장애
+    name_kr = Column(String(100), nullable=False)
+    name_en = Column(String(100), nullable=True)
+    symptoms = Column(Text, nullable=True)
+    cause = Column(Text, nullable=True)
+
+    # 발생 유리 조건 (데모 진단의 후보 스코어링, 참고용 표시에 사용)
+    favorable_temp_min = Column(Float, nullable=True)
+    favorable_temp_max = Column(Float, nullable=True)
+    favorable_humidity_min = Column(Float, nullable=True)
+    favorable_rainfall_note = Column(String(50), nullable=True)  # 예: "많음" / "적음" (자유 텍스트)
+
+    eco_treatments_json = Column(Text, nullable=True)  # JSON: [{product_name, active_ingredient, usage, note}]
+    chemical_treatments_json = Column(Text, nullable=True)
+
+    is_active = Column(Boolean, default=True, nullable=False)
+    updated_by = Column(String(50), nullable=True)
+    created_at = Column(DateTime, default=dt.datetime.utcnow)
+    updated_at = Column(DateTime, default=dt.datetime.utcnow, onupdate=dt.datetime.utcnow)

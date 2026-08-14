@@ -1,12 +1,15 @@
 import datetime as dt
 import json
 import random
+from pathlib import Path
 
 from sqlalchemy.orm import Session
 
 from app import models
 from app.config import settings
 from app.services.auth_service import hash_password
+
+ECO_DB_PATH = Path(__file__).resolve().parent / "data" / "eco_treatment_db.json"
 
 DEMO_PASSWORD = "farm1234"  # 데모 계정 공통 비밀번호
 
@@ -374,4 +377,39 @@ def seed_if_empty(db: Session):
             status="발송됨",
         )
     )
+    db.commit()
+
+
+def seed_treatment_references_if_empty(db: Session):
+    """병해충 참고자료가 DB에 하나도 없으면(최초 배포, 혹은 이 기능 도입 이전 운영 DB),
+    기존 eco_treatment_db.json에 있던 7종을 1회 옮겨 담는다. 이후로는 관리자
+    대시보드 CMS에서 DB를 직접 관리하고, 이 JSON 파일은 더 이상 참조되지 않는다."""
+    if db.query(models.TreatmentReference).count() > 0:
+        return
+    if not ECO_DB_PATH.exists():
+        return
+    with open(ECO_DB_PATH, "r", encoding="utf-8") as f:
+        diseases = json.load(f)["diseases"]
+
+    for d in diseases:
+        cond = d.get("favorable_conditions", {})
+        temp_range = cond.get("temp_range_c") or [None, None]
+        db.add(
+            models.TreatmentReference(
+                crop_name=d.get("crop", "인삼"),
+                type=d["type"],
+                name_kr=d["name_kr"],
+                name_en=d.get("name_en"),
+                symptoms=d.get("symptoms"),
+                cause=d.get("cause"),
+                favorable_temp_min=temp_range[0],
+                favorable_temp_max=temp_range[1],
+                favorable_humidity_min=cond.get("humidity_min_percent"),
+                favorable_rainfall_note=cond.get("rainfall"),
+                eco_treatments_json=json.dumps(d.get("eco_treatments", []), ensure_ascii=False),
+                chemical_treatments_json=json.dumps(d.get("chemical_treatments", []), ensure_ascii=False),
+                is_active=True,
+                updated_by="초기 마이그레이션",
+            )
+        )
     db.commit()

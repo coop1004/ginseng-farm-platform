@@ -108,7 +108,7 @@ async def create_diagnosis(
 
     weather = await weather_service.get_weather_at(gps_lat, gps_lng, taken_at)
 
-    ai_result = gemini_service.diagnose(full_path, diagnosis_type, crop_name, weather)
+    ai_result = gemini_service.diagnose(full_path, diagnosis_type, crop_name, weather, db)
 
     diagnosis = models.Diagnosis(
         farm_id=farm_id,

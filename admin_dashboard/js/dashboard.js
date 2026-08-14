@@ -50,6 +50,7 @@ function initNav() {
     feed: "실시간 진단 피드",
     photos: "병해충 사진 관리",
     weather: "기상 데이터",
+    reference: "병해충·자재 자료",
     notifications: "처방 알림 이력",
   };
   navItems.forEach((item) => {
@@ -468,6 +469,169 @@ function loadWeather() {
       }
       showToast(`기상 데이터 로드 실패: ${e.message}`, true);
     });
+}
+
+// ---------- Reference CMS ----------
+let currentReferences = [];
+let editingReferenceId = null;
+
+function loadReferences() {
+  Api.listReferences()
+    .then((refs) => {
+      currentReferences = refs;
+      renderReferenceTable();
+    })
+    .catch((e) => {
+      if (e.isAuthError) {
+        showLoginScreen();
+        return;
+      }
+      showToast(`자료 목록 로드 실패: ${e.message}`, true);
+    });
+}
+
+function renderReferenceTable() {
+  const tbody = document.querySelector("#referenceTable tbody");
+  tbody.innerHTML = "";
+  if (currentReferences.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6">등록된 자료가 없습니다.</td></tr>`;
+    return;
+  }
+  currentReferences.forEach((r) => {
+    const tr = document.createElement("tr");
+    tr.className = "clickable-row";
+    tr.innerHTML = `
+      <td>${r.crop_name}</td>
+      <td><span class="${typeBadgeClass(r.type)}">${r.type}</span></td>
+      <td><strong>${r.name_kr}</strong>${r.name_en ? ` <span class="panel-sub">${r.name_en}</span>` : ""}</td>
+      <td>${r.is_active ? '<span class="badge badge-low">활성</span>' : '<span class="badge badge-mid">비활성</span>'}</td>
+      <td>${new Date(r.updated_at).toLocaleDateString("ko-KR")} · ${r.updated_by || "-"}</td>
+      <td><button class="btn btn-ghost btn-sm">수정</button></td>
+    `;
+    tr.addEventListener("click", () => openReferenceModal(r));
+    tbody.appendChild(tr);
+  });
+}
+
+function _treatmentItemRow(item) {
+  const row = document.createElement("div");
+  row.className = "treatment-item-row";
+  row.innerHTML = `
+    <input class="ti-product" type="text" placeholder="제품명" value="${(item?.product_name || "").replace(/"/g, "&quot;")}" />
+    <input class="ti-ingredient" type="text" placeholder="성분" value="${(item?.active_ingredient || "").replace(/"/g, "&quot;")}" />
+    <input class="ti-usage" type="text" placeholder="사용법" value="${(item?.usage || "").replace(/"/g, "&quot;")}" />
+    <input class="ti-note" type="text" placeholder="비고" value="${(item?.note || "").replace(/"/g, "&quot;")}" />
+    <button type="button" title="삭제">✕</button>
+  `;
+  row.querySelector("button").addEventListener("click", () => row.remove());
+  return row;
+}
+
+function _readTreatmentList(containerId) {
+  const rows = document.querySelectorAll(`#${containerId} .treatment-item-row`);
+  const items = [];
+  rows.forEach((row) => {
+    const product_name = row.querySelector(".ti-product").value.trim();
+    const active_ingredient = row.querySelector(".ti-ingredient").value.trim();
+    const usage = row.querySelector(".ti-usage").value.trim();
+    const note = row.querySelector(".ti-note").value.trim();
+    if (product_name) items.push({ product_name, active_ingredient, usage, note: note || null });
+  });
+  return items;
+}
+
+function openReferenceModal(ref) {
+  editingReferenceId = ref ? ref.id : null;
+  document.getElementById("referenceModalTitle").textContent = ref ? "자료 수정" : "신규 자료 추가";
+  document.getElementById("refCropName").value = ref?.crop_name || "인삼";
+  document.getElementById("refType").value = ref?.type || "병해";
+  document.getElementById("refNameKr").value = ref?.name_kr || "";
+  document.getElementById("refNameEn").value = ref?.name_en || "";
+  document.getElementById("refSymptoms").value = ref?.symptoms || "";
+  document.getElementById("refCause").value = ref?.cause || "";
+  document.getElementById("refTempMin").value = ref?.favorable_temp_min ?? "";
+  document.getElementById("refTempMax").value = ref?.favorable_temp_max ?? "";
+  document.getElementById("refHumidityMin").value = ref?.favorable_humidity_min ?? "";
+  document.getElementById("refIsActive").checked = ref ? !!ref.is_active : true;
+
+  const ecoList = document.getElementById("refEcoList");
+  const chemList = document.getElementById("refChemList");
+  ecoList.innerHTML = "";
+  chemList.innerHTML = "";
+  (ref?.eco_treatments || []).forEach((t) => ecoList.appendChild(_treatmentItemRow(t)));
+  (ref?.chemical_treatments || []).forEach((t) => chemList.appendChild(_treatmentItemRow(t)));
+
+  document.getElementById("referenceDeleteBtn").classList.toggle("hidden", !ref);
+  document.getElementById("referenceModal").classList.remove("hidden");
+}
+
+function closeReferenceModal() {
+  document.getElementById("referenceModal").classList.add("hidden");
+  editingReferenceId = null;
+}
+
+async function submitReference() {
+  const payload = {
+    crop_name: document.getElementById("refCropName").value.trim() || "인삼",
+    type: document.getElementById("refType").value,
+    name_kr: document.getElementById("refNameKr").value.trim(),
+    name_en: document.getElementById("refNameEn").value.trim() || null,
+    symptoms: document.getElementById("refSymptoms").value.trim() || null,
+    cause: document.getElementById("refCause").value.trim() || null,
+    favorable_temp_min: document.getElementById("refTempMin").value
+      ? Number(document.getElementById("refTempMin").value)
+      : null,
+    favorable_temp_max: document.getElementById("refTempMax").value
+      ? Number(document.getElementById("refTempMax").value)
+      : null,
+    favorable_humidity_min: document.getElementById("refHumidityMin").value
+      ? Number(document.getElementById("refHumidityMin").value)
+      : null,
+    eco_treatments: _readTreatmentList("refEcoList"),
+    chemical_treatments: _readTreatmentList("refChemList"),
+    is_active: document.getElementById("refIsActive").checked,
+  };
+  if (!payload.name_kr) {
+    showToast("병해충/생리장애명을 입력해주세요.", true);
+    return;
+  }
+
+  try {
+    if (editingReferenceId) {
+      await Api.updateReference(editingReferenceId, payload);
+      showToast("자료가 수정되었습니다.");
+    } else {
+      await Api.createReference(payload);
+      showToast("자료가 추가되었습니다.");
+    }
+    closeReferenceModal();
+    loadReferences();
+  } catch (e) {
+    if (e.isAuthError) {
+      closeReferenceModal();
+      showLoginScreen();
+      return;
+    }
+    showToast(e.message, true);
+  }
+}
+
+async function deleteReferenceHandler() {
+  if (!editingReferenceId) return;
+  if (!confirm("이 자료를 삭제하시겠습니까? AI 진단 참고자료에서도 제외됩니다.")) return;
+  try {
+    await Api.deleteReference(editingReferenceId);
+    showToast("자료가 삭제되었습니다.");
+    closeReferenceModal();
+    loadReferences();
+  } catch (e) {
+    if (e.isAuthError) {
+      closeReferenceModal();
+      showLoginScreen();
+      return;
+    }
+    showToast(e.message, true);
+  }
 }
 
 // ---------- Photos / Diagnoses ----------
@@ -926,6 +1090,7 @@ async function loadAll() {
     renderPhotoGrid();
     populateWeatherFarmSelect();
     loadWeather();
+    loadReferences();
   } catch (e) {
     if (e.isAuthError) {
       showLoginScreen();
@@ -997,6 +1162,20 @@ function init() {
   document.getElementById("expertDiagnosisSubmit").addEventListener("click", submitExpertDiagnosis);
   document.getElementById("expertDiagnosisModal").addEventListener("click", (e) => {
     if (e.target.id === "expertDiagnosisModal") closeExpertDiagnosisModal();
+  });
+
+  document.getElementById("openReferenceAddBtn").addEventListener("click", () => openReferenceModal(null));
+  document.getElementById("referenceCancel").addEventListener("click", closeReferenceModal);
+  document.getElementById("referenceSubmit").addEventListener("click", submitReference);
+  document.getElementById("referenceDeleteBtn").addEventListener("click", deleteReferenceHandler);
+  document.getElementById("referenceModal").addEventListener("click", (e) => {
+    if (e.target.id === "referenceModal") closeReferenceModal();
+  });
+  document.getElementById("refEcoAdd").addEventListener("click", () => {
+    document.getElementById("refEcoList").appendChild(_treatmentItemRow(null));
+  });
+  document.getElementById("refChemAdd").addEventListener("click", () => {
+    document.getElementById("refChemList").appendChild(_treatmentItemRow(null));
   });
 
   if (Api.isLoggedIn()) {

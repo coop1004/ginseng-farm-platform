@@ -4,8 +4,8 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.database import Base, SessionLocal, engine, run_light_migrations
-from app.routers import admin, auth, diagnosis, farms, notifications, reports, stats, weather, work_logs
-from app.seed import ensure_protected_admin, seed_admin_if_empty, seed_if_empty
+from app.routers import admin, auth, diagnosis, farms, notifications, reference, reports, stats, weather, work_logs
+from app.seed import ensure_protected_admin, seed_admin_if_empty, seed_if_empty, seed_treatment_references_if_empty
 
 Base.metadata.create_all(bind=engine)
 run_light_migrations()
@@ -36,6 +36,7 @@ app.include_router(reports.router)
 app.include_router(notifications.router)
 app.include_router(weather.router)
 app.include_router(weather.farmer_router)
+app.include_router(reference.router)
 
 
 @app.on_event("startup")
@@ -45,6 +46,7 @@ def on_startup():
         seed_if_empty(db)
         seed_admin_if_empty(db)
         ensure_protected_admin(db)
+        seed_treatment_references_if_empty(db)
     finally:
         db.close()
 

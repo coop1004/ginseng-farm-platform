@@ -1,15 +1,12 @@
 import json
 import random
 import re
-from pathlib import Path
 from typing import Optional
 
+from sqlalchemy.orm import Session
+
+from app import models
 from app.config import settings
-
-ECO_DB_PATH = Path(__file__).resolve().parent.parent / "data" / "eco_treatment_db.json"
-
-with open(ECO_DB_PATH, "r", encoding="utf-8") as f:
-    ECO_DB = json.load(f)["diseases"]
 
 _TYPE_MAP = {"병해": "병해", "해충": "해충", "생리장애": "생리장애"}
 
@@ -27,9 +24,47 @@ def _get_client():
     return _client
 
 
-def _build_prompt(diagnosis_type: str, crop_name: str, weather: dict) -> str:
-    db_context = json.dumps(ECO_DB, ensure_ascii=False, indent=2)
-    return f"""당신은 인삼 재배 전문 식물병리학자입니다. 아래 첨부된 작물 피해 부위 사진과 당시 기상 조건, 그리고 회사의 친환경 방제 자재 데이터베이스를 종합적으로 분석하여 진단하세요.
+def _load_active_references(db: Session, crop_name: str) -> list:
+    """관리자 CMS(TreatmentReference)에서 활성화된 참고자료를 불러온다.
+    파일이 아니라 DB에서 매 요청 시 조회하므로, 관리자가 수정하면 서버 재시작
+    없이 다음 진단부터 즉시 반영된다."""
+    rows = (
+        db.query(models.TreatmentReference)
+        .filter(models.TreatmentReference.is_active.is_(True))
+        .filter(models.TreatmentReference.crop_name == crop_name)
+        .all()
+    )
+    if not rows:
+        # 해당 작물 데이터가 없으면 전체(작물 무관) 참고자료로 폴백
+        rows = db.query(models.TreatmentReference).filter(models.TreatmentReference.is_active.is_(True)).all()
+
+    result = []
+    for r in rows:
+        result.append(
+            {
+                "id": r.id,
+                "name_kr": r.name_kr,
+                "name_en": r.name_en,
+                "type": r.type,
+                "crop": r.crop_name,
+                "symptoms": r.symptoms,
+                "cause": r.cause,
+                "favorable_conditions": {
+                    "temp_range_c": [r.favorable_temp_min, r.favorable_temp_max]
+                    if r.favorable_temp_min is not None and r.favorable_temp_max is not None
+                    else None,
+                    "humidity_min_percent": r.favorable_humidity_min,
+                },
+                "eco_treatments": json.loads(r.eco_treatments_json) if r.eco_treatments_json else [],
+                "chemical_treatments": json.loads(r.chemical_treatments_json) if r.chemical_treatments_json else [],
+            }
+        )
+    return result
+
+
+def _build_prompt(diagnosis_type: str, crop_name: str, weather: dict, reference_db: list) -> str:
+    db_context = json.dumps(reference_db, ensure_ascii=False, indent=2)
+    return f"""당신은 {crop_name} 재배 전문 식물병리학자입니다. 아래 첨부된 작물 피해 부위 사진과 당시 기상 조건, 그리고 회사의 친환경 방제 자재 데이터베이스를 종합적으로 분석하여 진단하세요.
 
 [진단 유형]: {diagnosis_type}
 [작물명]: {crop_name}
@@ -42,7 +77,7 @@ def _build_prompt(diagnosis_type: str, crop_name: str, weather: dict) -> str:
 [회사 자체 친환경 방제 자재 데이터베이스]
 {db_context}
 
-위 데이터베이스에 있는 병해충/생리장애 중 사진 증상 및 기상 조건과 가장 부합하는 항목을 우선적으로 선택하고, 데이터베이스에 없는 증상이면 일반적인 인삼 병해충 지식으로 진단하세요.
+위 데이터베이스에 있는 병해충/생리장애 중 사진 증상 및 기상 조건과 가장 부합하는 항목을 우선적으로 선택하고, 데이터베이스에 없는 증상이면 일반적인 {crop_name} 병해충 지식으로 진단하세요.
 
 다음 JSON 형식으로만 답변하세요 (다른 설명 텍스트 없이 JSON만 출력):
 {{
@@ -70,9 +105,20 @@ def _parse_json_response(text: str) -> Optional[dict]:
         return None
 
 
-def _demo_diagnose(diagnosis_type: str, weather: dict) -> dict:
-    """API 키 미설정/데모 모드일 때 DB 기반으로 그럴듯한 진단 결과를 생성."""
-    candidates = [d for d in ECO_DB if d["type"] == diagnosis_type] or ECO_DB
+def _demo_diagnose(diagnosis_type: str, weather: dict, reference_db: list) -> dict:
+    """API 키 미설정/데모 모드일 때 참고자료 기반으로 그럴듯한 진단 결과를 생성."""
+    if not reference_db:
+        return {
+            "disease_name_kr": "진단 불가(참고자료 없음)",
+            "disease_name_en": None,
+            "symptoms": "등록된 병해충 참고자료가 없어 자동 진단이 불가합니다. 관리자에게 문의해주세요.",
+            "confidence": 0.0,
+            "eco_treatments": [],
+            "chemical_treatments": [],
+            "_source": "demo",
+        }
+
+    candidates = [d for d in reference_db if d["type"] == diagnosis_type] or reference_db
 
     def score(entry):
         cond = entry.get("favorable_conditions", {})
@@ -83,7 +129,7 @@ def _demo_diagnose(diagnosis_type: str, weather: dict) -> dict:
             if lo <= temp <= hi:
                 s += 2
         humidity = weather.get("humidity_percent")
-        if humidity is not None and humidity >= cond.get("humidity_min_percent", 0):
+        if humidity is not None and humidity >= (cond.get("humidity_min_percent") or 0):
             s += 1
         return s
 
@@ -102,16 +148,18 @@ def _demo_diagnose(diagnosis_type: str, weather: dict) -> dict:
     }
 
 
-def diagnose(image_path: str, diagnosis_type: str, crop_name: str, weather: dict) -> dict:
-    """사진 + 기상데이터 + 친환경DB 기반 AI 진단. 실패/데모모드 시 DB 기반 폴백."""
+def diagnose(image_path: str, diagnosis_type: str, crop_name: str, weather: dict, db: Session) -> dict:
+    """사진 + 기상데이터 + 참고자료(DB, 관리자 CMS로 관리) 기반 AI 진단. 실패/데모모드 시 폴백."""
+    reference_db = _load_active_references(db, crop_name)
+
     if settings.demo_mode or not settings.gemini_api_key:
-        return _demo_diagnose(diagnosis_type, weather)
+        return _demo_diagnose(diagnosis_type, weather, reference_db)
 
     try:
         import PIL.Image
 
         client = _get_client()
-        prompt = _build_prompt(diagnosis_type, crop_name, weather)
+        prompt = _build_prompt(diagnosis_type, crop_name, weather, reference_db)
         image = PIL.Image.open(image_path)
         response = client.models.generate_content(
             model=settings.gemini_model,
@@ -124,6 +172,6 @@ def diagnose(image_path: str, diagnosis_type: str, crop_name: str, weather: dict
         parsed["_raw"] = response.text
         return parsed
     except Exception:
-        result = _demo_diagnose(diagnosis_type, weather)
+        result = _demo_diagnose(diagnosis_type, weather, reference_db)
         result["_source"] = "demo_fallback"
         return result

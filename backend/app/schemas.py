@@ -309,3 +309,41 @@ class WeatherCollectResult(BaseModel):
     skipped_existing: int
     skipped_no_location: int
     total_farms: int
+
+
+# ---------- Treatment Reference (CMS) ----------
+class TreatmentReferenceCreate(BaseModel):
+    crop_name: str = "인삼"
+    type: str  # 병해 / 해충 / 생리장애
+    name_kr: str
+    name_en: Optional[str] = None
+    symptoms: Optional[str] = None
+    cause: Optional[str] = None
+    favorable_temp_min: Optional[float] = None
+    favorable_temp_max: Optional[float] = None
+    favorable_humidity_min: Optional[float] = None
+    favorable_rainfall_note: Optional[str] = None
+    eco_treatments: List[TreatmentItem] = []
+    chemical_treatments: List[TreatmentItem] = []
+    is_active: bool = True
+
+
+class TreatmentReferenceOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    crop_name: str
+    type: str
+    name_kr: str
+    name_en: Optional[str] = None
+    symptoms: Optional[str] = None
+    cause: Optional[str] = None
+    favorable_temp_min: Optional[float] = None
+    favorable_temp_max: Optional[float] = None
+    favorable_humidity_min: Optional[float] = None
+    favorable_rainfall_note: Optional[str] = None
+    eco_treatments: List[TreatmentItem] = []
+    chemical_treatments: List[TreatmentItem] = []
+    is_active: bool
+    updated_by: Optional[str] = None
+    created_at: dt.datetime
+    updated_at: dt.datetime
