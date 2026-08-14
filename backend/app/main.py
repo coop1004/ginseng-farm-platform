@@ -14,6 +14,7 @@ from app.seed import (
     seed_if_empty,
     seed_treatment_references_if_empty,
 )
+from app.seed_pilot_crops import seed_pilot_crop_pest_diseases_if_empty
 
 Base.metadata.create_all(bind=engine)
 run_light_migrations()
@@ -59,6 +60,7 @@ def on_startup():
         ensure_protected_admin(db)
         seed_treatment_references_if_empty(db)
         backfill_pest_disease_materials_if_missing(db)
+        seed_pilot_crop_pest_diseases_if_empty(db)
     finally:
         db.close()
 
