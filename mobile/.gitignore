@@ -5,9 +5,22 @@ build/
 .flutter-plugins-dependencies
 .pub-cache/
 .pub/
-android/
-ios/
 *.iml
 *.log
 .vscode/
 .idea/
+
+# Android — 소스(build.gradle 등)는 추적하되, 서명 관련 민감 파일은 절대 커밋하지 않음
+android/.gradle/
+android/local.properties
+android/key.properties
+android/*.jks
+android/*.keystore
+android/app/build/
+android/build/
+
+# iOS — Pods/생성 파일 제외, 소스 프로젝트는 추적
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec

@@ -12,8 +12,7 @@ node_modules/
 # Flutter
 mobile/.dart_tool/
 mobile/build/
-mobile/android/
-mobile/ios/
+# mobile/android, mobile/ios 소스는 추적함(서명 설정 등 보존) — 세부 제외 규칙은 mobile/.gitignore 참고
 
 # OS
 .DS_Store
