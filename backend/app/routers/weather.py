@@ -7,10 +7,25 @@ from sqlalchemy.orm import Session
 from app import models, schemas
 from app.config import settings
 from app.database import get_db
-from app.deps import get_current_admin
+from app.deps import get_current_admin, get_current_household_id
 from app.services.weather_collector import collect_daily_weather_for_all_farms
 
 router = APIRouter(prefix="/api/admin/weather", tags=["weather"])
+farmer_router = APIRouter(prefix="/api/weather", tags=["weather"])
+
+
+def _to_weather_out(r: models.WeatherRecord) -> dict:
+    return {
+        "id": r.id,
+        "farm_id": r.farm_id,
+        "farm_name": r.farm.farm_name if r.farm else None,
+        "record_date": r.record_date,
+        "temp_c": r.temp_c,
+        "humidity_percent": r.humidity_percent,
+        "rainfall_mm": r.rainfall_mm,
+        "wind_ms": r.wind_ms,
+        "source": r.source,
+    }
 
 
 def _check_cron_secret(x_cron_secret: Optional[str] = Header(None)):
@@ -41,17 +56,25 @@ def get_weather_history(
     if farm_id:
         query = query.filter(models.WeatherRecord.farm_id == farm_id)
     records = query.order_by(models.WeatherRecord.record_date.desc()).all()
-    return [
-        {
-            "id": r.id,
-            "farm_id": r.farm_id,
-            "farm_name": r.farm.farm_name if r.farm else None,
-            "record_date": r.record_date,
-            "temp_c": r.temp_c,
-            "humidity_percent": r.humidity_percent,
-            "rainfall_mm": r.rainfall_mm,
-            "wind_ms": r.wind_ms,
-            "source": r.source,
-        }
-        for r in records
-    ]
+    return [_to_weather_out(r) for r in records]
+
+
+@farmer_router.get("/history", response_model=List[schemas.WeatherRecordOut])
+def get_my_weather_history(
+    farm_id: Optional[int] = None,
+    days: int = 30,
+    household_id: int = Depends(get_current_household_id),
+    db: Session = Depends(get_db),
+):
+    """농가 본인 소유 농장의 축적된 기상 기록 조회."""
+    since = dt.date.today() - dt.timedelta(days=days)
+    query = (
+        db.query(models.WeatherRecord)
+        .join(models.Farm, models.WeatherRecord.farm_id == models.Farm.id)
+        .filter(models.Farm.household_id == household_id)
+        .filter(models.WeatherRecord.record_date >= since)
+    )
+    if farm_id:
+        query = query.filter(models.WeatherRecord.farm_id == farm_id)
+    records = query.order_by(models.WeatherRecord.record_date.desc()).all()
+    return [_to_weather_out(r) for r in records]

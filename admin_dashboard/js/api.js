@@ -56,6 +56,11 @@ const Api = (() => {
     getStatsSummary: () => request("/api/admin/stats/summary"),
     getFarmsOverview: () => request("/api/admin/farms/overview"),
     getRegionalStats: () => request("/api/admin/regional-stats"),
+    getWeatherHistory: (farmId, days = 30) => {
+      const qs = new URLSearchParams({ days });
+      if (farmId) qs.set("farm_id", farmId);
+      return request(`/api/admin/weather/history?${qs.toString()}`);
+    },
     getFeed: (limit = 30) => request(`/api/admin/feed?limit=${limit}`),
     getAdminDiagnoses: (params = {}) => {
       const qs = new URLSearchParams();

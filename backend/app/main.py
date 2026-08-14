@@ -35,6 +35,7 @@ app.include_router(admin.router)
 app.include_router(reports.router)
 app.include_router(notifications.router)
 app.include_router(weather.router)
+app.include_router(weather.farmer_router)
 
 
 @app.on_event("startup")

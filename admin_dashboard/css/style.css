@@ -177,6 +177,13 @@ body {
 .badge-type-해충 { background: #fdf0d8; color: var(--orange-500); }
 .badge-type-생리장애 { background: #e3ecf9; color: var(--blue-500); }
 
+/* Weather */
+.weather-controls { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+.weather-controls label { font-size: 11.5px; color: var(--gray-600); font-weight: 600; }
+.weather-controls select {
+  padding: 7px 10px; border-radius: 8px; border: 1px solid var(--gray-200); font-size: 12.5px;
+}
+
 /* Photos */
 .photo-filter-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
 .filter-tab {

@@ -49,6 +49,7 @@ function initNav() {
     farms: "농가 모니터링",
     feed: "실시간 진단 피드",
     photos: "병해충 사진 관리",
+    weather: "기상 데이터",
     notifications: "처방 알림 이력",
   };
   navItems.forEach((item) => {
@@ -62,6 +63,9 @@ function initNav() {
       document.getElementById("pageTitle").textContent = titles[section];
       if (section === "map" && map) {
         setTimeout(() => map.invalidateSize(), 100);
+      }
+      if (section === "weather" && charts.weather) {
+        setTimeout(() => charts.weather.resize(), 100);
       }
     });
   });
@@ -365,6 +369,105 @@ function renderFeed(feed) {
     `;
     list.appendChild(div);
   });
+}
+
+// ---------- Weather ----------
+function populateWeatherFarmSelect() {
+  const select = document.getElementById("weatherFarmSelect");
+  const prev = select.value;
+  select.innerHTML =
+    `<option value="">전체 농장 평균</option>` +
+    currentFarms
+      .map((f) => `<option value="${f.farm_id}">${f.household_name || "-"} · ${f.farm_name}</option>`)
+      .join("");
+  if (prev && currentFarms.some((f) => String(f.farm_id) === prev)) select.value = prev;
+}
+
+function renderWeatherChart(records) {
+  const ctx = document.getElementById("weatherChart");
+  const note = document.getElementById("weatherNote");
+  if (charts.weather) charts.weather.destroy();
+
+  if (records.length === 0) {
+    note.textContent = "선택한 조건에 해당하는 기상 데이터가 없습니다.";
+    charts.weather = new Chart(ctx, { type: "line", data: { labels: [], datasets: [] } });
+    return;
+  }
+  note.textContent = `${records.length}건의 일별 기상 기록 (최신순으로 수집된 데이터를 날짜순 정렬하여 표시)`;
+
+  const sorted = [...records].sort((a, b) => a.record_date.localeCompare(b.record_date));
+
+  // 같은 날짜에 여러 농장 데이터가 섞여 있으면(전체 농장 선택 시) 날짜별 평균을 낸다.
+  const byDate = {};
+  sorted.forEach((r) => {
+    if (!byDate[r.record_date]) byDate[r.record_date] = { temp: [], humidity: [], rainfall: [] };
+    if (r.temp_c != null) byDate[r.record_date].temp.push(r.temp_c);
+    if (r.humidity_percent != null) byDate[r.record_date].humidity.push(r.humidity_percent);
+    if (r.rainfall_mm != null) byDate[r.record_date].rainfall.push(r.rainfall_mm);
+  });
+  const avg = (arr) => (arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null);
+  const labels = Object.keys(byDate).sort();
+  const tempData = labels.map((d) => avg(byDate[d].temp));
+  const humidityData = labels.map((d) => avg(byDate[d].humidity));
+  const rainfallData = labels.map((d) => avg(byDate[d].rainfall));
+
+  charts.weather = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [
+        {
+          label: "기온(℃)",
+          data: tempData,
+          borderColor: "#ef6c00",
+          backgroundColor: "transparent",
+          yAxisID: "y",
+          tension: 0.3,
+          pointRadius: 2,
+        },
+        {
+          label: "습도(%)",
+          data: humidityData,
+          borderColor: "#1565c0",
+          backgroundColor: "transparent",
+          yAxisID: "y",
+          tension: 0.3,
+          pointRadius: 2,
+        },
+        {
+          label: "강수량(mm)",
+          data: rainfallData,
+          borderColor: "#2e7d32",
+          backgroundColor: "rgba(46,125,50,0.15)",
+          yAxisID: "y1",
+          type: "bar",
+        },
+      ],
+    },
+    options: {
+      maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      plugins: { legend: { position: "bottom", labels: { boxWidth: 12, font: { size: 11 } } } },
+      scales: {
+        y: { position: "left", title: { display: true, text: "기온 / 습도" } },
+        y1: { position: "right", title: { display: true, text: "강수량(mm)" }, grid: { drawOnChartArea: false } },
+      },
+    },
+  });
+}
+
+function loadWeather() {
+  const farmId = document.getElementById("weatherFarmSelect").value || null;
+  const days = document.getElementById("weatherDaysSelect").value;
+  Api.getWeatherHistory(farmId, days)
+    .then(renderWeatherChart)
+    .catch((e) => {
+      if (e.isAuthError) {
+        showLoginScreen();
+        return;
+      }
+      showToast(`기상 데이터 로드 실패: ${e.message}`, true);
+    });
 }
 
 // ---------- Photos / Diagnoses ----------
@@ -768,6 +871,8 @@ async function loadAll() {
     renderNotifications(notifications);
     currentDiagnoses = diagnoses;
     renderPhotoGrid();
+    populateWeatherFarmSelect();
+    loadWeather();
   } catch (e) {
     if (e.isAuthError) {
       showLoginScreen();
@@ -792,6 +897,8 @@ function init() {
 
   initNav();
   initPhotoTabs();
+  document.getElementById("weatherFarmSelect").addEventListener("change", loadWeather);
+  document.getElementById("weatherDaysSelect").addEventListener("change", loadWeather);
 
   document.getElementById("backToHouseholds").addEventListener("click", backToHouseholdList);
   document.getElementById("statFarmsCard").addEventListener("click", () => {

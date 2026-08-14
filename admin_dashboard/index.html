@@ -39,6 +39,7 @@
       <a href="#farms" class="nav-item" data-section="farms">🌱 농가 모니터링</a>
       <a href="#feed" class="nav-item" data-section="feed">🔔 실시간 진단 피드</a>
       <a href="#photos" class="nav-item" data-section="photos">🩺 병해충 사진 관리</a>
+      <a href="#weather" class="nav-item" data-section="weather">🌤️ 기상 데이터</a>
       <a href="#notifications" class="nav-item" data-section="notifications">📨 처방 알림 이력</a>
     </nav>
     <div class="sidebar-footer">
@@ -194,6 +195,27 @@
           <span class="panel-sub">전체 농가에서 접수된 최근 진단 내역</span>
         </div>
         <div id="feedList" class="feed-list"></div>
+      </div>
+    </section>
+
+    <section id="weather" class="section hidden">
+      <div class="panel">
+        <div class="panel-header">
+          <h2>기상 데이터</h2>
+          <span class="panel-sub">농장 위치 기준 일별 기상 축적 데이터 (병해충 발생과의 상관관계 분석용)</span>
+        </div>
+        <div class="weather-controls">
+          <label>농장</label>
+          <select id="weatherFarmSelect"></select>
+          <label>기간</label>
+          <select id="weatherDaysSelect">
+            <option value="14">최근 14일</option>
+            <option value="30" selected>최근 30일</option>
+            <option value="90">최근 90일</option>
+          </select>
+        </div>
+        <div class="chart-wrap" style="height: 320px;"><canvas id="weatherChart"></canvas></div>
+        <p class="panel-note" id="weatherNote"></p>
       </div>
     </section>
 
