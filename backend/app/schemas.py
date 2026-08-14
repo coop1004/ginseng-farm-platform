@@ -189,6 +189,7 @@ class FarmStatCount(BaseModel):
 
 class StatsSummary(BaseModel):
     total_farms: int
+    total_households: Optional[int] = None
     total_work_logs: int
     total_diagnoses: int
     diagnoses_by_type: dict

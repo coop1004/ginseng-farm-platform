@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<link rel="stylesheet" href="css/style.css" />
+<link rel="stylesheet" href="css/style.css?v=2" />
 </head>
 <body>
 <div class="app-shell">
@@ -47,11 +47,11 @@
 
     <section id="overview" class="section">
       <div class="cards-grid">
-        <div class="stat-card">
+        <div class="stat-card stat-card-clickable" id="statFarmsCard" title="농가 모니터링으로 이동">
           <div class="stat-icon icon-green">🌾</div>
           <div>
-            <div class="stat-value" id="statFarms">-</div>
-            <div class="stat-label">회원 농가 수</div>
+            <div class="stat-value" id="statHouseholds">-</div>
+            <div class="stat-label">회원 농가 수 <span class="stat-sub" id="statFarmsSub"></span></div>
           </div>
         </div>
         <div class="stat-card">
@@ -131,16 +131,36 @@
     </section>
 
     <section id="farms" class="section hidden">
-      <div class="panel">
+      <div class="panel" id="householdListPanel">
         <div class="panel-header">
           <h2>농가별 실시간 모니터링</h2>
-          <span class="panel-sub">최근 30일 진단 건수 기준 위험도 정렬</span>
+          <span class="panel-sub">최근 30일 진단 건수 기준 위험도 정렬 · 농가를 클릭하면 소속 농장 목록을 볼 수 있습니다</span>
         </div>
         <div class="table-wrap">
-          <table class="data-table" id="farmsTable">
+          <table class="data-table" id="householdsTable">
             <thead>
               <tr>
-                <th>필지명</th><th>소속 농가</th><th>지역</th><th>시설구분</th><th>연차</th>
+                <th>농가명</th><th>농장 수</th><th>지역</th>
+                <th>최근진단</th><th>최근작업일</th><th>30일내 진단</th><th>위험도</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel hidden" id="householdDetailPanel">
+        <div class="panel-header">
+          <div>
+            <button id="backToHouseholds" class="btn btn-ghost btn-sm">← 농가 목록으로</button>
+            <h2 id="householdDetailTitle" class="panel-detail-title">농장 목록</h2>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table" id="householdFarmsTable">
+            <thead>
+              <tr>
+                <th>농장명</th><th>지역</th><th>시설구분</th><th>연차</th>
                 <th>최근진단</th><th>최근작업일</th><th>30일내 진단</th><th>위험도</th><th></th>
               </tr>
             </thead>

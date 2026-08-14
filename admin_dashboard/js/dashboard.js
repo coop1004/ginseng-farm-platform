@@ -2,6 +2,7 @@ let charts = {};
 let map = null;
 let mapMarkers = [];
 let currentFarms = [];
+let currentHouseholds = [];
 
 const typeColors = {
   "병해": "#c62828",
@@ -67,7 +68,9 @@ function initNav() {
 
 // ---------- Overview ----------
 function renderSummary(summary) {
-  document.getElementById("statFarms").textContent = summary.total_farms;
+  document.getElementById("statHouseholds").textContent = summary.total_households ?? "-";
+  document.getElementById("statFarmsSub").textContent =
+    summary.total_farms != null ? `· 농장 ${summary.total_farms}개` : "";
   document.getElementById("statWorkLogs").textContent = summary.total_work_logs;
   document.getElementById("statDiagnoses").textContent = summary.total_diagnoses;
   const acc = summary.ai_vs_actual.accuracy_percent;
@@ -229,16 +232,84 @@ function renderRegionTable(regionalStats) {
   });
 }
 
-// ---------- Farms table ----------
-function renderFarmsTable(farms) {
+// ---------- Farms / Households ----------
+
+// 농장(필지) 목록을 농가 단위로 집계한다. 농가와 농장이 많아져도 목록 화면은
+// 농가 수만큼만 보여주고, 개별 농장은 클릭해서 들어간 상세 화면에서 본다.
+function aggregateHouseholds(farms) {
+  const map = new Map();
+  farms.forEach((f) => {
+    if (!map.has(f.household_id)) {
+      map.set(f.household_id, {
+        household_id: f.household_id,
+        household_name: f.household_name || "-",
+        farm_count: 0,
+        regions: new Set(),
+        diagnosis_count_30d: 0,
+        last_diagnosis: null,
+        last_work_log_date: null,
+      });
+    }
+    const h = map.get(f.household_id);
+    h.farm_count += 1;
+    if (f.region) h.regions.add(f.region);
+    h.diagnosis_count_30d += f.diagnosis_count_30d;
+    if (f.last_diagnosis && (!h.last_diagnosis || f.last_diagnosis.date > h.last_diagnosis.date)) {
+      h.last_diagnosis = f.last_diagnosis;
+    }
+    if (f.last_work_log_date && (!h.last_work_log_date || f.last_work_log_date > h.last_work_log_date)) {
+      h.last_work_log_date = f.last_work_log_date;
+    }
+  });
+
+  const result = Array.from(map.values()).map((h) => ({
+    ...h,
+    regions: Array.from(h.regions),
+    risk_level: h.diagnosis_count_30d >= 3 ? "높음" : h.diagnosis_count_30d >= 1 ? "보통" : "낮음",
+  }));
+  result.sort((a, b) => b.diagnosis_count_30d - a.diagnosis_count_30d);
+  return result;
+}
+
+function renderHouseholdsTable(farms) {
   currentFarms = farms;
-  const tbody = document.querySelector("#farmsTable tbody");
+  currentHouseholds = aggregateHouseholds(farms);
+  backToHouseholdList();
+
+  const tbody = document.querySelector("#householdsTable tbody");
+  tbody.innerHTML = "";
+  currentHouseholds.forEach((h) => {
+    const tr = document.createElement("tr");
+    tr.className = "clickable-row";
+    tr.innerHTML = `
+      <td><strong>${h.household_name}</strong></td>
+      <td>${h.farm_count}개</td>
+      <td>${h.regions.join(", ") || "-"}</td>
+      <td>${h.last_diagnosis ? `${h.last_diagnosis.name} <span class="${typeBadgeClass(h.last_diagnosis.type)}">${h.last_diagnosis.type}</span>` : "-"}</td>
+      <td>${fmtDate(h.last_work_log_date)}</td>
+      <td>${h.diagnosis_count_30d}건</td>
+      <td><span class="${riskBadgeClass(h.risk_level)}">${h.risk_level}</span></td>
+    `;
+    tr.addEventListener("click", () => showHouseholdDetail(h.household_id));
+    tbody.appendChild(tr);
+  });
+}
+
+function showHouseholdDetail(householdId) {
+  const household = currentHouseholds.find((h) => h.household_id === householdId);
+  if (!household) return;
+
+  document.getElementById("householdListPanel").classList.add("hidden");
+  document.getElementById("householdDetailPanel").classList.remove("hidden");
+  document.getElementById("householdDetailTitle").textContent = `${household.household_name} · 농장 목록`;
+
+  const farms = currentFarms.filter((f) => f.household_id === householdId);
+  const tbody = document.querySelector("#householdFarmsTable tbody");
   tbody.innerHTML = "";
   farms.forEach((f) => {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td><strong>${f.farm_name}</strong></td>
-      <td>${f.household_name || "-"}</td>
       <td>${f.region || "-"}</td>
       <td>${f.facility_type}</td>
       <td>${f.cultivation_year}년근</td>
@@ -254,6 +325,11 @@ function renderFarmsTable(farms) {
   tbody.querySelectorAll("button[data-farm-id]").forEach((btn) => {
     btn.addEventListener("click", () => openNotifyModal(btn.dataset.farmId, btn.dataset.farmName));
   });
+}
+
+function backToHouseholdList() {
+  document.getElementById("householdDetailPanel").classList.add("hidden");
+  document.getElementById("householdListPanel").classList.remove("hidden");
 }
 
 // ---------- Feed ----------
@@ -372,7 +448,7 @@ async function loadAll() {
       Api.getNotifications(),
     ]);
     renderSummary(summary);
-    renderFarmsTable(farms);
+    renderHouseholdsTable(farms);
     renderMap(regional);
     renderRegionTable(regional);
     renderFeed(feed);
@@ -396,6 +472,11 @@ function init() {
   document.getElementById("apiBaseInput").value = Api.getBaseUrl();
 
   initNav();
+
+  document.getElementById("backToHouseholds").addEventListener("click", backToHouseholdList);
+  document.getElementById("statFarmsCard").addEventListener("click", () => {
+    document.querySelector('.nav-item[data-section="farms"]').click();
+  });
 
   document.getElementById("refreshBtn").addEventListener("click", loadAll);
   document.getElementById("apiBaseSave").addEventListener("click", () => {
