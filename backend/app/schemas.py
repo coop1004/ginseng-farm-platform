@@ -180,6 +180,30 @@ class DiagnosisCreateResponse(BaseModel):
     ai_source: Optional[str] = None
 
     status: str
+    farmer_confirmed_correct: Optional[bool] = None
+    created_at: dt.datetime
+
+
+class DiagnosisFeedbackRequest(BaseModel):
+    correct: bool
+
+
+class AdminDiagnosisOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    farm_id: int
+    farm_name: Optional[str] = None
+    household_name: Optional[str] = None
+    region: Optional[str] = None
+    diagnosis_type: str
+    crop_name: str
+    occurrence_date: dt.date
+    photo_path: Optional[str] = None
+    ai_disease_name: Optional[str] = None
+    ai_confidence: Optional[float] = None
+    ai_source: Optional[str] = None
+    status: str
+    farmer_confirmed_correct: Optional[bool] = None
     created_at: dt.datetime
 
 

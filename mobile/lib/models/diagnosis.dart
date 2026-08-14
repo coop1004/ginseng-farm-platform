@@ -49,6 +49,7 @@ class Diagnosis {
   final String? aiSource;
 
   final String status;
+  final bool? farmerConfirmedCorrect;
   final DateTime createdAt;
 
   Diagnosis({
@@ -75,6 +76,7 @@ class Diagnosis {
     required this.chemicalTreatments,
     this.aiSource,
     required this.status,
+    this.farmerConfirmedCorrect,
     required this.createdAt,
   });
 
@@ -107,6 +109,7 @@ class Diagnosis {
           .toList(),
       aiSource: json['ai_source'],
       status: json['status'] ?? '',
+      farmerConfirmedCorrect: json['farmer_confirmed_correct'] as bool?,
       createdAt: DateTime.parse(json['created_at']),
     );
   }

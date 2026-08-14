@@ -48,6 +48,7 @@ function initNav() {
     map: "지역별 발생 지도",
     farms: "농가 모니터링",
     feed: "실시간 진단 피드",
+    photos: "병해충 사진 관리",
     notifications: "처방 알림 이력",
   };
   navItems.forEach((item) => {
@@ -366,6 +367,52 @@ function renderFeed(feed) {
   });
 }
 
+// ---------- Photos / Diagnoses ----------
+let currentDiagnoses = [];
+let currentPhotoStatus = "";
+
+function renderPhotoGrid() {
+  const grid = document.getElementById("photoGrid");
+  grid.innerHTML = "";
+  const filtered = currentPhotoStatus
+    ? currentDiagnoses.filter((d) => d.status === currentPhotoStatus)
+    : currentDiagnoses;
+
+  if (filtered.length === 0) {
+    grid.innerHTML = `<div class="photo-empty">해당 상태의 진단 기록이 없습니다.</div>`;
+    return;
+  }
+
+  filtered.forEach((d) => {
+    const card = document.createElement("div");
+    card.className = "photo-card";
+    const imgSrc = d.photo_path ? `${Api.getBaseUrl()}/uploads/${d.photo_path}` : "";
+    card.innerHTML = `
+      ${imgSrc ? `<img src="${imgSrc}" alt="진단 사진" loading="lazy" />` : `<div class="photo-card-noimg">사진 없음</div>`}
+      <div class="photo-card-body">
+        <div class="photo-card-title">${d.ai_disease_name || "진단명 없음"}</div>
+        <div class="photo-card-sub">${d.household_name || "-"} · ${d.farm_name || "-"} · ${fmtDate(d.occurrence_date)}</div>
+        <div class="photo-card-footer">
+          <span class="status-badge status-${d.status}">${d.status}</span>
+          <span class="feed-confidence">${d.ai_confidence != null ? Math.round(d.ai_confidence * 100) + "%" : ""}</span>
+        </div>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+function initPhotoTabs() {
+  document.querySelectorAll("#photoStatusTabs .filter-tab").forEach((tab) => {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll("#photoStatusTabs .filter-tab").forEach((t) => t.classList.remove("active"));
+      tab.classList.add("active");
+      currentPhotoStatus = tab.dataset.status;
+      renderPhotoGrid();
+    });
+  });
+}
+
 // ---------- Notifications ----------
 function renderNotifications(notifications) {
   const tbody = document.querySelector("#notificationsTable tbody");
@@ -614,12 +661,13 @@ async function loadAll() {
   }
 
   try {
-    const [summary, farms, regional, feed, notifications] = await Promise.all([
+    const [summary, farms, regional, feed, notifications, diagnoses] = await Promise.all([
       Api.getStatsSummary(),
       Api.getFarmsOverview(),
       Api.getRegionalStats(),
       Api.getFeed(30),
       Api.getNotifications(),
+      Api.getAdminDiagnoses({ limit: 200 }),
     ]);
     renderSummary(summary);
     renderHouseholdsTable(farms);
@@ -627,6 +675,8 @@ async function loadAll() {
     renderRegionTable(regional);
     renderFeed(feed);
     renderNotifications(notifications);
+    currentDiagnoses = diagnoses;
+    renderPhotoGrid();
   } catch (e) {
     if (e.isAuthError) {
       showLoginScreen();
@@ -650,6 +700,7 @@ function init() {
   document.getElementById("apiBaseInput").value = Api.getBaseUrl();
 
   initNav();
+  initPhotoTabs();
 
   document.getElementById("backToHouseholds").addEventListener("click", backToHouseholdList);
   document.getElementById("statFarmsCard").addEventListener("click", () => {

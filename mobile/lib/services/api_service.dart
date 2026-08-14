@@ -208,6 +208,16 @@ class ApiService {
     return list.map((e) => Diagnosis.fromJson(e)).toList();
   }
 
+  Future<Diagnosis> submitDiagnosisFeedback({required int diagnosisId, required bool correct}) async {
+    final res = await http.patch(
+      await _uri('/api/diagnoses/$diagnosisId/feedback'),
+      headers: {...await _authHeaders(), 'Content-Type': 'application/json'},
+      body: jsonEncode({'correct': correct}),
+    );
+    _checkResponse(res);
+    return Diagnosis.fromJson(jsonDecode(utf8.decode(res.bodyBytes)));
+  }
+
   Future<Diagnosis> createDiagnosis({
     required int farmId,
     required String diagnosisType,

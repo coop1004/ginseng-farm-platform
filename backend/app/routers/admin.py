@@ -156,6 +156,42 @@ def farms_overview(db: Session = Depends(get_db), _admin: models.AdminUser = Dep
     return result
 
 
+@router.get("/diagnoses", response_model=List[schemas.AdminDiagnosisOut])
+def admin_diagnoses(
+    status: Optional[str] = None,
+    min_confidence: Optional[float] = None,
+    max_confidence: Optional[float] = None,
+    diagnosis_type: Optional[str] = None,
+    farm_id: Optional[int] = None,
+    limit: int = 200,
+    db: Session = Depends(get_db),
+    _admin: models.AdminUser = Depends(get_current_admin),
+):
+    """병해충 사진/진단 결과 관리자 조회. status로 분석완료/분석실패/전문가검토필요를
+    구분해서 필터링할 수 있다."""
+    query = db.query(models.Diagnosis)
+    if status:
+        query = query.filter(models.Diagnosis.status == status)
+    if min_confidence is not None:
+        query = query.filter(models.Diagnosis.ai_confidence >= min_confidence)
+    if max_confidence is not None:
+        query = query.filter(models.Diagnosis.ai_confidence <= max_confidence)
+    if diagnosis_type:
+        query = query.filter(models.Diagnosis.diagnosis_type == diagnosis_type)
+    if farm_id:
+        query = query.filter(models.Diagnosis.farm_id == farm_id)
+
+    diagnoses = query.order_by(models.Diagnosis.created_at.desc()).limit(limit).all()
+    results = []
+    for d in diagnoses:
+        out = schemas.AdminDiagnosisOut.model_validate(d)
+        out.farm_name = d.farm.farm_name if d.farm else None
+        out.household_name = d.farm.household.name if d.farm and d.farm.household else None
+        out.region = d.farm.region if d.farm else None
+        results.append(out)
+    return results
+
+
 @router.get("/regional-stats")
 def regional_stats(db: Session = Depends(get_db), _admin: models.AdminUser = Depends(get_current_admin)):
     """지역별 병해충 발생 현황: 지도/차트용 집계."""

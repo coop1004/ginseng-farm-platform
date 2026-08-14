@@ -57,6 +57,14 @@ const Api = (() => {
     getFarmsOverview: () => request("/api/admin/farms/overview"),
     getRegionalStats: () => request("/api/admin/regional-stats"),
     getFeed: (limit = 30) => request(`/api/admin/feed?limit=${limit}`),
+    getAdminDiagnoses: (params = {}) => {
+      const qs = new URLSearchParams();
+      Object.entries(params).forEach(([k, v]) => {
+        if (v !== null && v !== undefined && v !== "") qs.set(k, v);
+      });
+      const query = qs.toString();
+      return request(`/api/admin/diagnoses${query ? `?${query}` : ""}`);
+    },
     getNotifications: () => request("/api/admin/notifications"),
     sendNotification: (payload) =>
       request("/api/admin/notifications", {

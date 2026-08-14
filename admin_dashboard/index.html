@@ -38,6 +38,7 @@
       <a href="#map" class="nav-item" data-section="map">🗺️ 지역별 발생 지도</a>
       <a href="#farms" class="nav-item" data-section="farms">🌱 농가 모니터링</a>
       <a href="#feed" class="nav-item" data-section="feed">🔔 실시간 진단 피드</a>
+      <a href="#photos" class="nav-item" data-section="photos">🩺 병해충 사진 관리</a>
       <a href="#notifications" class="nav-item" data-section="notifications">📨 처방 알림 이력</a>
     </nav>
     <div class="sidebar-footer">
@@ -193,6 +194,22 @@
           <span class="panel-sub">전체 농가에서 접수된 최근 진단 내역</span>
         </div>
         <div id="feedList" class="feed-list"></div>
+      </div>
+    </section>
+
+    <section id="photos" class="section hidden">
+      <div class="panel">
+        <div class="panel-header">
+          <h2>병해충 사진 관리</h2>
+          <span class="panel-sub">농가가 업로드한 진단 사진과 AI 분석 상태</span>
+        </div>
+        <div class="photo-filter-tabs" id="photoStatusTabs">
+          <button class="filter-tab active" data-status="">전체</button>
+          <button class="filter-tab" data-status="분석완료">분석완료</button>
+          <button class="filter-tab" data-status="전문가검토필요">전문가검토필요</button>
+          <button class="filter-tab" data-status="분석실패">분석실패</button>
+        </div>
+        <div id="photoGrid" class="photo-grid"></div>
       </div>
     </section>
 

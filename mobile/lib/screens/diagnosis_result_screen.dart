@@ -5,14 +5,53 @@ import '../models/diagnosis.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 
-class DiagnosisResultScreen extends StatelessWidget {
+class DiagnosisResultScreen extends StatefulWidget {
   final Diagnosis diagnosis;
   final bool isNew;
 
   const DiagnosisResultScreen({super.key, required this.diagnosis, this.isNew = false});
 
   @override
+  State<DiagnosisResultScreen> createState() => _DiagnosisResultScreenState();
+}
+
+class _DiagnosisResultScreenState extends State<DiagnosisResultScreen> {
+  late Diagnosis diagnosis;
+  bool _submittingFeedback = false;
+
+  @override
+  void initState() {
+    super.initState();
+    diagnosis = widget.diagnosis;
+  }
+
+  Future<void> _submitFeedback(bool correct) async {
+    setState(() => _submittingFeedback = true);
+    try {
+      final updated = await ApiService().submitDiagnosisFeedback(
+        diagnosisId: diagnosis.id,
+        correct: correct,
+      );
+      setState(() => diagnosis = updated);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('피드백이 저장되었습니다. 감사합니다.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('피드백 저장 실패: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _submittingFeedback = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final isNew = widget.isNew;
     final typeColor = diagnosisTypeColors[diagnosis.diagnosisType] ?? Colors.grey;
     final api = ApiService();
 
@@ -103,7 +142,67 @@ class DiagnosisResultScreen extends StatelessWidget {
             Text('해당 없음', style: TextStyle(color: Colors.grey.shade500))
           else
             ...diagnosis.chemicalTreatments.map((t) => _TreatmentCard(item: t, highlight: false)),
+          const SizedBox(height: 20),
+          _buildFeedbackCard(),
         ],
+      ),
+    );
+  }
+
+  Widget _buildFeedbackCard() {
+    final confirmed = diagnosis.farmerConfirmedCorrect;
+    if (confirmed != null) {
+      return Card(
+        color: const Color(0xFFF3F6F3),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              Icon(confirmed ? Icons.check_circle : Icons.info_outline,
+                  size: 18, color: confirmed ? AppColors.green : Colors.grey.shade600),
+              const SizedBox(width: 8),
+              Text(
+                confirmed ? '실제와 일치한다고 확인해주셨습니다.' : '실제와 달랐다고 확인해주셨습니다.',
+                style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('AI 진단이 실제와 맞았나요?',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
+            const SizedBox(height: 4),
+            Text('농가님의 확인은 AI 진단 정확도 통계에 반영됩니다.',
+                style: TextStyle(fontSize: 11.5, color: Colors.grey.shade500)),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _submittingFeedback ? null : () => _submitFeedback(true),
+                    icon: const Icon(Icons.thumb_up_outlined, size: 16),
+                    label: const Text('맞았어요'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _submittingFeedback ? null : () => _submitFeedback(false),
+                    icon: const Icon(Icons.thumb_down_outlined, size: 16),
+                    label: const Text('아니었어요'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
