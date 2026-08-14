@@ -9,7 +9,7 @@ from app import models, schemas
 from app.database import get_db
 from app.deps import get_current_admin
 from app.routers.stats import build_summary
-from app.services.auth_service import create_admin_access_token, verify_password
+from app.services.auth_service import create_admin_access_token, hash_password, verify_password
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -26,6 +26,49 @@ def admin_login(payload: schemas.AdminLoginRequest, db: Session = Depends(get_db
 @router.get("/auth/me", response_model=schemas.AdminUserOut)
 def admin_me(current_admin: models.AdminUser = Depends(get_current_admin)):
     return schemas.AdminUserOut.model_validate(current_admin)
+
+
+@router.post("/auth/change-password")
+def admin_change_password(
+    payload: schemas.AdminChangePasswordRequest,
+    db: Session = Depends(get_db),
+    current_admin: models.AdminUser = Depends(get_current_admin),
+):
+    if not verify_password(payload.current_password, current_admin.password_hash):
+        raise HTTPException(status_code=401, detail="현재 비밀번호가 올바르지 않습니다.")
+    if len(payload.new_password) < 8:
+        raise HTTPException(status_code=400, detail="새 비밀번호는 8자 이상이어야 합니다.")
+    current_admin.password_hash = hash_password(payload.new_password)
+    db.commit()
+    return {"ok": True}
+
+
+@router.post("/auth/register", response_model=schemas.AdminUserOut)
+def admin_register(
+    payload: schemas.AdminRegisterRequest,
+    db: Session = Depends(get_db),
+    _current_admin: models.AdminUser = Depends(get_current_admin),
+):
+    """신규 관리자 계정 추가. 이미 로그인된 관리자만 다른 관리자를 추가로 등록할 수 있다
+    (누구나 가입 가능한 공개 가입 절차가 아님 - 사내 담당자 전용)."""
+    if db.query(models.AdminUser).filter(models.AdminUser.username == payload.username).first():
+        raise HTTPException(status_code=400, detail="이미 사용 중인 아이디입니다.")
+    if len(payload.password) < 8:
+        raise HTTPException(status_code=400, detail="비밀번호는 8자 이상이어야 합니다.")
+    admin = models.AdminUser(
+        username=payload.username,
+        name=payload.name,
+        password_hash=hash_password(payload.password),
+    )
+    db.add(admin)
+    db.commit()
+    db.refresh(admin)
+    return schemas.AdminUserOut.model_validate(admin)
+
+
+@router.get("/auth/list", response_model=List[schemas.AdminUserOut])
+def admin_list(db: Session = Depends(get_db), _current_admin: models.AdminUser = Depends(get_current_admin)):
+    return db.query(models.AdminUser).order_by(models.AdminUser.created_at).all()
 
 
 @router.get("/stats/summary", response_model=schemas.StatsSummary)

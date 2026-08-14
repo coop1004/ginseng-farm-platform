@@ -70,6 +70,17 @@ class AdminTokenResponse(BaseModel):
     admin: AdminUserOut
 
 
+class AdminChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
+class AdminRegisterRequest(BaseModel):
+    username: str
+    password: str
+    name: str
+
+
 # ---------- Farm ----------
 class FarmBase(BaseModel):
     farm_name: str

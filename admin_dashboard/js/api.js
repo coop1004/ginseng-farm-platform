@@ -63,5 +63,17 @@ const Api = (() => {
         method: "POST",
         body: JSON.stringify(payload),
       }),
+    getMe: () => request("/api/admin/auth/me"),
+    listAdmins: () => request("/api/admin/auth/list"),
+    changePassword: (currentPassword, newPassword) =>
+      request("/api/admin/auth/change-password", {
+        method: "POST",
+        body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+      }),
+    registerAdmin: (username, password, name) =>
+      request("/api/admin/auth/register", {
+        method: "POST",
+        body: JSON.stringify({ username, password, name }),
+      }),
   };
 })();

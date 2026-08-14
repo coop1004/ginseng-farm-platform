@@ -469,6 +469,96 @@ function handleLogout() {
   document.getElementById("loginPassword").value = "";
 }
 
+// ---------- Account management ----------
+async function openAccountModal() {
+  document.getElementById("pwCurrent").value = "";
+  document.getElementById("pwNew").value = "";
+  document.getElementById("adminNewName").value = "";
+  document.getElementById("adminNewUsername").value = "";
+  document.getElementById("adminNewPassword").value = "";
+  document.getElementById("accountModal").classList.remove("hidden");
+  try {
+    const me = await Api.getMe();
+    document.getElementById("accountMeLabel").textContent = `현재 로그인: ${me.name} (${me.username})`;
+  } catch (e) {
+    // 조회 실패해도 모달 자체는 그대로 사용 가능하도록 무시
+  }
+  loadAdminList();
+}
+
+function closeAccountModal() {
+  document.getElementById("accountModal").classList.add("hidden");
+}
+
+function loadAdminList() {
+  Api.listAdmins()
+    .then((admins) => {
+      const ul = document.getElementById("adminListUl");
+      ul.innerHTML = "";
+      admins.forEach((a) => {
+        const li = document.createElement("li");
+        li.textContent = `${a.name} (${a.username})`;
+        ul.appendChild(li);
+      });
+    })
+    .catch(() => {});
+}
+
+async function submitChangePassword() {
+  const current = document.getElementById("pwCurrent").value;
+  const next = document.getElementById("pwNew").value;
+  if (!current || !next) {
+    showToast("현재 비밀번호와 새 비밀번호를 모두 입력해주세요.", true);
+    return;
+  }
+  if (next.length < 8) {
+    showToast("새 비밀번호는 8자 이상이어야 합니다.", true);
+    return;
+  }
+  try {
+    await Api.changePassword(current, next);
+    showToast("비밀번호가 변경되었습니다.");
+    document.getElementById("pwCurrent").value = "";
+    document.getElementById("pwNew").value = "";
+  } catch (e) {
+    if (e.isAuthError) {
+      closeAccountModal();
+      showLoginScreen();
+      return;
+    }
+    showToast(e.message, true);
+  }
+}
+
+async function submitAddAdmin() {
+  const name = document.getElementById("adminNewName").value.trim();
+  const username = document.getElementById("adminNewUsername").value.trim();
+  const password = document.getElementById("adminNewPassword").value;
+  if (!name || !username || !password) {
+    showToast("이름, 아이디, 초기 비밀번호를 모두 입력해주세요.", true);
+    return;
+  }
+  if (password.length < 8) {
+    showToast("초기 비밀번호는 8자 이상이어야 합니다.", true);
+    return;
+  }
+  try {
+    await Api.registerAdmin(username, password, name);
+    showToast(`${name} 관리자 계정이 추가되었습니다.`);
+    document.getElementById("adminNewName").value = "";
+    document.getElementById("adminNewUsername").value = "";
+    document.getElementById("adminNewPassword").value = "";
+    loadAdminList();
+  } catch (e) {
+    if (e.isAuthError) {
+      closeAccountModal();
+      showLoginScreen();
+      return;
+    }
+    showToast(e.message, true);
+  }
+}
+
 // ---------- Load & bootstrap ----------
 async function loadAll() {
   try {
@@ -539,6 +629,14 @@ function init() {
 
   document.getElementById("loginForm").addEventListener("submit", handleLoginSubmit);
   document.getElementById("logoutBtn").addEventListener("click", handleLogout);
+
+  document.getElementById("accountBtn").addEventListener("click", openAccountModal);
+  document.getElementById("accountClose").addEventListener("click", closeAccountModal);
+  document.getElementById("accountModal").addEventListener("click", (e) => {
+    if (e.target.id === "accountModal") closeAccountModal();
+  });
+  document.getElementById("pwSubmit").addEventListener("click", submitChangePassword);
+  document.getElementById("adminAddSubmit").addEventListener("click", submitAddAdmin);
 
   if (Api.isLoggedIn()) {
     showAppShell();
