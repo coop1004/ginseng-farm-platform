@@ -65,6 +65,9 @@ function initNav() {
       if (section === "map" && map) {
         setTimeout(() => map.invalidateSize(), 100);
       }
+      if (section === "map" && charts.regionCrop) {
+        setTimeout(() => charts.regionCrop.resize(), 100);
+      }
       if (section === "weather" && charts.weather) {
         setTimeout(() => charts.weather.resize(), 100);
       }
@@ -227,14 +230,51 @@ function renderRegionTable(regionalStats) {
     const typeStr = Object.entries(r.by_type)
       .map(([t, c]) => `${t} ${c}`)
       .join(" · ");
+    const cropStr = Object.entries(r.by_crop || {})
+      .map(([c, n]) => `${c} ${n}`)
+      .join(" · ");
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td><strong>${r.region}</strong></td>
       <td>${r.total}건</td>
       <td>${r.top_issue || "-"}</td>
       <td>${typeStr}</td>
+      <td>${cropStr || "-"}</td>
     `;
     tbody.appendChild(tr);
+  });
+}
+
+const cropChartColors = {
+  "인삼": "#2e7d32",
+  "고추": "#c62828",
+  "배추": "#1565c0",
+};
+
+function renderRegionCropChart(regionalStats) {
+  const ctx = document.getElementById("regionCropChart");
+  const regions = regionalStats.map((r) => r.region);
+  const crops = [...new Set(regionalStats.flatMap((r) => Object.keys(r.by_crop || {})))].sort();
+
+  const datasets = crops.map((crop) => ({
+    label: crop,
+    data: regionalStats.map((r) => (r.by_crop || {})[crop] || 0),
+    backgroundColor: cropChartColors[crop] || "#8d6e63",
+    borderRadius: 5,
+  }));
+
+  if (charts.regionCrop) charts.regionCrop.destroy();
+  charts.regionCrop = new Chart(ctx, {
+    type: "bar",
+    data: { labels: regions, datasets },
+    options: {
+      maintainAspectRatio: false,
+      plugins: { legend: { position: "bottom", labels: { boxWidth: 12, font: { size: 11 } } } },
+      scales: {
+        x: { stacked: false },
+        y: { beginAtZero: true, ticks: { precision: 0 } },
+      },
+    },
   });
 }
 
@@ -1119,6 +1159,7 @@ async function loadAll() {
     renderHouseholdsTable(farms);
     renderMap(regional);
     renderRegionTable(regional);
+    renderRegionCropChart(regional);
     renderFeed(feed);
     renderNotifications(notifications);
     currentDiagnoses = diagnoses;

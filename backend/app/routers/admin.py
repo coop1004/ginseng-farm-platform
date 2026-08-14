@@ -224,7 +224,8 @@ def admin_final_diagnosis(
 
 @router.get("/regional-stats")
 def regional_stats(db: Session = Depends(get_db), _admin: models.AdminUser = Depends(get_current_admin)):
-    """지역별 병해충 발생 현황: 지도/차트용 집계."""
+    """지역별 병해충 발생 현황: 지도/차트용 집계. 작물별 분포(by_crop)도 함께 내려줘서
+    관리자 대시보드의 지역x작물 비교 차트에 사용한다."""
     farms = {f.id: f for f in db.query(models.Farm).all()}
     diagnoses = db.query(models.Diagnosis).all()
 
@@ -242,11 +243,15 @@ def regional_stats(db: Session = Depends(get_db), _admin: models.AdminUser = Dep
                 "total": 0,
                 "by_type": Counter(),
                 "by_name": Counter(),
+                "by_crop": Counter(),
             }
         region_data[region]["total"] += 1
         region_data[region]["by_type"][d.diagnosis_type] += 1
         if d.ai_disease_name:
             region_data[region]["by_name"][d.ai_disease_name] += 1
+        crop_name = farm.crop.name_kr if farm.crop else d.crop_name
+        if crop_name:
+            region_data[region]["by_crop"][crop_name] += 1
 
     output = []
     for region, data in region_data.items():
@@ -257,6 +262,7 @@ def regional_stats(db: Session = Depends(get_db), _admin: models.AdminUser = Dep
                 "longitude": data["longitude"],
                 "total": data["total"],
                 "by_type": dict(data["by_type"]),
+                "by_crop": dict(data["by_crop"]),
                 "top_issue": data["by_name"].most_common(1)[0][0] if data["by_name"] else None,
             }
         )

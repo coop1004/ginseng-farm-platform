@@ -129,6 +129,10 @@
     </section>
 
     <section id="map" class="section hidden">
+      <div class="sample-banner">
+        🧪 지역x작물 비교 차트는 <strong>샘플 데이터 기반 프로토타입</strong>입니다. 실제 인삼 지역 데이터는 반영되어 있으나,
+        고추·배추는 다작물 확장 구조를 보여주기 위해 가상으로 생성한 시연용 데이터입니다.
+      </div>
       <div class="panel">
         <div class="panel-header">
           <h2>지역별 병해충 발생 모니터링</h2>
@@ -137,11 +141,18 @@
         <div id="koreaMap" class="map-box"></div>
       </div>
       <div class="panel">
+        <div class="panel-header">
+          <h2>지역 x 작물별 발생 비교</h2>
+          <span class="panel-sub">같은 지역이라도 작물마다 발생 양상이 다르게 시딩됩니다</span>
+        </div>
+        <div class="chart-wrap" style="height: 320px;"><canvas id="regionCropChart"></canvas></div>
+      </div>
+      <div class="panel">
         <div class="panel-header"><h2>지역별 발생 요약</h2></div>
         <div class="table-wrap">
           <table class="data-table" id="regionTable">
             <thead>
-              <tr><th>지역</th><th>총 발생건수</th><th>주요 병해충</th><th>유형 분포</th></tr>
+              <tr><th>지역</th><th>총 발생건수</th><th>주요 병해충</th><th>유형 분포</th><th>작물별 분포</th></tr>
             </thead>
             <tbody></tbody>
           </table>
