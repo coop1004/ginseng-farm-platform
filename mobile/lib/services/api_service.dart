@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import '../models/app_notification.dart';
 import '../models/auth.dart';
+import '../models/crop.dart';
 import '../models/diagnosis.dart';
 import '../models/farm.dart';
 import '../models/stats.dart';
@@ -148,6 +149,21 @@ class ApiService {
   Future<void> deleteFarm(int id) async {
     final res = await http.delete(await _uri('/api/farms/$id'), headers: await _authHeaders());
     _checkResponse(res);
+  }
+
+  // ---------- Crops ----------
+  Future<List<Crop>> getCrops() async {
+    final res = await http.get(await _uri('/api/crops'), headers: await _authHeaders());
+    _checkResponse(res);
+    final list = jsonDecode(utf8.decode(res.bodyBytes)) as List<dynamic>;
+    return list.map((e) => Crop.fromJson(e)).toList();
+  }
+
+  Future<List<GrowthStage>> getGrowthStages(int cropId) async {
+    final res = await http.get(await _uri('/api/crops/$cropId/growth-stages'), headers: await _authHeaders());
+    _checkResponse(res);
+    final list = jsonDecode(utf8.decode(res.bodyBytes)) as List<dynamic>;
+    return list.map((e) => GrowthStage.fromJson(e)).toList();
   }
 
   // ---------- Work Logs ----------

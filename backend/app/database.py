@@ -40,3 +40,8 @@ def run_light_migrations():
     _add_column_if_missing(inspector, "diagnoses", "final_diagnosis_note", "TEXT")
     _add_column_if_missing(inspector, "diagnoses", "final_diagnosis_by", "VARCHAR(50)")
     _add_column_if_missing(inspector, "diagnoses", "final_diagnosis_at", "DATETIME")
+    _add_column_if_missing(inspector, "farms", "crop_id", "INTEGER")
+    _add_column_if_missing(inspector, "farms", "growth_stage_id", "INTEGER")
+    _add_column_if_missing(inspector, "treatment_references", "crop_id", "INTEGER")
+    _add_column_if_missing(inspector, "treatment_references", "is_sample_data", "BOOLEAN NOT NULL DEFAULT 0")
+    _add_column_if_missing(inspector, "treatment_references", "photo_path", "VARCHAR(255)")

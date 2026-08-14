@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../models/crop.dart';
 import '../models/farm.dart';
 import '../services/api_service.dart';
 
@@ -27,7 +28,22 @@ class _FarmFormScreenState extends State<FarmFormScreen> {
   int _cultivationYear = 1;
   bool _saving = false;
 
+  List<Crop> _crops = [];
+  Crop? _selectedCrop;
+  List<GrowthStage> _growthStages = [];
+  int? _selectedGrowthStageId;
+  bool _loadingCrops = true;
+
   bool get _isEdit => widget.farm != null;
+  bool get _isGinseng => _selectedCrop?.nameKr == '인삼';
+
+  Crop? _findCrop(int? id) {
+    if (id == null) return null;
+    for (final c in _crops) {
+      if (c.id == id) return c;
+    }
+    return null;
+  }
 
   @override
   void initState() {
@@ -42,8 +58,55 @@ class _FarmFormScreenState extends State<FarmFormScreen> {
     _memo = TextEditingController(text: f?.memo ?? '');
     _facilityType = f?.facilityType ?? facilityTypes.first;
     _cultivationYear = f?.cultivationYear ?? 1;
+    _selectedGrowthStageId = f?.growthStageId;
 
     _areaPyeong.addListener(_syncAreaFromPyeong);
+    _loadCrops();
+  }
+
+  Future<void> _loadCrops() async {
+    try {
+      final crops = await _api.getCrops();
+      final existingCropId = widget.farm?.cropId;
+      Crop? initial;
+      for (final c in crops) {
+        if (c.id == existingCropId) {
+          initial = c;
+          break;
+        }
+      }
+      setState(() {
+        _crops = crops;
+        _selectedCrop = initial ?? (crops.isNotEmpty ? crops.first : null);
+        _loadingCrops = false;
+      });
+      if (_selectedCrop != null && !_isGinseng) {
+        await _loadGrowthStages(_selectedCrop!.id);
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingCrops = false);
+    }
+  }
+
+  Future<void> _loadGrowthStages(int cropId) async {
+    try {
+      final stages = await _api.getGrowthStages(cropId);
+      if (mounted) setState(() => _growthStages = stages);
+    } catch (_) {
+      if (mounted) setState(() => _growthStages = []);
+    }
+  }
+
+  void _onCropChanged(Crop? crop) {
+    if (crop == null) return;
+    setState(() {
+      _selectedCrop = crop;
+      _growthStages = [];
+      _selectedGrowthStageId = null;
+    });
+    if (crop.nameKr != '인삼') {
+      _loadGrowthStages(crop.id);
+    }
   }
 
   void _syncAreaFromPyeong() {
@@ -73,6 +136,8 @@ class _FarmFormScreenState extends State<FarmFormScreen> {
       final farm = Farm(
         id: widget.farm?.id ?? 0,
         householdId: widget.farm?.householdId ?? 0,
+        cropId: _selectedCrop?.id,
+        growthStageId: _isGinseng ? null : _selectedGrowthStageId,
         farmName: _farmName.text.trim(),
         address: _address.text.trim(),
         region: _region.text.trim().isEmpty ? null : _region.text.trim(),
@@ -112,6 +177,25 @@ class _FarmFormScreenState extends State<FarmFormScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
           children: [
+            if (_loadingCrops)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: LinearProgressIndicator(),
+              )
+            else if (_crops.isNotEmpty) ...[
+              DropdownButtonFormField<int>(
+                value: _selectedCrop?.id,
+                decoration: const InputDecoration(labelText: '작물 *', prefixIcon: Icon(Icons.eco_outlined)),
+                items: _crops
+                    .map((c) => DropdownMenuItem(
+                          value: c.id,
+                          child: Text('${c.iconEmoji ?? ''} ${c.nameKr}${c.isSampleData ? ' (샘플)' : ''}'.trim()),
+                        ))
+                    .toList(),
+                onChanged: (id) => _onCropChanged(_findCrop(id)),
+              ),
+              const SizedBox(height: 12),
+            ],
             TextFormField(
               controller: _farmName,
               decoration: const InputDecoration(labelText: '농장명 *', prefixIcon: Icon(Icons.storefront_outlined)),
@@ -158,17 +242,28 @@ class _FarmFormScreenState extends State<FarmFormScreen> {
               onChanged: (v) => setState(() => _facilityType = v ?? _facilityType),
             ),
             const SizedBox(height: 12),
-            Text('연차 (1~6년근)', style: TextStyle(fontSize: 12.5, color: Colors.grey.shade700)),
-            Wrap(
-              spacing: 8,
-              children: List.generate(6, (i) => i + 1)
-                  .map((y) => ChoiceChip(
-                        label: Text('$y년근'),
-                        selected: _cultivationYear == y,
-                        onSelected: (_) => setState(() => _cultivationYear = y),
-                      ))
-                  .toList(),
-            ),
+            // 인삼은 '연차(1~6년근)' 개념으로, 그 외 작물은 실제 생육단계(정식기/생육기 등)로 관리한다.
+            if (_isGinseng) ...[
+              Text('연차 (1~6년근)', style: TextStyle(fontSize: 12.5, color: Colors.grey.shade700)),
+              Wrap(
+                spacing: 8,
+                children: List.generate(6, (i) => i + 1)
+                    .map((y) => ChoiceChip(
+                          label: Text('$y년근'),
+                          selected: _cultivationYear == y,
+                          onSelected: (_) => setState(() => _cultivationYear = y),
+                        ))
+                    .toList(),
+              ),
+            ] else if (_growthStages.isNotEmpty)
+              DropdownButtonFormField<int>(
+                value: _selectedGrowthStageId,
+                decoration: const InputDecoration(labelText: '생육단계', prefixIcon: Icon(Icons.timeline_outlined)),
+                items: _growthStages
+                    .map((s) => DropdownMenuItem(value: s.id, child: Text(s.nameKr)))
+                    .toList(),
+                onChanged: (v) => setState(() => _selectedGrowthStageId = v),
+              ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _phone,

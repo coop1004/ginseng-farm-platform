@@ -2,6 +2,10 @@ class Farm {
   final int id;
   final int householdId;
   final String? householdName;
+  final int? cropId;
+  final String? cropName;
+  final int? growthStageId;
+  final String? growthStageName;
   final String farmName;
   final String address;
   final String? region;
@@ -19,6 +23,10 @@ class Farm {
     required this.id,
     required this.householdId,
     this.householdName,
+    this.cropId,
+    this.cropName,
+    this.growthStageId,
+    this.growthStageName,
     required this.farmName,
     required this.address,
     this.region,
@@ -38,6 +46,10 @@ class Farm {
       id: json['id'],
       householdId: json['household_id'] ?? 0,
       householdName: json['household_name'],
+      cropId: json['crop_id'],
+      cropName: json['crop_name'],
+      growthStageId: json['growth_stage_id'],
+      growthStageName: json['growth_stage_name'],
       farmName: json['farm_name'] ?? '',
       address: json['address'] ?? '',
       region: json['region'],
@@ -66,6 +78,8 @@ class Farm {
       'cultivation_year': cultivationYear,
       'phone': phone,
       'memo': memo,
+      'crop_id': cropId,
+      'growth_stage_id': growthStageId,
     };
   }
 }

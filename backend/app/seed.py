@@ -281,6 +281,60 @@ def _seed_weather_history(db: Session, farm: models.Farm, today: dt.date, days: 
         )
 
 
+GINSENG_GROWTH_STAGES = ["1년근", "2년근", "3년근", "4년근", "5년근", "6년근"]
+
+PILOT_CROPS = [
+    dict(name_kr="인삼", name_en="Ginseng", icon_emoji="🌱", is_sample_data=False, sort_order=0),
+    dict(name_kr="고추", name_en="Chili Pepper", icon_emoji="🌶️", is_sample_data=True, sort_order=1),
+    dict(name_kr="배추", name_en="Napa Cabbage", icon_emoji="🥬", is_sample_data=True, sort_order=2),
+]
+
+
+def seed_crops_if_empty(db: Session):
+    """작물 마스터가 하나도 없으면(최초 배포, 혹은 다작물 구조 도입 이전 운영 DB) 인삼/고추/
+    배추를 등록한다. 인삼은 실서비스 작물(is_sample_data=False), 고추/배추는 구조 확장을
+    보여주기 위한 파일럿(is_sample_data=True)로 표시된다. 인삼의 생육단계는 기존
+    Farm.cultivation_year("1~6년근") 개념과 별개로, 신규 구조에서도 동일하게 6단계로 채워
+    다른 작물과 같은 방식(growth_stage_id)으로도 조회할 수 있게 해둔다."""
+    if db.query(models.Crop).count() > 0:
+        return
+    for c in PILOT_CROPS:
+        crop = models.Crop(**c, is_active=True)
+        db.add(crop)
+        db.flush()
+        if crop.name_kr == "인삼":
+            for i, stage_name in enumerate(GINSENG_GROWTH_STAGES):
+                db.add(models.GrowthStage(crop_id=crop.id, name_kr=stage_name, sort_order=i))
+    db.commit()
+
+
+def get_ginseng_crop_id(db: Session) -> int:
+    crop = db.query(models.Crop).filter(models.Crop.name_kr == "인삼").first()
+    if not crop:
+        raise RuntimeError("인삼 Crop 시드가 아직 실행되지 않았습니다. seed_crops_if_empty를 먼저 호출하세요.")
+    return crop.id
+
+
+def backfill_crop_ids_if_missing(db: Session):
+    """crop_id 컬럼이 새로 추가된 기존 운영 DB(농장/병해충참고자료)에서, 아직 crop_id가
+    비어있는 행을 전부 인삼으로 채운다. seed_crops_if_empty 다음에 반드시 실행되어야
+    하며, 이후로는 어떤 요청이 들어와도 crop_id가 비어있는 상태를 마주치지 않는다."""
+    ginseng_id = get_ginseng_crop_id(db)
+
+    farms_updated = (
+        db.query(models.Farm)
+        .filter(models.Farm.crop_id.is_(None))
+        .update({models.Farm.crop_id: ginseng_id}, synchronize_session=False)
+    )
+    refs_updated = (
+        db.query(models.TreatmentReference)
+        .filter(models.TreatmentReference.crop_id.is_(None))
+        .update({models.TreatmentReference.crop_id: ginseng_id}, synchronize_session=False)
+    )
+    if farms_updated or refs_updated:
+        db.commit()
+
+
 def seed_admin_if_empty(db: Session):
     """운영 DB에 이미 농가 데이터가 있어도(= seed_if_empty가 건너뛰어도) 관리자 계정이
     하나도 없으면 부트스트랩 계정을 만든다. 최초 배포 시 1회만 실행됨."""
@@ -315,6 +369,7 @@ def seed_if_empty(db: Session):
 
     today = dt.date.today()
     random.seed(42)
+    ginseng_id = get_ginseng_crop_id(db)
 
     all_farms = []
 
@@ -335,6 +390,7 @@ def seed_if_empty(db: Session):
 
         farm = models.Farm(
             household_id=household.id,
+            crop_id=ginseng_id,
             farm_name=h["farm_name"],
             address=h["address"],
             region=h["region"],
@@ -353,7 +409,7 @@ def seed_if_empty(db: Session):
         # 첫 번째 농가는 필지 3개(1농가-다필지) 시나리오를 보여준다.
         if h is HOUSEHOLDS[0]:
             for extra in EXTRA_FARMS_FOR_FIRST_HOUSEHOLD:
-                extra_farm = models.Farm(household_id=household.id, **extra)
+                extra_farm = models.Farm(household_id=household.id, crop_id=ginseng_id, **extra)
                 db.add(extra_farm)
                 db.flush()
                 all_farms.append(extra_farm)
@@ -388,6 +444,7 @@ def seed_treatment_references_if_empty(db: Session):
         return
     if not ECO_DB_PATH.exists():
         return
+    ginseng_id = get_ginseng_crop_id(db)
     with open(ECO_DB_PATH, "r", encoding="utf-8") as f:
         diseases = json.load(f)["diseases"]
 
@@ -396,6 +453,7 @@ def seed_treatment_references_if_empty(db: Session):
         temp_range = cond.get("temp_range_c") or [None, None]
         db.add(
             models.TreatmentReference(
+                crop_id=ginseng_id,
                 crop_name=d.get("crop", "인삼"),
                 type=d["type"],
                 name_kr=d["name_kr"],

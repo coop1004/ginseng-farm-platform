@@ -82,6 +82,27 @@ class AdminRegisterRequest(BaseModel):
     name: str
 
 
+# ---------- Crop ----------
+class GrowthStageOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    crop_id: int
+    name_kr: str
+    sort_order: int
+    description: Optional[str] = None
+
+
+class CropOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    name_kr: str
+    name_en: Optional[str] = None
+    icon_emoji: Optional[str] = None
+    is_active: bool
+    is_sample_data: bool
+    sort_order: int
+
+
 # ---------- Farm ----------
 class FarmBase(BaseModel):
     farm_name: str
@@ -98,7 +119,9 @@ class FarmBase(BaseModel):
 
 
 class FarmCreate(FarmBase):
-    pass
+    # 생략 시 서버가 인삼으로 기본 채움(구버전 모바일 클라이언트 호환)
+    crop_id: Optional[int] = None
+    growth_stage_id: Optional[int] = None
 
 
 class FarmUpdate(BaseModel):
@@ -113,6 +136,8 @@ class FarmUpdate(BaseModel):
     cultivation_year: Optional[int] = None
     phone: Optional[str] = None
     memo: Optional[str] = None
+    crop_id: Optional[int] = None
+    growth_stage_id: Optional[int] = None
 
 
 class FarmOut(FarmBase):
@@ -120,6 +145,10 @@ class FarmOut(FarmBase):
     id: int
     household_id: int
     household_name: Optional[str] = None
+    crop_id: Optional[int] = None
+    crop_name: Optional[str] = None
+    growth_stage_id: Optional[int] = None
+    growth_stage_name: Optional[str] = None
     created_at: dt.datetime
 
 
@@ -313,7 +342,7 @@ class WeatherCollectResult(BaseModel):
 
 # ---------- Treatment Reference (CMS) ----------
 class TreatmentReferenceCreate(BaseModel):
-    crop_name: str = "인삼"
+    crop_id: int
     type: str  # 병해 / 해충 / 생리장애
     name_kr: str
     name_en: Optional[str] = None
@@ -323,6 +352,7 @@ class TreatmentReferenceCreate(BaseModel):
     favorable_temp_max: Optional[float] = None
     favorable_humidity_min: Optional[float] = None
     favorable_rainfall_note: Optional[str] = None
+    photo_path: Optional[str] = None
     eco_treatments: List[TreatmentItem] = []
     chemical_treatments: List[TreatmentItem] = []
     is_active: bool = True
@@ -331,6 +361,7 @@ class TreatmentReferenceCreate(BaseModel):
 class TreatmentReferenceOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
+    crop_id: Optional[int] = None
     crop_name: str
     type: str
     name_kr: str
@@ -341,9 +372,22 @@ class TreatmentReferenceOut(BaseModel):
     favorable_temp_max: Optional[float] = None
     favorable_humidity_min: Optional[float] = None
     favorable_rainfall_note: Optional[str] = None
+    photo_path: Optional[str] = None
+    is_sample_data: bool = False
     eco_treatments: List[TreatmentItem] = []
     chemical_treatments: List[TreatmentItem] = []
     is_active: bool
     updated_by: Optional[str] = None
     created_at: dt.datetime
     updated_at: dt.datetime
+
+
+class AgriMaterialOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    name: str
+    category: str
+    active_ingredient: Optional[str] = None
+    default_usage: Optional[str] = None
+    note: Optional[str] = None
+    is_active: bool

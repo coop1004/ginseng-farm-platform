@@ -1,19 +1,21 @@
-import json
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app import models, schemas
 from app.database import get_db
 from app.deps import get_current_admin
+from app.services.reference_service import build_treatment_lists, sync_pest_disease_materials
 
 router = APIRouter(prefix="/api/admin/reference", tags=["reference"])
 
 
 def _to_out(r: models.TreatmentReference) -> dict:
+    eco, chemical = build_treatment_lists(r)
     return {
         "id": r.id,
+        "crop_id": r.crop_id,
         "crop_name": r.crop_name,
         "type": r.type,
         "name_kr": r.name_kr,
@@ -24,8 +26,10 @@ def _to_out(r: models.TreatmentReference) -> dict:
         "favorable_temp_max": r.favorable_temp_max,
         "favorable_humidity_min": r.favorable_humidity_min,
         "favorable_rainfall_note": r.favorable_rainfall_note,
-        "eco_treatments": json.loads(r.eco_treatments_json) if r.eco_treatments_json else [],
-        "chemical_treatments": json.loads(r.chemical_treatments_json) if r.chemical_treatments_json else [],
+        "photo_path": r.photo_path,
+        "is_sample_data": r.is_sample_data,
+        "eco_treatments": eco,
+        "chemical_treatments": chemical,
         "is_active": r.is_active,
         "updated_by": r.updated_by,
         "created_at": r.created_at,
@@ -33,17 +37,26 @@ def _to_out(r: models.TreatmentReference) -> dict:
     }
 
 
+def _resolve_crop_name(db: Session, crop_id: int) -> str:
+    crop = db.query(models.Crop).filter(models.Crop.id == crop_id).first()
+    if not crop:
+        raise HTTPException(status_code=400, detail="존재하지 않는 작물입니다.")
+    return crop.name_kr
+
+
 @router.get("", response_model=List[schemas.TreatmentReferenceOut])
 def list_references(
-    crop_name: Optional[str] = None,
+    crop_id: Optional[int] = None,
     type: Optional[str] = None,
     is_active: Optional[bool] = None,
     db: Session = Depends(get_db),
     _admin: models.AdminUser = Depends(get_current_admin),
 ):
-    query = db.query(models.TreatmentReference)
-    if crop_name:
-        query = query.filter(models.TreatmentReference.crop_name == crop_name)
+    query = db.query(models.TreatmentReference).options(
+        selectinload(models.TreatmentReference.materials).selectinload(models.PestDiseaseMaterial.agri_material)
+    )
+    if crop_id:
+        query = query.filter(models.TreatmentReference.crop_id == crop_id)
     if type:
         query = query.filter(models.TreatmentReference.type == type)
     if is_active is not None:
@@ -58,14 +71,15 @@ def create_reference(
     db: Session = Depends(get_db),
     current_admin: models.AdminUser = Depends(get_current_admin),
 ):
+    crop_name = _resolve_crop_name(db, payload.crop_id)
     data = payload.model_dump(exclude={"eco_treatments", "chemical_treatments"})
-    row = models.TreatmentReference(
-        **data,
-        eco_treatments_json=json.dumps([t.model_dump() for t in payload.eco_treatments], ensure_ascii=False),
-        chemical_treatments_json=json.dumps([t.model_dump() for t in payload.chemical_treatments], ensure_ascii=False),
-        updated_by=current_admin.name,
-    )
+    row = models.TreatmentReference(**data, crop_name=crop_name, updated_by=current_admin.name)
     db.add(row)
+    db.flush()
+
+    sync_pest_disease_materials(
+        db, row, [t.model_dump() for t in payload.eco_treatments], [t.model_dump() for t in payload.chemical_treatments]
+    )
     db.commit()
     db.refresh(row)
     return _to_out(row)
@@ -82,12 +96,17 @@ def update_reference(
     if not row:
         raise HTTPException(status_code=404, detail="자료를 찾을 수 없습니다.")
 
+    crop_name = _resolve_crop_name(db, payload.crop_id)
     data = payload.model_dump(exclude={"eco_treatments", "chemical_treatments"})
     for key, value in data.items():
         setattr(row, key, value)
-    row.eco_treatments_json = json.dumps([t.model_dump() for t in payload.eco_treatments], ensure_ascii=False)
-    row.chemical_treatments_json = json.dumps([t.model_dump() for t in payload.chemical_treatments], ensure_ascii=False)
+    row.crop_name = crop_name
     row.updated_by = current_admin.name
+    db.flush()
+
+    sync_pest_disease_materials(
+        db, row, [t.model_dump() for t in payload.eco_treatments], [t.model_dump() for t in payload.chemical_treatments]
+    )
     db.commit()
     db.refresh(row)
     return _to_out(row)
@@ -105,3 +124,14 @@ def delete_reference(
     db.delete(row)
     db.commit()
     return {"ok": True}
+
+
+@router.get("/agri-materials", response_model=List[schemas.AgriMaterialOut])
+def list_agri_materials(db: Session = Depends(get_db), _admin: models.AdminUser = Depends(get_current_admin)):
+    """CMS 자재 입력란의 자동완성(datalist)용 — 기존에 등록된 자재 목록."""
+    return (
+        db.query(models.AgriMaterial)
+        .filter(models.AgriMaterial.is_active.is_(True))
+        .order_by(models.AgriMaterial.name)
+        .all()
+    )

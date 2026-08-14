@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app import models, schemas
 from app.database import get_db
 from app.deps import ensure_farm_access, get_current_household_id
+from app.seed import get_ginseng_crop_id
 
 router = APIRouter(prefix="/api/farms", tags=["farms"])
 
@@ -14,6 +15,8 @@ def _to_out(f: models.Farm) -> dict:
     return {
         **{c.name: getattr(f, c.name) for c in f.__table__.columns},
         "household_name": f.household.name if f.household else None,
+        "crop_name": f.crop.name_kr if f.crop else None,
+        "growth_stage_name": f.growth_stage.name_kr if f.growth_stage else None,
     }
 
 
@@ -23,7 +26,11 @@ def create_farm(
     household_id: int = Depends(get_current_household_id),
     db: Session = Depends(get_db),
 ):
-    farm = models.Farm(household_id=household_id, **payload.model_dump())
+    data = payload.model_dump()
+    if data.get("crop_id") is None:
+        # 구버전 모바일 클라이언트(작물 선택 UI 도입 이전)는 crop_id를 안 보낸다 -> 인삼으로 기본값 처리
+        data["crop_id"] = get_ginseng_crop_id(db)
+    farm = models.Farm(household_id=household_id, **data)
     db.add(farm)
     db.commit()
     db.refresh(farm)

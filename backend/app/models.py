@@ -67,11 +67,49 @@ class HouseholdMember(Base):
     user = relationship("User", back_populates="memberships")
 
 
+class Crop(Base):
+    """지원 작물 마스터. 인삼 외 작물로 확장하기 위한 기준 축 — Farm/TreatmentReference/
+    GrowthStage가 전부 이 테이블의 id를 기준으로 연결된다."""
+
+    __tablename__ = "crops"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name_kr = Column(String(50), unique=True, nullable=False)
+    name_en = Column(String(50), nullable=True)
+    icon_emoji = Column(String(10), nullable=True)
+    is_active = Column(Boolean, default=True, nullable=False)
+    # 실제 학습된 진단 데이터/약제 정보 없이 시연용으로 등록된 파일럿 작물인지 여부.
+    # True면 모바일 진단결과 화면에 "샘플 데이터"/"베타 모델" 안내를 띄우는 기준이 된다.
+    is_sample_data = Column(Boolean, default=False, nullable=False)
+    sort_order = Column(Integer, default=0)
+    created_at = Column(DateTime, default=dt.datetime.utcnow)
+
+    growth_stages = relationship("GrowthStage", back_populates="crop", cascade="all, delete-orphan")
+
+
+class GrowthStage(Base):
+    """작물별 생육단계. 인삼은 seed 단계에서 '1년근'~'6년근' 6개로 채워지고(기존
+    Farm.cultivation_year 개념과 별개로 존재 — cultivation_year는 그대로 둠), 다른
+    작물은 정식기/생육기/수확기 등 실제 생육단계로 채워진다."""
+
+    __tablename__ = "growth_stages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    crop_id = Column(Integer, ForeignKey("crops.id"), nullable=False)
+    name_kr = Column(String(50), nullable=False)
+    sort_order = Column(Integer, default=0)
+    description = Column(Text, nullable=True)
+
+    crop = relationship("Crop", back_populates="growth_stages")
+
+
 class Farm(Base):
     __tablename__ = "farms"
 
     id = Column(Integer, primary_key=True, index=True)
     household_id = Column(Integer, ForeignKey("households.id"), nullable=False)
+    crop_id = Column(Integer, ForeignKey("crops.id"), nullable=True)  # seed 직후 항상 채워짐(앱 레벨 필수 취급)
+    growth_stage_id = Column(Integer, ForeignKey("growth_stages.id"), nullable=True)  # 인삼 농장은 비워둠
     farm_name = Column(String(100), nullable=False)
     address = Column(String(255), nullable=False)
     region = Column(String(50), index=True)  # 시/군/구 단위 (지도/통계 그룹핑용)
@@ -80,12 +118,14 @@ class Farm(Base):
     area_pyeong = Column(Float, default=0)
     area_m2 = Column(Float, default=0)
     facility_type = Column(String(20), default="노지")  # 노지 / 해가림 / 스마트팜
-    cultivation_year = Column(Integer, default=1)  # 1~6년근
+    cultivation_year = Column(Integer, default=1)  # 1~6년근 (인삼 전용 개념, 손대지 않음)
     phone = Column(String(30), nullable=True)
     memo = Column(Text, nullable=True)
     created_at = Column(DateTime, default=dt.datetime.utcnow)
 
     household = relationship("Household", back_populates="farms")
+    crop = relationship("Crop")
+    growth_stage = relationship("GrowthStage")
     work_logs = relationship("WorkLog", back_populates="farm", cascade="all, delete-orphan")
     diagnoses = relationship("Diagnosis", back_populates="farm", cascade="all, delete-orphan")
     notifications = relationship("Notification", back_populates="farm", cascade="all, delete-orphan")
@@ -218,13 +258,18 @@ class WeatherRecord(Base):
 
 
 class TreatmentReference(Base):
-    """회사가 보유한 병해충/생리장애 참고자료 + 방제 자재 정보. AI 진단 프롬프트의
-    근거 자료로 쓰이고, 관리자 대시보드 CMS에서 직접 추가/수정한다."""
+    """회사가 보유한 병해충/생리장애 참고자료(=pest_disease) + 방제 자재 정보. AI 진단
+    프롬프트의 근거 자료로 쓰이고, 관리자 대시보드 CMS에서 직접 추가/수정한다.
+
+    eco_treatments_json/chemical_treatments_json은 하위호환용 원본 필드로 계속 저장되지만,
+    실제 조회는 PestDiseaseMaterial 조인 테이블을 우선한다(get-or-create로 AgriMaterial과
+    연결됨) — CMS 화면(관리자 대시보드)의 입력 방식은 그대로 두고 내부만 정규화했다."""
 
     __tablename__ = "treatment_references"
 
     id = Column(Integer, primary_key=True, index=True)
-    crop_name = Column(String(50), nullable=False, default="인삼")
+    crop_id = Column(Integer, ForeignKey("crops.id"), nullable=True)  # seed 직후 항상 채워짐(앱 레벨 필수 취급)
+    crop_name = Column(String(50), nullable=False, default="인삼")  # 이력 표시 스냅샷, 필터링에는 crop_id만 사용
     type = Column(String(20), nullable=False)  # 병해 / 해충 / 생리장애
     name_kr = Column(String(100), nullable=False)
     name_en = Column(String(100), nullable=True)
@@ -240,7 +285,50 @@ class TreatmentReference(Base):
     eco_treatments_json = Column(Text, nullable=True)  # JSON: [{product_name, active_ingredient, usage, note}]
     chemical_treatments_json = Column(Text, nullable=True)
 
+    photo_path = Column(String(255), nullable=True)  # 병해충 참고 사진(플레이스홀더 포함)
+    # 실제 학습 데이터 없이 등록된 파일럿 작물용 샘플 항목 표시(행 단위 보조 플래그).
+    # 실제 배지/문구 판단 기준은 crops.is_sample_data 쪽을 우선 사용한다.
+    is_sample_data = Column(Boolean, default=False, nullable=False)
+
     is_active = Column(Boolean, default=True, nullable=False)
     updated_by = Column(String(50), nullable=True)
     created_at = Column(DateTime, default=dt.datetime.utcnow)
     updated_at = Column(DateTime, default=dt.datetime.utcnow, onupdate=dt.datetime.utcnow)
+
+    crop = relationship("Crop")
+    materials = relationship("PestDiseaseMaterial", back_populates="pest_disease", cascade="all, delete-orphan")
+
+
+class AgriMaterial(Base):
+    """방제 자재(농자재) 카탈로그. 병해충 참고자료(TreatmentReference)에서 재사용되는
+    친환경/화학 자재 마스터 — 같은 자재를 여러 병해충에 중복 입력하지 않도록 분리."""
+
+    __tablename__ = "agri_materials"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(150), nullable=False, unique=True)
+    category = Column(String(20), nullable=False)  # 친환경 / 화학
+    active_ingredient = Column(String(255), nullable=True)
+    default_usage = Column(Text, nullable=True)
+    note = Column(Text, nullable=True)
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=dt.datetime.utcnow)
+
+
+class PestDiseaseMaterial(Base):
+    """TreatmentReference(병해충) ↔ AgriMaterial(농자재) 다대다 연결. usage/note를
+    이 병해충에 한해 다르게 쓰고 싶을 때만 override 필드를 채우고, 없으면 자재의
+    기본값(default_usage/note)을 그대로 쓴다. 친환경/화학 구분은 자재 자체의
+    category로만 판단한다(별도 role 컬럼을 두지 않아 데이터 불일치 가능성을 없앰)."""
+
+    __tablename__ = "pest_disease_materials"
+
+    id = Column(Integer, primary_key=True, index=True)
+    pest_disease_id = Column(Integer, ForeignKey("treatment_references.id"), nullable=False)
+    agri_material_id = Column(Integer, ForeignKey("agri_materials.id"), nullable=False)
+    usage_override = Column(Text, nullable=True)
+    note_override = Column(Text, nullable=True)
+    sort_order = Column(Integer, default=0)
+
+    pest_disease = relationship("TreatmentReference", back_populates="materials")
+    agri_material = relationship("AgriMaterial")

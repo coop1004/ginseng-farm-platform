@@ -99,6 +99,12 @@ async def create_diagnosis(
     if not photos:
         raise HTTPException(status_code=400, detail="피해 사진을 1장 이상 첨부해주세요.")
 
+    # 모바일이 보낸 crop_name(자유 텍스트)은 필터링에 신뢰하지 않는다. 농장에 연결된
+    # crop이 진짜 기준이며, 참고자료 필터링(crop_id)과 진단 레코드에 남길 표시 문자열
+    # 둘 다 여기서 농장 기준으로 다시 정한다.
+    crop_id = farm.crop_id
+    resolved_crop_name = farm.crop.name_kr if farm.crop else crop_name
+
     photo_paths = [_save_upload(p) for p in photos]
     full_path = os.path.join(settings.upload_dir, photo_paths[0])
 
@@ -108,12 +114,12 @@ async def create_diagnosis(
 
     weather = await weather_service.get_weather_at(gps_lat, gps_lng, taken_at)
 
-    ai_result = gemini_service.diagnose(full_path, diagnosis_type, crop_name, weather, db)
+    ai_result = gemini_service.diagnose(full_path, diagnosis_type, resolved_crop_name, weather, db, crop_id)
 
     diagnosis = models.Diagnosis(
         farm_id=farm_id,
         diagnosis_type=diagnosis_type,
-        crop_name=crop_name,
+        crop_name=resolved_crop_name,
         occurrence_date=occurrence_date or (taken_at.date() if taken_at else dt.date.today()),
         photo_path=photo_paths[0],
         gps_lat=gps_lat,
