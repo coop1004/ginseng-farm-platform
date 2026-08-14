@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app import models, schemas
 from app.config import settings
 from app.database import get_db
+from app.deps import ensure_farm_access, get_current_household_id
 from app.services import exif_service, gemini_service, weather_service
 
 router = APIRouter(prefix="/api/diagnoses", tags=["diagnosis"])
@@ -62,11 +63,13 @@ async def create_diagnosis(
     crop_name: str = Form("인삼"),
     occurrence_date: Optional[dt.date] = Form(None),
     photo: UploadFile = File(...),
+    household_id: int = Depends(get_current_household_id),
     db: Session = Depends(get_db),
 ):
     farm = db.query(models.Farm).filter(models.Farm.id == farm_id).first()
     if not farm:
         raise HTTPException(status_code=404, detail="농장을 찾을 수 없습니다.")
+    ensure_farm_access(farm, household_id)
 
     photo_path = _save_upload(photo)
     full_path = os.path.join(settings.upload_dir, photo_path)
@@ -115,9 +118,14 @@ def list_diagnoses(
     diagnosis_type: Optional[str] = None,
     start_date: Optional[dt.date] = None,
     end_date: Optional[dt.date] = None,
+    household_id: int = Depends(get_current_household_id),
     db: Session = Depends(get_db),
 ):
-    query = db.query(models.Diagnosis)
+    query = (
+        db.query(models.Diagnosis)
+        .join(models.Farm, models.Diagnosis.farm_id == models.Farm.id)
+        .filter(models.Farm.household_id == household_id)
+    )
     if farm_id:
         query = query.filter(models.Diagnosis.farm_id == farm_id)
     if diagnosis_type:
@@ -131,18 +139,24 @@ def list_diagnoses(
 
 
 @router.get("/{diagnosis_id}", response_model=schemas.DiagnosisCreateResponse)
-def get_diagnosis(diagnosis_id: int, db: Session = Depends(get_db)):
+def get_diagnosis(
+    diagnosis_id: int, household_id: int = Depends(get_current_household_id), db: Session = Depends(get_db)
+):
     d = db.query(models.Diagnosis).filter(models.Diagnosis.id == diagnosis_id).first()
     if not d:
         raise HTTPException(status_code=404, detail="진단 기록을 찾을 수 없습니다.")
+    ensure_farm_access(d.farm, household_id)
     return _to_response(d)
 
 
 @router.delete("/{diagnosis_id}")
-def delete_diagnosis(diagnosis_id: int, db: Session = Depends(get_db)):
+def delete_diagnosis(
+    diagnosis_id: int, household_id: int = Depends(get_current_household_id), db: Session = Depends(get_db)
+):
     d = db.query(models.Diagnosis).filter(models.Diagnosis.id == diagnosis_id).first()
     if not d:
         raise HTTPException(status_code=404, detail="진단 기록을 찾을 수 없습니다.")
+    ensure_farm_access(d.farm, household_id)
     db.delete(d)
     db.commit()
     return {"ok": True}

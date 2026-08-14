@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 
+import 'providers/auth_provider.dart';
 import 'providers/farm_provider.dart';
-import 'screens/home_shell.dart';
+import 'screens/auth_gate.dart';
 import 'theme/app_theme.dart';
 
 void main() async {
@@ -19,13 +20,14 @@ class GinsengFarmApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => FarmProvider()..load()),
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => FarmProvider()),
       ],
       child: MaterialApp(
         title: '인삼 AI 영농일지',
         debugShowCheckedModeBanner: false,
         theme: buildAppTheme(),
-        home: const HomeShell(),
+        home: const AuthGate(),
       ),
     );
   }

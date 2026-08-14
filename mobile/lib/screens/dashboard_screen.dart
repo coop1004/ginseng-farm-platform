@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../models/app_notification.dart';
 import '../models/stats.dart';
+import '../providers/auth_provider.dart';
 import '../providers/farm_provider.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
@@ -54,6 +55,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final farmProvider = context.watch<FarmProvider>();
+    final auth = context.watch<AuthProvider>();
     final today = DateFormat('yyyy년 MM월 dd일 (E)', 'ko_KR').format(DateTime.now());
 
     return Scaffold(
@@ -76,9 +78,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Text(today, style: TextStyle(fontSize: 12.5, color: Colors.grey.shade600)),
             const SizedBox(height: 4),
             Text(
-              farmProvider.farms.isEmpty ? '등록된 농장이 없습니다' : '${farmProvider.farms.first.ownerName}님, 오늘도 건강한 인삼 농사 되세요 🌱',
+              '${auth.user?.name ?? ''}님, 오늘도 건강한 인삼 농사 되세요 🌱',
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
             ),
+            if (auth.household != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  '${auth.household!.name} · 농가 코드 ${auth.household!.joinCode}',
+                  style: TextStyle(fontSize: 11.5, color: Colors.grey.shade500),
+                ),
+              ),
             const SizedBox(height: 18),
             _quickActions(context),
             const SectionTitle('한눈에 보는 현황'),

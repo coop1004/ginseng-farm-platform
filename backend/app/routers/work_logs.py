@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app import models, schemas
 from app.config import settings
 from app.database import get_db
+from app.deps import ensure_farm_access, get_current_household_id
 
 router = APIRouter(prefix="/api/work-logs", tags=["work_logs"])
 
@@ -35,6 +36,14 @@ def _to_out(w: models.WorkLog) -> dict:
     }
 
 
+def _get_owned_farm(db: Session, farm_id: int, household_id: int) -> models.Farm:
+    farm = db.query(models.Farm).filter(models.Farm.id == farm_id).first()
+    if not farm:
+        raise HTTPException(status_code=404, detail="농장을 찾을 수 없습니다.")
+    ensure_farm_access(farm, household_id)
+    return farm
+
+
 @router.post("", response_model=schemas.WorkLogOut)
 def create_work_log(
     farm_id: int = Form(...),
@@ -42,11 +51,10 @@ def create_work_log(
     work_area_m2: float = Form(0),
     content: str = Form(...),
     photo: Optional[UploadFile] = File(None),
+    household_id: int = Depends(get_current_household_id),
     db: Session = Depends(get_db),
 ):
-    farm = db.query(models.Farm).filter(models.Farm.id == farm_id).first()
-    if not farm:
-        raise HTTPException(status_code=404, detail="농장을 찾을 수 없습니다.")
+    farm = _get_owned_farm(db, farm_id, household_id)
 
     photo_path = _save_upload(photo) if photo and photo.filename else None
 
@@ -68,9 +76,14 @@ def list_work_logs(
     farm_id: Optional[int] = None,
     start_date: Optional[dt.date] = None,
     end_date: Optional[dt.date] = None,
+    household_id: int = Depends(get_current_household_id),
     db: Session = Depends(get_db),
 ):
-    query = db.query(models.WorkLog)
+    query = (
+        db.query(models.WorkLog)
+        .join(models.Farm, models.WorkLog.farm_id == models.Farm.id)
+        .filter(models.Farm.household_id == household_id)
+    )
     if farm_id:
         query = query.filter(models.WorkLog.farm_id == farm_id)
     if start_date:
@@ -82,18 +95,20 @@ def list_work_logs(
 
 
 @router.get("/{log_id}", response_model=schemas.WorkLogOut)
-def get_work_log(log_id: int, db: Session = Depends(get_db)):
+def get_work_log(log_id: int, household_id: int = Depends(get_current_household_id), db: Session = Depends(get_db)):
     w = db.query(models.WorkLog).filter(models.WorkLog.id == log_id).first()
     if not w:
         raise HTTPException(status_code=404, detail="작업일지를 찾을 수 없습니다.")
+    ensure_farm_access(w.farm, household_id)
     return _to_out(w)
 
 
 @router.delete("/{log_id}")
-def delete_work_log(log_id: int, db: Session = Depends(get_db)):
+def delete_work_log(log_id: int, household_id: int = Depends(get_current_household_id), db: Session = Depends(get_db)):
     w = db.query(models.WorkLog).filter(models.WorkLog.id == log_id).first()
     if not w:
         raise HTTPException(status_code=404, detail="작업일지를 찾을 수 없습니다.")
+    ensure_farm_access(w.farm, household_id)
     db.delete(w)
     db.commit()
     return {"ok": True}

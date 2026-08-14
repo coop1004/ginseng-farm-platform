@@ -7,8 +7,15 @@ from sqlalchemy.orm import Session
 
 from app import models, schemas
 from app.database import get_db
+from app.routers.stats import build_summary
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
+
+
+@router.get("/stats/summary", response_model=schemas.StatsSummary)
+def admin_stats_summary(db: Session = Depends(get_db)):
+    """관리자 대시보드용 전사(全社) 통계 - 특정 농가로 필터링하지 않고 전체 집계."""
+    return build_summary(db.query(models.Farm), db.query(models.WorkLog), db.query(models.Diagnosis))
 
 
 @router.get("/farms/overview")
@@ -41,7 +48,7 @@ def farms_overview(db: Session = Depends(get_db)):
             {
                 "farm_id": farm.id,
                 "farm_name": farm.farm_name,
-                "owner_name": farm.owner_name,
+                "household_name": farm.household.name if farm.household else None,
                 "region": farm.region,
                 "address": farm.address,
                 "latitude": farm.latitude,

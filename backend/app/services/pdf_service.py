@@ -55,7 +55,7 @@ def generate_farm_report_pdf(
 
     elements.append(Paragraph("농장 정보", H2_STYLE))
     farm_table_data = [
-        ["농장명", farm.farm_name, "경영주", farm.owner_name],
+        ["농장명", farm.farm_name, "농가", farm.household.name if farm.household else "-"],
         ["소재지", farm.address, "지역", farm.region or "-"],
         [
             "면적",

@@ -238,7 +238,7 @@ function renderFarmsTable(farms) {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td><strong>${f.farm_name}</strong></td>
-      <td>${f.owner_name}</td>
+      <td>${f.household_name || "-"}</td>
       <td>${f.region || "-"}</td>
       <td>${f.facility_type}</td>
       <td>${f.cultivation_year}년근</td>

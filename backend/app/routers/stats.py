@@ -3,24 +3,17 @@ from collections import Counter, defaultdict
 from typing import Optional
 
 from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Query, Session
 
 from app import models, schemas
 from app.database import get_db
+from app.deps import get_current_household_id
 
 router = APIRouter(prefix="/api/stats", tags=["stats"])
 
 
-@router.get("/summary", response_model=schemas.StatsSummary)
-def get_summary(farm_id: Optional[int] = None, db: Session = Depends(get_db)):
-    farm_query = db.query(models.Farm)
-    work_query = db.query(models.WorkLog)
-    diag_query = db.query(models.Diagnosis)
-
-    if farm_id:
-        work_query = work_query.filter(models.WorkLog.farm_id == farm_id)
-        diag_query = diag_query.filter(models.Diagnosis.farm_id == farm_id)
-
+def build_summary(farm_query: Query, work_query: Query, diag_query: Query) -> dict:
+    """농가 범위(내 필지) 또는 전사 범위(관리자, 전체 필지) 양쪽에서 재사용하는 통계 집계 로직."""
     diagnoses = diag_query.all()
 
     diagnoses_by_type = Counter(d.diagnosis_type for d in diagnoses)
@@ -66,22 +59,48 @@ def get_summary(farm_id: Optional[int] = None, db: Session = Depends(get_db)):
     }
 
 
+@router.get("/summary", response_model=schemas.StatsSummary)
+def get_summary(
+    farm_id: Optional[int] = None,
+    household_id: int = Depends(get_current_household_id),
+    db: Session = Depends(get_db),
+):
+    farm_query = db.query(models.Farm).filter(models.Farm.household_id == household_id)
+    work_query = db.query(models.WorkLog).join(models.Farm).filter(models.Farm.household_id == household_id)
+    diag_query = db.query(models.Diagnosis).join(models.Farm).filter(models.Farm.household_id == household_id)
+
+    if farm_id:
+        work_query = work_query.filter(models.WorkLog.farm_id == farm_id)
+        diag_query = diag_query.filter(models.Diagnosis.farm_id == farm_id)
+
+    return build_summary(farm_query, work_query, diag_query)
+
+
 @router.get("/calendar")
 def get_calendar(
     farm_id: Optional[int] = None,
     year: int = dt.date.today().year,
     month: int = dt.date.today().month,
+    household_id: int = Depends(get_current_household_id),
     db: Session = Depends(get_db),
 ):
     """캘린더 뷰용: 해당 월의 날짜별 작업일지/진단 건수."""
     start = dt.date(year, month, 1)
     end = dt.date(year + (1 if month == 12 else 0), 1 if month == 12 else month + 1, 1)
 
-    work_query = db.query(models.WorkLog).filter(
-        models.WorkLog.work_date >= start, models.WorkLog.work_date < end
+    work_query = (
+        db.query(models.WorkLog)
+        .join(models.Farm)
+        .filter(models.Farm.household_id == household_id, models.WorkLog.work_date >= start, models.WorkLog.work_date < end)
     )
-    diag_query = db.query(models.Diagnosis).filter(
-        models.Diagnosis.occurrence_date >= start, models.Diagnosis.occurrence_date < end
+    diag_query = (
+        db.query(models.Diagnosis)
+        .join(models.Farm)
+        .filter(
+            models.Farm.household_id == household_id,
+            models.Diagnosis.occurrence_date >= start,
+            models.Diagnosis.occurrence_date < end,
+        )
     )
     if farm_id:
         work_query = work_query.filter(models.WorkLog.farm_id == farm_id)

@@ -26,7 +26,7 @@ const Api = (() => {
     setBaseUrl,
     getBaseUrl,
     health: () => request("/api/health"),
-    getStatsSummary: () => request("/api/stats/summary"),
+    getStatsSummary: () => request("/api/admin/stats/summary"),
     getFarmsOverview: () => request("/api/admin/farms/overview"),
     getRegionalStats: () => request("/api/admin/regional-stats"),
     getFeed: (limit = 30) => request(`/api/admin/feed?limit=${limit}`),

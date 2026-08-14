@@ -15,7 +15,6 @@ class _FarmFormScreenState extends State<FarmFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _api = ApiService();
 
-  late final TextEditingController _ownerName;
   late final TextEditingController _farmName;
   late final TextEditingController _address;
   late final TextEditingController _region;
@@ -34,7 +33,6 @@ class _FarmFormScreenState extends State<FarmFormScreen> {
   void initState() {
     super.initState();
     final f = widget.farm;
-    _ownerName = TextEditingController(text: f?.ownerName ?? '');
     _farmName = TextEditingController(text: f?.farmName ?? '');
     _address = TextEditingController(text: f?.address ?? '');
     _region = TextEditingController(text: f?.region ?? '');
@@ -58,7 +56,6 @@ class _FarmFormScreenState extends State<FarmFormScreen> {
 
   @override
   void dispose() {
-    _ownerName.dispose();
     _farmName.dispose();
     _address.dispose();
     _region.dispose();
@@ -75,7 +72,7 @@ class _FarmFormScreenState extends State<FarmFormScreen> {
     try {
       final farm = Farm(
         id: widget.farm?.id ?? 0,
-        ownerName: _ownerName.text.trim(),
+        householdId: widget.farm?.householdId ?? 0,
         farmName: _farmName.text.trim(),
         address: _address.text.trim(),
         region: _region.text.trim().isEmpty ? null : _region.text.trim(),
@@ -119,12 +116,6 @@ class _FarmFormScreenState extends State<FarmFormScreen> {
               controller: _farmName,
               decoration: const InputDecoration(labelText: '농장명 *', prefixIcon: Icon(Icons.storefront_outlined)),
               validator: (v) => (v == null || v.trim().isEmpty) ? '농장명을 입력해주세요.' : null,
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _ownerName,
-              decoration: const InputDecoration(labelText: '경영주명 *', prefixIcon: Icon(Icons.person_outline)),
-              validator: (v) => (v == null || v.trim().isEmpty) ? '경영주명을 입력해주세요.' : null,
             ),
             const SizedBox(height: 12),
             TextFormField(

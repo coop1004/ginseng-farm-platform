@@ -1,6 +1,7 @@
 class Farm {
   final int id;
-  final String ownerName;
+  final int householdId;
+  final String? householdName;
   final String farmName;
   final String address;
   final String? region;
@@ -16,7 +17,8 @@ class Farm {
 
   Farm({
     required this.id,
-    required this.ownerName,
+    required this.householdId,
+    this.householdName,
     required this.farmName,
     required this.address,
     this.region,
@@ -34,7 +36,8 @@ class Farm {
   factory Farm.fromJson(Map<String, dynamic> json) {
     return Farm(
       id: json['id'],
-      ownerName: json['owner_name'] ?? '',
+      householdId: json['household_id'] ?? 0,
+      householdName: json['household_name'],
       farmName: json['farm_name'] ?? '',
       address: json['address'] ?? '',
       region: json['region'],
@@ -52,7 +55,6 @@ class Farm {
 
   Map<String, dynamic> toJson() {
     return {
-      'owner_name': ownerName,
       'farm_name': farmName,
       'address': address,
       'region': region,

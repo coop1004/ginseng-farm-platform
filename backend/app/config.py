@@ -15,6 +15,10 @@ class Settings(BaseSettings):
     database_url: str = f"sqlite:///{BASE_DIR / 'ginseng_farm.db'}"
     upload_dir: str = str(BASE_DIR / "uploads")
 
+    jwt_secret: str = "dev-only-change-me-in-production"
+    jwt_algorithm: str = "HS256"
+    jwt_expire_minutes: int = 60 * 24 * 30  # 30일
+
     class Config:
         env_file = str(BASE_DIR / ".env")
         env_file_encoding = "utf-8"

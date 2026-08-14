@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.database import Base, SessionLocal, engine
-from app.routers import admin, diagnosis, farms, reports, stats, work_logs
+from app.routers import admin, auth, diagnosis, farms, notifications, reports, stats, work_logs
 from app.seed import seed_if_empty
 
 Base.metadata.create_all(bind=engine)
@@ -25,12 +25,14 @@ app.add_middleware(
 
 app.mount("/uploads", StaticFiles(directory=settings.upload_dir), name="uploads")
 
+app.include_router(auth.router)
 app.include_router(farms.router)
 app.include_router(work_logs.router)
 app.include_router(diagnosis.router)
 app.include_router(stats.router)
 app.include_router(admin.router)
 app.include_router(reports.router)
+app.include_router(notifications.router)
 
 
 @app.on_event("startup")

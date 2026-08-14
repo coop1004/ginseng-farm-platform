@@ -10,17 +10,55 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
 
 from app.database import Base
 
 
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    phone = Column(String(20), unique=True, nullable=False, index=True)
+    name = Column(String(50), nullable=False)
+    password_hash = Column(String(255), nullable=False)
+    created_at = Column(DateTime, default=dt.datetime.utcnow)
+
+    memberships = relationship("HouseholdMember", back_populates="user", cascade="all, delete-orphan")
+
+
+class Household(Base):
+    __tablename__ = "households"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), nullable=False)  # 농가명 (대표자/농가 이름)
+    join_code = Column(String(10), unique=True, nullable=False, index=True)
+    created_at = Column(DateTime, default=dt.datetime.utcnow)
+
+    members = relationship("HouseholdMember", back_populates="household", cascade="all, delete-orphan")
+    farms = relationship("Farm", back_populates="household", cascade="all, delete-orphan")
+
+
+class HouseholdMember(Base):
+    __tablename__ = "household_members"
+    __table_args__ = (UniqueConstraint("household_id", "user_id", name="uq_household_user"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    household_id = Column(Integer, ForeignKey("households.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    joined_at = Column(DateTime, default=dt.datetime.utcnow)
+
+    household = relationship("Household", back_populates="members")
+    user = relationship("User", back_populates="memberships")
+
+
 class Farm(Base):
     __tablename__ = "farms"
 
     id = Column(Integer, primary_key=True, index=True)
-    owner_name = Column(String(50), nullable=False)
+    household_id = Column(Integer, ForeignKey("households.id"), nullable=False)
     farm_name = Column(String(100), nullable=False)
     address = Column(String(255), nullable=False)
     region = Column(String(50), index=True)  # 시/군/구 단위 (지도/통계 그룹핑용)
@@ -34,6 +72,7 @@ class Farm(Base):
     memo = Column(Text, nullable=True)
     created_at = Column(DateTime, default=dt.datetime.utcnow)
 
+    household = relationship("Household", back_populates="farms")
     work_logs = relationship("WorkLog", back_populates="farm", cascade="all, delete-orphan")
     diagnoses = relationship("Diagnosis", back_populates="farm", cascade="all, delete-orphan")
     notifications = relationship("Notification", back_populates="farm", cascade="all, delete-orphan")
