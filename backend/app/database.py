@@ -45,3 +45,5 @@ def run_light_migrations():
     _add_column_if_missing(inspector, "treatment_references", "crop_id", "INTEGER")
     _add_column_if_missing(inspector, "treatment_references", "is_sample_data", "BOOLEAN NOT NULL DEFAULT 0")
     _add_column_if_missing(inspector, "treatment_references", "photo_path", "VARCHAR(255)")
+    _add_column_if_missing(inspector, "diagnoses", "created_by_type", "VARCHAR(20) NOT NULL DEFAULT 'household'")
+    _add_column_if_missing(inspector, "diagnoses", "created_by_consultant_id", "INTEGER")

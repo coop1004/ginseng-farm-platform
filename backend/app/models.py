@@ -246,14 +246,21 @@ class Diagnosis(Base):
     # 현장을 실제로 본 사람의 판단을 최종 처방/통계의 기준으로 삼기 위함.
     # 존재하면 ai_disease_name보다 항상 우선한다.
     final_disease_name = Column(String(100), nullable=True)
-    final_diagnosis_source = Column(String(20), nullable=True)  # farmer / expert
+    final_diagnosis_source = Column(String(20), nullable=True)  # farmer / expert / consultant
     final_diagnosis_note = Column(Text, nullable=True)
     final_diagnosis_by = Column(String(50), nullable=True)  # 입력자 이름
     final_diagnosis_at = Column(DateTime, nullable=True)
 
+    # 이 진단을 최초 등록한 주체. 기존 행은 전부 농가 본인이 등록한 것이므로 기본값
+    # "household"로 자연스럽게 해석된다(백필 불필요) - 컨설턴트가 현장 방문 중 등록한
+    # 경우만 "consultant"+created_by_consultant_id가 채워진다.
+    created_by_type = Column(String(20), nullable=False, default="household")  # household / consultant
+    created_by_consultant_id = Column(Integer, ForeignKey("consultant_users.id"), nullable=True)
+
     farm = relationship("Farm", back_populates="diagnoses")
     photos = relationship("DiagnosisPhoto", back_populates="diagnosis", cascade="all, delete-orphan")
     notifications = relationship("Notification", back_populates="diagnosis")
+    created_by_consultant = relationship("ConsultantUser")
 
 
 class DiagnosisPhoto(Base):

@@ -369,6 +369,7 @@ def admin_diagnoses(
         out.household_name = d.farm.household.name if d.farm and d.farm.household else None
         out.region = d.farm.region if d.farm else None
         out.photo_paths = [p.photo_path for p in d.photos] if d.photos else ([d.photo_path] if d.photo_path else [])
+        out.created_by_consultant_name = d.created_by_consultant.name if d.created_by_consultant else None
         results.append(out)
     return results
 

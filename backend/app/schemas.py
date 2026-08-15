@@ -250,6 +250,10 @@ class DiagnosisCreateResponse(BaseModel):
     # 모바일 진단 결과 화면의 "베타/프로토타입 모델" 안내 문구 표시 기준.
     crop_is_sample_data: bool = False
 
+    # 이 진단을 최초 등록한 주체 - household(농가 본인) 또는 consultant(컨설턴트 현장 방문 등록).
+    created_by_type: str = "household"
+    created_by_consultant_name: Optional[str] = None
+
     created_at: dt.datetime
 
 
@@ -284,6 +288,8 @@ class AdminDiagnosisOut(BaseModel):
     final_diagnosis_note: Optional[str] = None
     final_diagnosis_by: Optional[str] = None
     final_diagnosis_at: Optional[dt.datetime] = None
+    created_by_type: str = "household"
+    created_by_consultant_name: Optional[str] = None
     created_at: dt.datetime
 
 
