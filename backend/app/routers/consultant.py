@@ -12,7 +12,7 @@ from app.deps import (
     get_current_consultant,
 )
 from app.services.auth_service import create_consultant_access_token, verify_password
-from app.services.diagnosis_service import create_diagnosis_record, to_response
+from app.services.diagnosis_service import add_comment, create_diagnosis_record, to_response
 
 router = APIRouter(prefix="/api/consultant", tags=["consultant"])
 
@@ -165,3 +165,35 @@ def submit_consultant_final_diagnosis(
     db.commit()
     db.refresh(d)
     return to_response(d)
+
+
+@router.get("/diagnoses/{diagnosis_id}/comments", response_model=List[schemas.DiagnosisCommentOut])
+def list_consultant_diagnosis_comments(
+    diagnosis_id: int,
+    consultant_household_ids: List[int] = Depends(get_consultant_household_ids),
+    db: Session = Depends(get_db),
+):
+    d = db.query(models.Diagnosis).filter(models.Diagnosis.id == diagnosis_id).first()
+    if not d:
+        raise HTTPException(status_code=404, detail="진단 기록을 찾을 수 없습니다.")
+    ensure_consultant_farm_access(d.farm, consultant_household_ids)
+    return d.comments
+
+
+@router.post("/diagnoses/{diagnosis_id}/comments", response_model=schemas.DiagnosisCommentOut)
+def create_consultant_diagnosis_comment(
+    diagnosis_id: int,
+    payload: schemas.DiagnosisCommentCreate,
+    current_consultant: models.ConsultantUser = Depends(get_current_consultant),
+    consultant_household_ids: List[int] = Depends(get_consultant_household_ids),
+    db: Session = Depends(get_db),
+):
+    """컨설턴트가 담당 농가의 진단(농가 본인이 등록했든, 다른 방문에서 본인이
+    등록했든)에 추가 설명/방제방법/공지 성격의 코멘트를 남긴다."""
+    d = db.query(models.Diagnosis).filter(models.Diagnosis.id == diagnosis_id).first()
+    if not d:
+        raise HTTPException(status_code=404, detail="진단 기록을 찾을 수 없습니다.")
+    ensure_consultant_farm_access(d.farm, consultant_household_ids)
+    return add_comment(
+        db, d, "consultant", current_consultant.name, payload.body, author_consultant_id=current_consultant.id
+    )

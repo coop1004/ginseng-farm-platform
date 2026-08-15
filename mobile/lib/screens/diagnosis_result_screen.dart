@@ -20,10 +20,51 @@ class _DiagnosisResultScreenState extends State<DiagnosisResultScreen> {
   bool _submittingFeedback = false;
   bool _submittingFinal = false;
 
+  List<DiagnosisComment>? _comments;
+  bool _loadingComments = true;
+  bool _submittingComment = false;
+  final _commentCtrl = TextEditingController();
+
   @override
   void initState() {
     super.initState();
     diagnosis = widget.diagnosis;
+    _loadComments();
+  }
+
+  @override
+  void dispose() {
+    _commentCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadComments() async {
+    setState(() => _loadingComments = true);
+    try {
+      final comments = await ApiService().getDiagnosisComments(diagnosis.id);
+      if (mounted) setState(() => _comments = comments);
+    } catch (_) {
+      // 코멘트 조회 실패는 진단 결과 화면 전체를 막을 이유가 없어 조용히 무시한다.
+    } finally {
+      if (mounted) setState(() => _loadingComments = false);
+    }
+  }
+
+  Future<void> _submitComment() async {
+    final body = _commentCtrl.text.trim();
+    if (body.isEmpty) return;
+    setState(() => _submittingComment = true);
+    try {
+      await ApiService().createDiagnosisComment(diagnosisId: diagnosis.id, body: body);
+      _commentCtrl.clear();
+      await _loadComments();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('코멘트 등록 실패: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _submittingComment = false);
+    }
   }
 
   Future<void> _openFinalDiagnosisDialog() async {
@@ -237,7 +278,83 @@ class _DiagnosisResultScreenState extends State<DiagnosisResultScreen> {
             ...diagnosis.chemicalTreatments.map((t) => _TreatmentCard(item: t, highlight: false)),
           const SizedBox(height: 20),
           _buildFeedbackCard(),
+          const SizedBox(height: 20),
+          _buildCommentSection(),
         ],
+      ),
+    );
+  }
+
+  Widget _buildCommentSection() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.forum_outlined, size: 17, color: AppColors.blue),
+                SizedBox(width: 6),
+                Text('코멘트', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text('컨설턴트의 방제 안내나 공지, 농가님의 추가 설명을 남길 수 있습니다.',
+                style: TextStyle(fontSize: 11.5, color: Colors.grey.shade500)),
+            const SizedBox(height: 10),
+            if (_loadingComments)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Center(child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))),
+              )
+            else if (_comments == null || _comments!.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Text('아직 코멘트가 없습니다.', style: TextStyle(fontSize: 12.5, color: Colors.grey.shade500)),
+              )
+            else
+              ..._comments!.map((c) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            _chip(c.authorType == 'consultant' ? '👤 컨설턴트' : '🌾 농가', AppColors.blue),
+                            const SizedBox(width: 6),
+                            Text(c.authorName, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                            const Spacer(),
+                            Text(DateFormat('MM.dd HH:mm').format(c.createdAt),
+                                style: TextStyle(fontSize: 10.5, color: Colors.grey.shade400)),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(c.body, style: const TextStyle(fontSize: 13, height: 1.4)),
+                      ],
+                    ),
+                  )),
+            const Divider(height: 20),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _commentCtrl,
+                    decoration: const InputDecoration(hintText: '코멘트를 입력하세요'),
+                    minLines: 1,
+                    maxLines: 3,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  onPressed: _submittingComment ? null : _submitComment,
+                  icon: const Icon(Icons.send, color: AppColors.green),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

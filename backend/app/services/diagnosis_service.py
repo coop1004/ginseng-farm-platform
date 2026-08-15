@@ -149,3 +149,29 @@ async def create_diagnosis_record(
     db.commit()
     db.refresh(diagnosis)
     return diagnosis
+
+
+def add_comment(
+    db: Session,
+    diagnosis: models.Diagnosis,
+    author_type: str,
+    author_name: str,
+    body: str,
+    author_user_id: Optional[int] = None,
+    author_consultant_id: Optional[int] = None,
+) -> models.DiagnosisComment:
+    """농가/컨설턴트 양쪽에서 동일한 코멘트 저장 절차를 공유한다 - 진단 1건에
+    여러 명이 남기는 스레드이며, 작성자 종류와 무관하게 같은 진단을 보는
+    모두에게 노출된다(final_diagnosis_note와 달리 덮어쓰기되지 않음)."""
+    comment = models.DiagnosisComment(
+        diagnosis_id=diagnosis.id,
+        author_type=author_type,
+        author_name=author_name,
+        author_user_id=author_user_id,
+        author_consultant_id=author_consultant_id,
+        body=body,
+    )
+    db.add(comment)
+    db.commit()
+    db.refresh(comment)
+    return comment

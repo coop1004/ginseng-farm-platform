@@ -310,6 +310,23 @@ class ApiService {
     return Diagnosis.fromJson(jsonDecode(utf8.decode(res.bodyBytes)));
   }
 
+  Future<List<DiagnosisComment>> getDiagnosisComments(int diagnosisId) async {
+    final res = await http.get(await _uri('/api/diagnoses/$diagnosisId/comments'), headers: await _authHeaders());
+    _checkResponse(res);
+    final list = jsonDecode(utf8.decode(res.bodyBytes)) as List<dynamic>;
+    return list.map((e) => DiagnosisComment.fromJson(e)).toList();
+  }
+
+  Future<DiagnosisComment> createDiagnosisComment({required int diagnosisId, required String body}) async {
+    final res = await http.post(
+      await _uri('/api/diagnoses/$diagnosisId/comments'),
+      headers: {...await _authHeaders(), 'Content-Type': 'application/json'},
+      body: jsonEncode({'body': body}),
+    );
+    _checkResponse(res);
+    return DiagnosisComment.fromJson(jsonDecode(utf8.decode(res.bodyBytes)));
+  }
+
   // ---------- Weather ----------
   Future<List<WeatherRecord>> getWeatherHistory({int? farmId, int days = 30}) async {
     final res = await http.get(

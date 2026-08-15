@@ -62,6 +62,12 @@ const ConsultantApi = (() => {
         method: "PATCH",
         body: JSON.stringify({ disease_name: diseaseName, note: note || null }),
       }),
+    getComments: (diagnosisId) => request(`/api/consultant/diagnoses/${diagnosisId}/comments`),
+    createComment: (diagnosisId, body) =>
+      request(`/api/consultant/diagnoses/${diagnosisId}/comments`, {
+        method: "POST",
+        body: JSON.stringify({ body }),
+      }),
   };
 })();
 
@@ -247,12 +253,18 @@ function loadConsultantFarmDiagnoses(farmId) {
           <td>${d.ai_confidence != null ? Math.round(d.ai_confidence * 100) + "%" : "-"}</td>
           <td>${d.created_by_type === "consultant" ? `👤 ${d.created_by_consultant_name || "컨설턴트"}` : "농가"}</td>
           <td>${finalText}</td>
-          <td><button class="btn btn-ghost btn-sm" data-edit-diag="${d.id}">현장 확인 정정</button></td>
+          <td>
+            <button class="btn btn-ghost btn-sm" data-edit-diag="${d.id}">현장 확인 정정</button>
+            <button class="btn btn-ghost btn-sm" data-comment-diag="${d.id}">💬 코멘트</button>
+          </td>
         `;
         tbody.appendChild(tr);
       });
       tbody.querySelectorAll("button[data-edit-diag]").forEach((btn) => {
         btn.addEventListener("click", () => openConsultantFinalDiagnosisPrompt(btn.dataset.editDiag, farmId));
+      });
+      tbody.querySelectorAll("button[data-comment-diag]").forEach((btn) => {
+        btn.addEventListener("click", () => openConsultantCommentModal(btn.dataset.commentDiag));
       });
     })
     .catch((e) => {
@@ -305,6 +317,71 @@ async function submitConsultantNewDiagnosis(farmId) {
   }
 }
 
+// ---------- 코멘트 ----------
+let currentCommentDiagnosisId = null;
+
+function openConsultantCommentModal(diagnosisId) {
+  currentCommentDiagnosisId = diagnosisId;
+  document.getElementById("consultantCommentSub").textContent = `진단 #${diagnosisId}`;
+  document.getElementById("consultantCommentBody").value = "";
+  document.getElementById("consultantCommentList").innerHTML = "불러오는 중…";
+  document.getElementById("consultantCommentModal").classList.remove("hidden");
+  loadConsultantComments(diagnosisId);
+}
+
+function closeConsultantCommentModal() {
+  document.getElementById("consultantCommentModal").classList.add("hidden");
+  currentCommentDiagnosisId = null;
+}
+
+function renderConsultantComments(comments) {
+  const listEl = document.getElementById("consultantCommentList");
+  if (comments.length === 0) {
+    listEl.innerHTML = `<p style="color: var(--gray-400);">아직 코멘트가 없습니다.</p>`;
+    return;
+  }
+  listEl.innerHTML = comments
+    .map((c) => {
+      const badge = c.author_type === "consultant" ? "👤 컨설턴트" : "🌾 농가";
+      const when = new Date(c.created_at).toLocaleString("ko-KR");
+      return `
+        <div style="padding:8px 0; border-bottom:1px solid var(--gray-100);">
+          <div style="font-size:12px; color: var(--gray-400);">${badge} · ${c.author_name} · ${when}</div>
+          <div>${c.body.replace(/</g, "&lt;")}</div>
+        </div>
+      `;
+    })
+    .join("");
+}
+
+function loadConsultantComments(diagnosisId) {
+  ConsultantApi.getComments(diagnosisId)
+    .then(renderConsultantComments)
+    .catch((e) => {
+      if (e.isAuthError) {
+        handleConsultantLogout();
+        return;
+      }
+      document.getElementById("consultantCommentList").innerHTML = `<p style="color: var(--danger, red);">불러오기 실패: ${e.message}</p>`;
+    });
+}
+
+async function submitConsultantComment() {
+  const body = document.getElementById("consultantCommentBody").value.trim();
+  if (!body || !currentCommentDiagnosisId) return;
+  try {
+    await ConsultantApi.createComment(currentCommentDiagnosisId, body);
+    document.getElementById("consultantCommentBody").value = "";
+    loadConsultantComments(currentCommentDiagnosisId);
+  } catch (e) {
+    if (e.isAuthError) {
+      handleConsultantLogout();
+      return;
+    }
+    showToast(`코멘트 등록 실패: ${e.message}`, true);
+  }
+}
+
 function backToConsultantHouseholdList() {
   document.getElementById("consultantHouseholdDetailPanel").classList.add("hidden");
   document.getElementById("consultantHouseholdListPanel").classList.remove("hidden");
@@ -322,6 +399,8 @@ function initConsultant() {
   document.getElementById("consultantLoginForm").addEventListener("submit", handleConsultantLoginSubmit);
   document.getElementById("consultantLogoutBtn").addEventListener("click", handleConsultantLogout);
   document.getElementById("consultantBackToHouseholds").addEventListener("click", backToConsultantHouseholdList);
+  document.getElementById("consultantCommentCancel").addEventListener("click", closeConsultantCommentModal);
+  document.getElementById("consultantCommentSubmit").addEventListener("click", submitConsultantComment);
   initConsultantNav();
 
   if (ConsultantApi.isLoggedIn()) {

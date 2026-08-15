@@ -266,6 +266,20 @@ class DiagnosisFinalRequest(BaseModel):
     note: Optional[str] = None
 
 
+class DiagnosisCommentCreate(BaseModel):
+    body: str
+
+
+class DiagnosisCommentOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    diagnosis_id: int
+    author_type: str
+    author_name: str
+    body: str
+    created_at: dt.datetime
+
+
 class AdminDiagnosisOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int

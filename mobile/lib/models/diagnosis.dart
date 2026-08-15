@@ -142,4 +142,33 @@ class Diagnosis {
   }
 }
 
+class DiagnosisComment {
+  final int id;
+  final int diagnosisId;
+  final String authorType; // household / consultant
+  final String authorName;
+  final String body;
+  final DateTime createdAt;
+
+  DiagnosisComment({
+    required this.id,
+    required this.diagnosisId,
+    required this.authorType,
+    required this.authorName,
+    required this.body,
+    required this.createdAt,
+  });
+
+  factory DiagnosisComment.fromJson(Map<String, dynamic> json) {
+    return DiagnosisComment(
+      id: json['id'],
+      diagnosisId: json['diagnosis_id'],
+      authorType: json['author_type'] ?? 'household',
+      authorName: json['author_name'] ?? '',
+      body: json['body'] ?? '',
+      createdAt: DateTime.parse(json['created_at']),
+    );
+  }
+}
+
 const diagnosisTypes = ['병해', '해충', '생리장애'];

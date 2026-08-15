@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app import models, schemas
 from app.database import get_db
 from app.deps import ensure_farm_access, get_current_household_id, get_current_user
-from app.services.diagnosis_service import create_diagnosis_record, to_response
+from app.services.diagnosis_service import add_comment, create_diagnosis_record, to_response
 
 router = APIRouter(prefix="/api/diagnoses", tags=["diagnosis"])
 
@@ -113,6 +113,34 @@ def submit_final_diagnosis(
     db.commit()
     db.refresh(d)
     return to_response(d)
+
+
+@router.get("/{diagnosis_id}/comments", response_model=List[schemas.DiagnosisCommentOut])
+def list_diagnosis_comments(
+    diagnosis_id: int, household_id: int = Depends(get_current_household_id), db: Session = Depends(get_db)
+):
+    d = db.query(models.Diagnosis).filter(models.Diagnosis.id == diagnosis_id).first()
+    if not d:
+        raise HTTPException(status_code=404, detail="진단 기록을 찾을 수 없습니다.")
+    ensure_farm_access(d.farm, household_id)
+    return d.comments
+
+
+@router.post("/{diagnosis_id}/comments", response_model=schemas.DiagnosisCommentOut)
+def create_diagnosis_comment(
+    diagnosis_id: int,
+    payload: schemas.DiagnosisCommentCreate,
+    current_user: models.User = Depends(get_current_user),
+    household_id: int = Depends(get_current_household_id),
+    db: Session = Depends(get_db),
+):
+    """농가 본인이 자신의(또는 컨설턴트가 등록한) 진단에 코멘트를 남긴다.
+    누가 등록한 진단이든 같은 농가 소속 농장이면 코멘트를 남길 수 있다."""
+    d = db.query(models.Diagnosis).filter(models.Diagnosis.id == diagnosis_id).first()
+    if not d:
+        raise HTTPException(status_code=404, detail="진단 기록을 찾을 수 없습니다.")
+    ensure_farm_access(d.farm, household_id)
+    return add_comment(db, d, "household", current_user.name, payload.body, author_user_id=current_user.id)
 
 
 @router.delete("/{diagnosis_id}")

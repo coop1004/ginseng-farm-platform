@@ -369,6 +369,20 @@
   </main>
 </div>
 
+<div id="consultantCommentModal" class="modal-backdrop hidden">
+  <div class="modal">
+    <h3>진단 코멘트</h3>
+    <p class="modal-farm" id="consultantCommentSub"></p>
+    <div id="consultantCommentList" style="max-height: 260px; overflow-y: auto; margin-bottom: 12px;"></div>
+    <label>새 코멘트</label>
+    <textarea id="consultantCommentBody" rows="3" placeholder="추가 설명, 방제방법, 공지 등을 남겨주세요"></textarea>
+    <div class="modal-actions">
+      <button id="consultantCommentCancel" class="btn btn-ghost">닫기</button>
+      <button id="consultantCommentSubmit" class="btn btn-primary">등록</button>
+    </div>
+  </div>
+</div>
+
 <div id="notifyModal" class="modal-backdrop hidden">
   <div class="modal">
     <h3>친환경 자재 처방 알림 전송</h3>

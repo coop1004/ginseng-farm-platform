@@ -261,6 +261,10 @@ class Diagnosis(Base):
     photos = relationship("DiagnosisPhoto", back_populates="diagnosis", cascade="all, delete-orphan")
     notifications = relationship("Notification", back_populates="diagnosis")
     created_by_consultant = relationship("ConsultantUser")
+    comments = relationship(
+        "DiagnosisComment", back_populates="diagnosis", cascade="all, delete-orphan",
+        order_by="DiagnosisComment.created_at",
+    )
 
 
 class DiagnosisPhoto(Base):
@@ -276,6 +280,27 @@ class DiagnosisPhoto(Base):
     created_at = Column(DateTime, default=dt.datetime.utcnow)
 
     diagnosis = relationship("Diagnosis", back_populates="photos")
+
+
+class DiagnosisComment(Base):
+    """진단 1건에 여러 명(농가 본인, 컨설턴트)이 남기는 코멘트 스레드.
+    final_diagnosis_note(단일 슬롯, 덮어쓰기)와 달리 여러 개가 쌓이며,
+    작성자 종류와 상관없이 같은 진단을 보는 모두에게 노출된다."""
+
+    __tablename__ = "diagnosis_comments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    diagnosis_id = Column(Integer, ForeignKey("diagnoses.id"), nullable=False)
+
+    author_type = Column(String(20), nullable=False)  # household / consultant
+    author_name = Column(String(50), nullable=False)
+    author_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    author_consultant_id = Column(Integer, ForeignKey("consultant_users.id"), nullable=True)
+
+    body = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=dt.datetime.utcnow)
+
+    diagnosis = relationship("Diagnosis", back_populates="comments")
 
 
 class Notification(Base):
