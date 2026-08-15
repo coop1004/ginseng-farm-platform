@@ -421,3 +421,82 @@ class PestDiseaseMaterial(Base):
 
     pest_disease = relationship("TreatmentReference", back_populates="materials")
     agri_material = relationship("AgriMaterial")
+
+
+class CommunityPost(Base):
+    """농가-농가, 농가-컨설턴트 커뮤니티 게시글. kind로 글의 성격을 구분한다:
+    channel(컨설턴트가 담당 농가에 올리는 공지/팁) / diagnosis_share(농가가 옵트인으로
+    공개한 진단 기록) / free(추후 확장용 자유게시판, 현재 미사용). 원본 Diagnosis 행에는
+    공개 플래그를 두지 않고, 공유할 때만 이 테이블에 새 글이 생기는 구조로 옵트인을
+    구조적으로 강제한다 - 진단이 실수로 공개되는 사고를 원천 차단하기 위함."""
+
+    __tablename__ = "community_posts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String(150), nullable=False)
+    body = Column(Text, nullable=True)
+    photo_paths_json = Column(Text, nullable=True)  # JSON string, DiagnosisPhoto와 달리 자식 테이블 없이 스냅샷으로 보관
+
+    kind = Column(String(20), nullable=False)  # channel / diagnosis_share / free
+    crop_id = Column(Integer, ForeignKey("crops.id"), nullable=True)
+    diagnosis_id = Column(Integer, ForeignKey("diagnoses.id"), nullable=True)  # kind=diagnosis_share일 때만
+
+    # public: 전체 로그인 사용자 / consultant_scope: 글쓴이와 같은 컨설턴트가 담당하는 농가끼리만
+    visibility = Column(String(20), nullable=False, default="public")
+
+    author_type = Column(String(20), nullable=False)  # household / consultant / admin
+    author_household_id = Column(Integer, ForeignKey("households.id"), nullable=True)
+    author_consultant_id = Column(Integer, ForeignKey("consultant_users.id"), nullable=True)
+    author_admin_id = Column(Integer, ForeignKey("admin_users.id"), nullable=True)
+    author_name = Column(String(50), nullable=False)
+
+    status = Column(String(20), nullable=False, default="visible")  # visible / hidden
+    created_at = Column(DateTime, default=dt.datetime.utcnow)
+
+    crop = relationship("Crop")
+    diagnosis = relationship("Diagnosis")
+    household = relationship("Household")
+    consultant = relationship("ConsultantUser")
+    comments = relationship(
+        "CommunityComment", back_populates="post", cascade="all, delete-orphan",
+        order_by="CommunityComment.created_at",
+    )
+
+
+class CommunityComment(Base):
+    """CommunityPost 1건에 달리는 코멘트. DiagnosisComment와 동일한 모양 -
+    누구나(농가/컨설턴트) 서로의 글에 코멘트를 남길 수 있다."""
+
+    __tablename__ = "community_comments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    post_id = Column(Integer, ForeignKey("community_posts.id"), nullable=False)
+
+    author_type = Column(String(20), nullable=False)  # household / consultant / admin
+    author_household_id = Column(Integer, ForeignKey("households.id"), nullable=True)
+    author_consultant_id = Column(Integer, ForeignKey("consultant_users.id"), nullable=True)
+    author_name = Column(String(50), nullable=False)
+
+    body = Column(Text, nullable=False)
+    status = Column(String(20), nullable=False, default="visible")  # visible / hidden
+    created_at = Column(DateTime, default=dt.datetime.utcnow)
+
+    post = relationship("CommunityPost", back_populates="comments")
+
+
+class CommunityReport(Base):
+    """게시글/댓글 신고. post_id/comment_id 중 하나만 채워진다. 같은 대상에 신고가
+    임계치(REPORT_HIDE_THRESHOLD, community_service.py) 이상 쌓이면 자동으로
+    status=hidden 처리되어 노출이 멈추고, 관리자가 검수 화면에서 최종 판단한다."""
+
+    __tablename__ = "community_reports"
+
+    id = Column(Integer, primary_key=True, index=True)
+    post_id = Column(Integer, ForeignKey("community_posts.id"), nullable=True)
+    comment_id = Column(Integer, ForeignKey("community_comments.id"), nullable=True)
+    reporter_household_id = Column(Integer, ForeignKey("households.id"), nullable=False)
+    reason = Column(String(255), nullable=True)
+    created_at = Column(DateTime, default=dt.datetime.utcnow)
+
+    post = relationship("CommunityPost")
+    comment = relationship("CommunityComment")

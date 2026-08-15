@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import '../models/app_notification.dart';
 import '../models/auth.dart';
+import '../models/community.dart';
 import '../models/crop.dart';
 import '../models/diagnosis.dart';
 import '../models/farm.dart';
@@ -325,6 +326,66 @@ class ApiService {
     );
     _checkResponse(res);
     return DiagnosisComment.fromJson(jsonDecode(utf8.decode(res.bodyBytes)));
+  }
+
+  // ---------- Community ----------
+  Future<List<CommunityPost>> getCommunityPosts({int? cropId, String? kind}) async {
+    final res = await http.get(
+      await _uri('/api/community', {'crop_id': cropId, 'kind': kind}),
+      headers: await _authHeaders(),
+    );
+    _checkResponse(res);
+    final list = jsonDecode(utf8.decode(res.bodyBytes)) as List<dynamic>;
+    return list.map((e) => CommunityPost.fromJson(e)).toList();
+  }
+
+  Future<CommunityPost> getCommunityPost(int postId) async {
+    final res = await http.get(await _uri('/api/community/$postId'), headers: await _authHeaders());
+    _checkResponse(res);
+    return CommunityPost.fromJson(jsonDecode(utf8.decode(res.bodyBytes)));
+  }
+
+  Future<CommunityPost> shareDiagnosisToCommunity({
+    required int diagnosisId,
+    required String title,
+    String? body,
+    String visibility = 'public',
+  }) async {
+    final res = await http.post(
+      await _uri('/api/community/diagnosis-share'),
+      headers: {...await _authHeaders(), 'Content-Type': 'application/json'},
+      body: jsonEncode({'diagnosis_id': diagnosisId, 'title': title, 'body': body, 'visibility': visibility}),
+    );
+    _checkResponse(res);
+    return CommunityPost.fromJson(jsonDecode(utf8.decode(res.bodyBytes)));
+  }
+
+  Future<CommunityComment> createCommunityComment({required int postId, required String body}) async {
+    final res = await http.post(
+      await _uri('/api/community/$postId/comments'),
+      headers: {...await _authHeaders(), 'Content-Type': 'application/json'},
+      body: jsonEncode({'body': body}),
+    );
+    _checkResponse(res);
+    return CommunityComment.fromJson(jsonDecode(utf8.decode(res.bodyBytes)));
+  }
+
+  Future<void> reportCommunityPost({required int postId, String? reason}) async {
+    final res = await http.post(
+      await _uri('/api/community/$postId/report'),
+      headers: {...await _authHeaders(), 'Content-Type': 'application/json'},
+      body: jsonEncode({'reason': reason}),
+    );
+    _checkResponse(res);
+  }
+
+  Future<void> reportCommunityComment({required int commentId, String? reason}) async {
+    final res = await http.post(
+      await _uri('/api/community/comments/$commentId/report'),
+      headers: {...await _authHeaders(), 'Content-Type': 'application/json'},
+      body: jsonEncode({'reason': reason}),
+    );
+    _checkResponse(res);
   }
 
   // ---------- Weather ----------

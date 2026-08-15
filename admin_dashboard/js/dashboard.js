@@ -52,6 +52,7 @@ function initNav() {
     weather: "기상 데이터",
     reference: "병해충·자재 자료",
     notifications: "처방 알림 이력",
+    community: "커뮤니티 신고 검수",
   };
   navItems.forEach((item) => {
     item.addEventListener("click", (e) => {
@@ -70,6 +71,9 @@ function initNav() {
       }
       if (section === "weather" && charts.weather) {
         setTimeout(() => charts.weather.resize(), 100);
+      }
+      if (section === "community") {
+        loadCommunityReports();
       }
     });
   });
@@ -1439,6 +1443,97 @@ async function loadAll() {
 
 function loadNotifications() {
   Api.getNotifications().then(renderNotifications).catch((e) => showToast(e.message, true));
+}
+
+// ---------- Community moderation ----------
+function loadCommunityReports() {
+  const tbody = document.querySelector("#communityReportsTable tbody");
+  tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color: var(--gray-400);">불러오는 중…</td></tr>`;
+  Api.listCommunityReports()
+    .then(renderCommunityReports)
+    .catch((e) => {
+      if (e.isAuthError) {
+        showLoginScreen();
+        return;
+      }
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color: var(--gray-400);">불러오기 실패: ${e.message}</td></tr>`;
+    });
+}
+
+function renderCommunityReports(reports) {
+  const tbody = document.querySelector("#communityReportsTable tbody");
+  tbody.innerHTML = "";
+  if (reports.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color: var(--gray-400);">신고된 글/댓글이 없습니다.</td></tr>`;
+    return;
+  }
+  reports.forEach((r) => {
+    const tr = document.createElement("tr");
+    const targetLabel = r.target_type === "post" ? "게시글" : "댓글";
+    const statusBadge =
+      r.target_status === "hidden"
+        ? `<span class="badge badge-high">숨김</span>`
+        : `<span class="badge badge-low">노출중</span>`;
+    tr.innerHTML = `
+      <td>${targetLabel}</td>
+      <td>${(r.target_preview || "(삭제됨)").slice(0, 60).replace(/</g, "&lt;")}</td>
+      <td>${statusBadge}</td>
+      <td>${r.reporter_household_name || "-"}</td>
+      <td>${r.reason || "-"}</td>
+      <td>${new Date(r.created_at).toLocaleString("ko-KR")}</td>
+      <td></td>
+    `;
+    const actionsTd = tr.lastElementChild;
+    if (r.target_status) {
+      const toggleBtn = document.createElement("button");
+      toggleBtn.className = "btn btn-ghost btn-sm";
+      toggleBtn.textContent = r.target_status === "hidden" ? "복구" : "숨김";
+      toggleBtn.addEventListener("click", () =>
+        setCommunityTargetStatus(r.target_type, r.post_id || r.comment_id, r.target_status === "hidden" ? "visible" : "hidden")
+      );
+      actionsTd.appendChild(toggleBtn);
+
+      const delBtn = document.createElement("button");
+      delBtn.className = "admin-delete-btn";
+      delBtn.textContent = "삭제";
+      delBtn.style.marginLeft = "6px";
+      delBtn.addEventListener("click", () => deleteCommunityTarget(r.target_type, r.post_id || r.comment_id));
+      actionsTd.appendChild(delBtn);
+    }
+    tbody.appendChild(tr);
+  });
+}
+
+async function setCommunityTargetStatus(targetType, targetId, status) {
+  try {
+    if (targetType === "post") await Api.updateCommunityPostStatus(targetId, status);
+    else await Api.updateCommunityCommentStatus(targetId, status);
+    showToast(status === "hidden" ? "숨김 처리되었습니다." : "복구되었습니다.");
+    loadCommunityReports();
+  } catch (e) {
+    if (e.isAuthError) {
+      showLoginScreen();
+      return;
+    }
+    showToast(e.message, true);
+  }
+}
+
+async function deleteCommunityTarget(targetType, targetId) {
+  const label = targetType === "post" ? "게시글" : "댓글";
+  if (!confirm(`이 ${label}을(를) 완전히 삭제하시겠습니까? 되돌릴 수 없습니다.`)) return;
+  try {
+    if (targetType === "post") await Api.deleteCommunityPost(targetId);
+    else await Api.deleteCommunityComment(targetId);
+    showToast(`${label}이(가) 삭제되었습니다.`);
+    loadCommunityReports();
+  } catch (e) {
+    if (e.isAuthError) {
+      showLoginScreen();
+      return;
+    }
+    showToast(e.message, true);
+  }
 }
 
 function init() {

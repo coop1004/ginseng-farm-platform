@@ -455,3 +455,73 @@ class AgriMaterialOut(BaseModel):
     default_usage: Optional[str] = None
     note: Optional[str] = None
     is_active: bool
+
+
+# ---------- Community ----------
+class CommunityPostCreate(BaseModel):
+    title: str
+    body: Optional[str] = None
+    crop_id: Optional[int] = None
+    visibility: str = "public"  # public / consultant_scope
+
+
+class CommunityDiagnosisShareCreate(BaseModel):
+    diagnosis_id: int
+    title: str
+    body: Optional[str] = None
+    visibility: str = "public"
+
+
+class CommunityCommentCreate(BaseModel):
+    body: str
+
+
+class CommunityReportCreate(BaseModel):
+    reason: Optional[str] = None
+
+
+class CommunityStatusUpdate(BaseModel):
+    status: str  # visible / hidden
+
+
+class CommunityCommentOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    post_id: int
+    author_type: str
+    author_name: str
+    body: str
+    status: str
+    created_at: dt.datetime
+
+
+class CommunityPostOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    title: str
+    body: Optional[str] = None
+    photo_paths: List[str] = []
+    kind: str
+    crop_id: Optional[int] = None
+    crop_name: Optional[str] = None
+    diagnosis_id: Optional[int] = None
+    visibility: str
+    author_type: str
+    author_name: str
+    status: str
+    comment_count: int = 0
+    created_at: dt.datetime
+
+
+class CommunityPostDetailOut(CommunityPostOut):
+    comments: List[CommunityCommentOut] = []
+
+
+class CommunityReportOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    post_id: Optional[int] = None
+    comment_id: Optional[int] = None
+    reporter_household_id: int
+    reason: Optional[str] = None
+    created_at: dt.datetime

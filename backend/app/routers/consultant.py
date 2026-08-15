@@ -11,7 +11,7 @@ from app.deps import (
     get_consultant_household_ids,
     get_current_consultant,
 )
-from app.services import consultant_service
+from app.services import community_service, consultant_service
 from app.services.auth_service import create_consultant_access_token, verify_password
 from app.services.diagnosis_service import add_comment, create_diagnosis_record, to_response
 
@@ -208,3 +208,65 @@ def get_my_stats(
     """담당 농가 수, 본인이 등록/최종확정한 진단 실적, 남긴 코멘트 수, 담당 농가의
     AI 진단 대비 실제 발생 피드백 현황을 집계한다."""
     return consultant_service.compute_stats(db, current_consultant)
+
+
+# ---------- 커뮤니티 ----------
+@router.get("/community/posts", response_model=List[schemas.CommunityPostOut])
+def list_community_posts(
+    crop_id: Optional[int] = None,
+    kind: Optional[str] = None,
+    current_consultant: models.ConsultantUser = Depends(get_current_consultant),
+    consultant_household_ids: List[int] = Depends(get_consultant_household_ids),
+    db: Session = Depends(get_db),
+):
+    posts = community_service.list_posts_for_consultant(
+        db, current_consultant.id, consultant_household_ids, crop_id=crop_id, kind=kind
+    )
+    return [community_service.to_post_response(p) for p in posts]
+
+
+@router.get("/community/posts/{post_id}", response_model=schemas.CommunityPostDetailOut)
+def get_community_post(
+    post_id: int,
+    current_consultant: models.ConsultantUser = Depends(get_current_consultant),
+    consultant_household_ids: List[int] = Depends(get_consultant_household_ids),
+    db: Session = Depends(get_db),
+):
+    post = db.query(models.CommunityPost).filter(models.CommunityPost.id == post_id).first()
+    if not post or post.status != "visible":
+        raise HTTPException(status_code=404, detail="게시글을 찾을 수 없습니다.")
+    if not community_service.is_post_visible_to_consultant(post, current_consultant.id, consultant_household_ids):
+        raise HTTPException(status_code=404, detail="게시글을 찾을 수 없습니다.")
+    return community_service.to_post_response(post, include_comments=True)
+
+
+@router.post("/community/posts", response_model=schemas.CommunityPostOut)
+def create_channel_post(
+    payload: schemas.CommunityPostCreate,
+    current_consultant: models.ConsultantUser = Depends(get_current_consultant),
+    db: Session = Depends(get_db),
+):
+    """컨설턴트가 담당 농가에 공지/방제 팁을 올린다. 기본 공개범위는 본인 담당
+    농가로만 제한되는 consultant_scope - 전체 공개하려면 visibility="public"을 보낸다."""
+    post = community_service.create_channel_post(
+        db, current_consultant, payload.title, payload.body, payload.crop_id, payload.visibility
+    )
+    return community_service.to_post_response(post)
+
+
+@router.post("/community/posts/{post_id}/comments", response_model=schemas.CommunityCommentOut)
+def create_community_comment(
+    post_id: int,
+    payload: schemas.CommunityCommentCreate,
+    current_consultant: models.ConsultantUser = Depends(get_current_consultant),
+    consultant_household_ids: List[int] = Depends(get_consultant_household_ids),
+    db: Session = Depends(get_db),
+):
+    post = db.query(models.CommunityPost).filter(models.CommunityPost.id == post_id).first()
+    if not post or post.status != "visible":
+        raise HTTPException(status_code=404, detail="게시글을 찾을 수 없습니다.")
+    if not community_service.is_post_visible_to_consultant(post, current_consultant.id, consultant_household_ids):
+        raise HTTPException(status_code=404, detail="게시글을 찾을 수 없습니다.")
+    return community_service.add_comment(
+        db, post, "consultant", current_consultant.name, payload.body, author_consultant_id=current_consultant.id
+    )

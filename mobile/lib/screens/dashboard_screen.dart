@@ -11,6 +11,7 @@ import '../providers/farm_provider.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
+import 'community_screen.dart';
 import 'diagnosis_form_screen.dart';
 import 'farm_form_screen.dart';
 import 'pest_reference_screen.dart';
@@ -175,6 +176,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ],
         ),
+        const SizedBox(height: 10),
+        _CommunityEntryCard(
+          onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CommunityScreen())),
+        ),
       ],
     );
   }
@@ -226,6 +231,41 @@ class _DashboardScreenState extends State<DashboardScreen> {
             const SizedBox(height: 2),
             Text(label, style: TextStyle(fontSize: 10.5, color: Colors.grey.shade600)),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CommunityEntryCard extends StatelessWidget {
+  final VoidCallback onTap;
+  const _CommunityEntryCard({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          child: Row(
+            children: [
+              const Icon(Icons.groups_outlined, color: AppColors.blue, size: 24),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('커뮤니티', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800)),
+                    Text('컨설턴트 공지·팁, 농가끼리 정보 공유',
+                        style: TextStyle(fontSize: 11.5, color: Colors.grey.shade500)),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, color: Colors.grey.shade400),
+            ],
+          ),
         ),
       ),
     );

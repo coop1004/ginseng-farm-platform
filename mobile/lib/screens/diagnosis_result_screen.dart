@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../models/diagnosis.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
+import 'community_post_detail_screen.dart';
 
 class DiagnosisResultScreen extends StatefulWidget {
   final Diagnosis diagnosis;
@@ -24,6 +25,7 @@ class _DiagnosisResultScreenState extends State<DiagnosisResultScreen> {
   bool _loadingComments = true;
   bool _submittingComment = false;
   final _commentCtrl = TextEditingController();
+  bool _sharing = false;
 
   @override
   void initState() {
@@ -152,6 +154,79 @@ class _DiagnosisResultScreenState extends State<DiagnosisResultScreen> {
     }
   }
 
+  Future<void> _openShareDialog() async {
+    final titleCtrl = TextEditingController(
+      text: '${diagnosis.effectiveDiseaseName ?? diagnosis.cropName} 관련 문의드립니다',
+    );
+    final bodyCtrl = TextEditingController();
+    String visibility = 'public';
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('커뮤니티에 공유하기'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('이 진단 기록(사진 포함)이 커뮤니티에 공개됩니다. 정확한 위치 정보는 포함되지 않습니다.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+              const SizedBox(height: 14),
+              TextField(controller: titleCtrl, decoration: const InputDecoration(labelText: '제목 *'), autofocus: true),
+              const SizedBox(height: 10),
+              TextField(
+                controller: bodyCtrl,
+                decoration: const InputDecoration(labelText: '설명(선택)'),
+                maxLines: 3,
+              ),
+              const SizedBox(height: 10),
+              DropdownButtonFormField<String>(
+                value: visibility,
+                decoration: const InputDecoration(labelText: '공개 범위'),
+                items: const [
+                  DropdownMenuItem(value: 'public', child: Text('전체 농가에게 공개')),
+                  DropdownMenuItem(value: 'consultant_scope', child: Text('같은 컨설턴트 담당 농가끼리만')),
+                ],
+                onChanged: (v) => setDialogState(() => visibility = v ?? 'public'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('취소')),
+            FilledButton(
+              onPressed: () {
+                if (titleCtrl.text.trim().isEmpty) return;
+                Navigator.pop(context, true);
+              },
+              child: const Text('공유'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (confirmed != true) return;
+
+    setState(() => _sharing = true);
+    try {
+      final post = await ApiService().shareDiagnosisToCommunity(
+        diagnosisId: diagnosis.id,
+        title: titleCtrl.text.trim(),
+        body: bodyCtrl.text.trim().isEmpty ? null : bodyCtrl.text.trim(),
+        visibility: visibility,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('커뮤니티에 공유되었습니다.')));
+        Navigator.of(context)
+            .push(MaterialPageRoute(builder: (_) => CommunityPostDetailScreen(postId: post.id)));
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('공유 실패: $e')));
+    } finally {
+      if (mounted) setState(() => _sharing = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isNew = widget.isNew;
@@ -159,7 +234,16 @@ class _DiagnosisResultScreenState extends State<DiagnosisResultScreen> {
     final api = ApiService();
 
     return Scaffold(
-      appBar: AppBar(title: Text(isNew ? 'AI 진단 결과' : '진단 상세')),
+      appBar: AppBar(
+        title: Text(isNew ? 'AI 진단 결과' : '진단 상세'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.groups_outlined),
+            tooltip: '커뮤니티에 공유하기',
+            onPressed: _sharing ? null : _openShareDialog,
+          ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
         children: [

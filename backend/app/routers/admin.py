@@ -10,7 +10,7 @@ from app import models, schemas
 from app.database import get_db
 from app.deps import get_current_admin
 from app.routers.stats import build_summary
-from app.services import consultant_service
+from app.services import community_service, consultant_service
 from app.services.auth_service import create_admin_access_token, hash_password, verify_password
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -581,3 +581,96 @@ def list_notifications(
         out.farm_name = n.farm.farm_name if n.farm else None
         results.append(out)
     return results
+
+
+# ---------- Community moderation ----------
+@router.get("/community/reports")
+def list_community_reports(db: Session = Depends(get_db), _admin: models.AdminUser = Depends(get_current_admin)):
+    """신고된 게시글/댓글 목록. community_service.REPORT_HIDE_THRESHOLD 이상 쌓이면
+    이미 자동으로 status=hidden 처리된 상태로 여기 보인다 - 관리자는 최종 삭제/복구만 판단하면 됨."""
+    reports = db.query(models.CommunityReport).order_by(models.CommunityReport.created_at.desc()).all()
+    results = []
+    for r in reports:
+        reporter = db.query(models.Household).filter(models.Household.id == r.reporter_household_id).first()
+        if r.post_id:
+            target = db.query(models.CommunityPost).filter(models.CommunityPost.id == r.post_id).first()
+            target_type, preview, target_status = "post", (target.title if target else None), (target.status if target else None)
+        else:
+            target = db.query(models.CommunityComment).filter(models.CommunityComment.id == r.comment_id).first()
+            target_type, preview, target_status = "comment", (target.body if target else None), (target.status if target else None)
+        results.append(
+            {
+                "id": r.id,
+                "post_id": r.post_id,
+                "comment_id": r.comment_id,
+                "target_type": target_type,
+                "target_preview": preview,
+                "target_status": target_status,
+                "reporter_household_name": reporter.name if reporter else None,
+                "reason": r.reason,
+                "created_at": r.created_at,
+            }
+        )
+    return results
+
+
+@router.patch("/community/posts/{post_id}", response_model=schemas.CommunityPostOut)
+def update_community_post_status(
+    post_id: int,
+    payload: schemas.CommunityStatusUpdate,
+    db: Session = Depends(get_db),
+    _admin: models.AdminUser = Depends(get_current_admin),
+):
+    post = db.query(models.CommunityPost).filter(models.CommunityPost.id == post_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="게시글을 찾을 수 없습니다.")
+    if payload.status not in ("visible", "hidden"):
+        raise HTTPException(status_code=400, detail="status는 visible 또는 hidden이어야 합니다.")
+    post.status = payload.status
+    db.commit()
+    db.refresh(post)
+    return community_service.to_post_response(post)
+
+
+@router.delete("/community/posts/{post_id}")
+def delete_community_post(
+    post_id: int, db: Session = Depends(get_db), _admin: models.AdminUser = Depends(get_current_admin)
+):
+    post = db.query(models.CommunityPost).filter(models.CommunityPost.id == post_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="게시글을 찾을 수 없습니다.")
+    db.query(models.CommunityReport).filter(models.CommunityReport.post_id == post_id).delete(synchronize_session=False)
+    db.delete(post)
+    db.commit()
+    return {"ok": True}
+
+
+@router.patch("/community/comments/{comment_id}", response_model=schemas.CommunityCommentOut)
+def update_community_comment_status(
+    comment_id: int,
+    payload: schemas.CommunityStatusUpdate,
+    db: Session = Depends(get_db),
+    _admin: models.AdminUser = Depends(get_current_admin),
+):
+    comment = db.query(models.CommunityComment).filter(models.CommunityComment.id == comment_id).first()
+    if not comment:
+        raise HTTPException(status_code=404, detail="댓글을 찾을 수 없습니다.")
+    if payload.status not in ("visible", "hidden"):
+        raise HTTPException(status_code=400, detail="status는 visible 또는 hidden이어야 합니다.")
+    comment.status = payload.status
+    db.commit()
+    db.refresh(comment)
+    return comment
+
+
+@router.delete("/community/comments/{comment_id}")
+def delete_community_comment(
+    comment_id: int, db: Session = Depends(get_db), _admin: models.AdminUser = Depends(get_current_admin)
+):
+    comment = db.query(models.CommunityComment).filter(models.CommunityComment.id == comment_id).first()
+    if not comment:
+        raise HTTPException(status_code=404, detail="댓글을 찾을 수 없습니다.")
+    db.query(models.CommunityReport).filter(models.CommunityReport.comment_id == comment_id).delete(synchronize_session=False)
+    db.delete(comment)
+    db.commit()
+    return {"ok": True}

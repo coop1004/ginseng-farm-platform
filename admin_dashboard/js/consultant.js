@@ -69,6 +69,18 @@ const ConsultantApi = (() => {
         method: "POST",
         body: JSON.stringify({ body }),
       }),
+    listCommunityPosts: () => request("/api/consultant/community/posts"),
+    getCommunityPost: (postId) => request(`/api/consultant/community/posts/${postId}`),
+    createChannelPost: (title, body, cropId, visibility) =>
+      request("/api/consultant/community/posts", {
+        method: "POST",
+        body: JSON.stringify({ title, body: body || null, crop_id: cropId || null, visibility }),
+      }),
+    createCommunityComment: (postId, body) =>
+      request(`/api/consultant/community/posts/${postId}/comments`, {
+        method: "POST",
+        body: JSON.stringify({ body }),
+      }),
   };
 })();
 
@@ -117,7 +129,7 @@ function handleConsultantLogout() {
 // ---------- 네비게이션 ----------
 function initConsultantNav() {
   const navItems = document.querySelectorAll("#consultantAppShell .nav-item");
-  const titles = { "c-households": "담당 농가", "c-stats": "내 활동 통계" };
+  const titles = { "c-households": "담당 농가", "c-community": "커뮤니티", "c-stats": "내 활동 통계" };
   navItems.forEach((item) => {
     item.addEventListener("click", (e) => {
       e.preventDefault();
@@ -128,6 +140,7 @@ function initConsultantNav() {
       document.getElementById(section).classList.remove("hidden");
       document.getElementById("consultantPageTitle").textContent = titles[section];
       if (section === "c-stats") loadConsultantStats();
+      if (section === "c-community") loadConsultantCommunity();
     });
   });
 }
@@ -388,6 +401,156 @@ function backToConsultantHouseholdList() {
   document.getElementById("consultantHouseholdListPanel").classList.remove("hidden");
 }
 
+// ---------- 커뮤니티 ----------
+let consultantCropOptionsLoaded = false;
+
+function ensureConsultantCropOptions() {
+  if (consultantCropOptionsLoaded) return;
+  consultantCropOptionsLoaded = true;
+  Api.listCrops()
+    .then((crops) => {
+      const select = document.getElementById("consultantPostCropId");
+      crops.forEach((c) => {
+        const opt = document.createElement("option");
+        opt.value = c.id;
+        opt.textContent = c.name_kr;
+        select.appendChild(opt);
+      });
+    })
+    .catch(() => {});
+}
+
+function loadConsultantCommunity() {
+  ensureConsultantCropOptions();
+  const list = document.getElementById("consultantCommunityList");
+  list.innerHTML = `<p style="color: var(--gray-400);">불러오는 중…</p>`;
+  ConsultantApi.listCommunityPosts()
+    .then(renderConsultantCommunityList)
+    .catch((e) => {
+      if (e.isAuthError) {
+        handleConsultantLogout();
+        return;
+      }
+      list.innerHTML = `<p style="color: var(--gray-400);">불러오기 실패: ${e.message}</p>`;
+    });
+}
+
+function renderConsultantCommunityList(posts) {
+  const list = document.getElementById("consultantCommunityList");
+  list.innerHTML = "";
+  if (posts.length === 0) {
+    list.innerHTML = `<p style="color: var(--gray-400);">아직 게시글이 없습니다.</p>`;
+    return;
+  }
+  posts.forEach((p) => {
+    const card = document.createElement("div");
+    card.className = "panel";
+    card.style.marginBottom = "10px";
+    const kindLabel = p.kind === "channel" ? "📢 공지/팁" : p.kind === "diagnosis_share" ? "🩺 진단 공유" : "게시글";
+    const visLabel = p.visibility === "public" ? "전체 공개" : "담당 농가 공개";
+    card.innerHTML = `
+      <div class="panel-header">
+        <h2 style="font-size:15px;">${p.title}</h2>
+        <span class="panel-sub">${kindLabel} · ${visLabel} · ${p.author_name} · 댓글 ${p.comment_count}개</span>
+      </div>
+      <div>${(p.body || "").replace(/</g, "&lt;")}</div>
+      <div id="c-community-detail-${p.id}" class="hidden" style="margin-top:10px; padding-top:10px; border-top:1px solid var(--gray-100);"></div>
+      <div class="modal-actions" style="justify-content:flex-start;">
+        <button class="btn btn-ghost btn-sm" data-toggle-post="${p.id}">댓글 보기/작성</button>
+      </div>
+    `;
+    list.appendChild(card);
+  });
+  list.querySelectorAll("button[data-toggle-post]").forEach((btn) => {
+    btn.addEventListener("click", () => toggleConsultantCommunityDetail(btn.dataset.togglePost));
+  });
+}
+
+function toggleConsultantCommunityDetail(postId) {
+  const container = document.getElementById(`c-community-detail-${postId}`);
+  const wasHidden = container.classList.contains("hidden");
+  container.classList.toggle("hidden");
+  if (wasHidden) loadConsultantCommunityDetail(postId);
+}
+
+function loadConsultantCommunityDetail(postId) {
+  const container = document.getElementById(`c-community-detail-${postId}`);
+  container.innerHTML = "불러오는 중…";
+  ConsultantApi.getCommunityPost(postId)
+    .then((post) => {
+      const commentsHtml = post.comments.length
+        ? post.comments
+            .map((c) => {
+              const badge = c.author_type === "consultant" ? "👤 컨설턴트" : "🌾 농가";
+              return `<div style="padding:6px 0; border-bottom:1px solid var(--gray-100); font-size:13px;">
+                <div style="font-size:11px; color: var(--gray-400);">${badge} · ${c.author_name} · ${new Date(c.created_at).toLocaleString("ko-KR")}</div>
+                <div>${c.body.replace(/</g, "&lt;")}</div>
+              </div>`;
+            })
+            .join("")
+        : `<p style="color: var(--gray-400); font-size:13px;">아직 댓글이 없습니다.</p>`;
+      container.innerHTML = `
+        <div>${commentsHtml}</div>
+        <div style="margin-top:8px; display:flex; gap:6px;">
+          <input type="text" id="c-community-comment-input-${postId}" placeholder="댓글을 입력하세요" style="flex:1;" />
+          <button class="btn btn-primary btn-sm" data-submit-comment="${postId}">등록</button>
+        </div>
+      `;
+      container.querySelector(`button[data-submit-comment="${postId}"]`).addEventListener("click", () => {
+        submitConsultantCommunityComment(postId);
+      });
+    })
+    .catch((e) => {
+      if (e.isAuthError) {
+        handleConsultantLogout();
+        return;
+      }
+      container.innerHTML = `불러오기 실패: ${e.message}`;
+    });
+}
+
+async function submitConsultantCommunityComment(postId) {
+  const input = document.getElementById(`c-community-comment-input-${postId}`);
+  const body = input.value.trim();
+  if (!body) return;
+  try {
+    await ConsultantApi.createCommunityComment(postId, body);
+    input.value = "";
+    loadConsultantCommunityDetail(postId);
+  } catch (e) {
+    if (e.isAuthError) {
+      handleConsultantLogout();
+      return;
+    }
+    showToast(`댓글 등록 실패: ${e.message}`, true);
+  }
+}
+
+async function submitConsultantChannelPost() {
+  const title = document.getElementById("consultantPostTitle").value.trim();
+  const body = document.getElementById("consultantPostBody").value.trim();
+  const cropId = document.getElementById("consultantPostCropId").value;
+  const visibility = document.getElementById("consultantPostVisibility").value;
+  if (!title) {
+    showToast("제목을 입력해주세요.", true);
+    return;
+  }
+  try {
+    await ConsultantApi.createChannelPost(title, body, cropId, visibility);
+    showToast("게시글이 등록되었습니다.");
+    document.getElementById("consultantPostTitle").value = "";
+    document.getElementById("consultantPostBody").value = "";
+    document.getElementById("consultantPostCropId").value = "";
+    loadConsultantCommunity();
+  } catch (e) {
+    if (e.isAuthError) {
+      handleConsultantLogout();
+      return;
+    }
+    showToast(`게시글 등록 실패: ${e.message}`, true);
+  }
+}
+
 // ---------- 내 활동 통계 ----------
 // 컨설턴트 본인 화면과 관리자가 특정 컨설턴트 통계를 보는 모달(dashboard.js
 // openConsultantStatsModal)이 동일한 렌더링 로직을 공유한다.
@@ -436,6 +599,7 @@ function initConsultant() {
   document.getElementById("consultantBackToHouseholds").addEventListener("click", backToConsultantHouseholdList);
   document.getElementById("consultantCommentCancel").addEventListener("click", closeConsultantCommentModal);
   document.getElementById("consultantCommentSubmit").addEventListener("click", submitConsultantComment);
+  document.getElementById("consultantPostSubmit").addEventListener("click", submitConsultantChannelPost);
   initConsultantNav();
 
   if (ConsultantApi.isLoggedIn()) {

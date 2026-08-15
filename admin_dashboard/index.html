@@ -56,6 +56,7 @@
       <a href="#weather" class="nav-item" data-section="weather">🌤️ 기상 데이터</a>
       <a href="#reference" class="nav-item" data-section="reference">📚 병해충·자재 자료</a>
       <a href="#notifications" class="nav-item" data-section="notifications">📨 처방 알림 이력</a>
+      <a href="#community" class="nav-item" data-section="community">🚩 커뮤니티 신고 검수</a>
     </nav>
     <div class="sidebar-footer">
       <div id="connStatus" class="conn-status conn-pending">서버 연결 확인 중…</div>
@@ -319,6 +320,7 @@
     </div>
     <nav class="nav">
       <a href="#c-households" class="nav-item active" data-csection="c-households">🌱 담당 농가</a>
+      <a href="#c-community" class="nav-item" data-csection="c-community">📢 커뮤니티</a>
       <a href="#c-stats" class="nav-item" data-csection="c-stats">📊 내 활동 통계</a>
     </nav>
     <div class="sidebar-footer">
@@ -360,10 +362,64 @@
       </div>
     </section>
 
+    <section id="c-community" class="section hidden">
+      <div class="panel">
+        <div class="panel-header">
+          <h2>담당 농가에 공지/방제 팁 올리기</h2>
+          <span class="panel-sub">기본은 담당 농가에게만 보이며, 전체 공개로 바꿀 수 있습니다</span>
+        </div>
+        <label>제목 *</label>
+        <input id="consultantPostTitle" type="text" placeholder="예: 장마철 뿌리썩음병 예방 안내" />
+        <label>내용</label>
+        <textarea id="consultantPostBody" rows="3" placeholder="담당 농가에게 전달할 공지나 방제 팁을 입력하세요"></textarea>
+        <div class="form-grid-2">
+          <div>
+            <label>작물(선택)</label>
+            <select id="consultantPostCropId"><option value="">전체 작물</option></select>
+          </div>
+          <div>
+            <label>공개 범위</label>
+            <select id="consultantPostVisibility">
+              <option value="consultant_scope">담당 농가에게만</option>
+              <option value="public">전체 농가에게 공개</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-actions" style="justify-content:flex-start;">
+          <button id="consultantPostSubmit" class="btn btn-primary btn-sm">게시글 등록</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <h2>커뮤니티 글 목록</h2>
+          <span class="panel-sub">담당 농가의 공유글, 전체 공개글, 본인이 올린 공지/팁이 모두 보입니다</span>
+        </div>
+        <div id="consultantCommunityList"></div>
+      </div>
+    </section>
+
     <section id="c-stats" class="section hidden">
       <div class="panel">
         <div class="panel-header"><h2>내 활동 통계</h2></div>
         <div id="consultantStatsBody">로딩 중…</div>
+      </div>
+    </section>
+
+    <section id="community" class="section hidden">
+      <div class="panel">
+        <div class="panel-header">
+          <h2>커뮤니티 신고 목록</h2>
+          <span class="panel-sub">신고 3건이 쌓인 글/댓글은 자동으로 숨김 처리됩니다. 최종 삭제/복구를 여기서 판단하세요.</span>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table" id="communityReportsTable">
+            <thead>
+              <tr><th>대상</th><th>내용 미리보기</th><th>상태</th><th>신고자</th><th>사유</th><th>신고일시</th><th></th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
       </div>
     </section>
   </main>
@@ -576,8 +632,8 @@
 
 <div id="toast" class="toast hidden"></div>
 
-<script src="js/api.js?v=2"></script>
-<script src="js/dashboard.js?v=2"></script>
-<script src="js/consultant.js?v=2"></script>
+<script src="js/api.js?v=3"></script>
+<script src="js/dashboard.js?v=3"></script>
+<script src="js/consultant.js?v=3"></script>
 </body>
 </html>

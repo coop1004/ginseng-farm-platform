@@ -124,5 +124,12 @@ const Api = (() => {
     unassignConsultantHousehold: (consultantId, householdId) =>
       request(`/api/admin/consultants/${consultantId}/households/${householdId}`, { method: "DELETE" }),
     getConsultantStats: (consultantId) => request(`/api/admin/consultants/${consultantId}/stats`),
+    listCommunityReports: () => request("/api/admin/community/reports"),
+    updateCommunityPostStatus: (postId, status) =>
+      request(`/api/admin/community/posts/${postId}`, { method: "PATCH", body: JSON.stringify({ status }) }),
+    deleteCommunityPost: (postId) => request(`/api/admin/community/posts/${postId}`, { method: "DELETE" }),
+    updateCommunityCommentStatus: (commentId, status) =>
+      request(`/api/admin/community/comments/${commentId}`, { method: "PATCH", body: JSON.stringify({ status }) }),
+    deleteCommunityComment: (commentId) => request(`/api/admin/community/comments/${commentId}`, { method: "DELETE" }),
   };
 })();

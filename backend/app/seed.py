@@ -424,6 +424,47 @@ def seed_demo_consultant_if_empty(db: Session):
     db.commit()
 
 
+def seed_community_channel_posts_if_empty(db: Session):
+    """커뮤니티 화면이 콘텐츠 공백으로 죽은 공간처럼 보이지 않도록, 데모 컨설턴트가
+    담당 농가에 올린 채널 공지/팁 글을 몇 개 시드해둔다. seed_demo_consultant_if_empty
+    이후에 호출되어야 한다(그 함수가 만드는 컨설턴트 계정을 글쓴이로 씀)."""
+    if db.query(models.CommunityPost).count() > 0:
+        return
+    consultant = db.query(models.ConsultantUser).filter(models.ConsultantUser.username == "consultant1").first()
+    if not consultant:
+        return
+    ginseng = db.query(models.Crop).filter(models.Crop.name_kr == "인삼").first()
+
+    posts = [
+        {
+            "title": "장마철 뿌리썩음병 예방 안내",
+            "body": "최근 강우량이 많은 지역에서 뿌리썩음병 발생이 늘고 있습니다. "
+            "배수로 점검을 미리 해주시고, 해가림 시설 하부 습도 관리에 신경써주세요.",
+            "visibility": "consultant_scope",
+        },
+        {
+            "title": "이번 주 방제 팁 - 친환경 자재 우선 추천",
+            "body": "확산 초기에는 화학 자재보다 친환경 자재로 먼저 대응해보시고, "
+            "1주일 후에도 증상이 진행되면 화학 방제로 전환하시는 걸 권장드립니다.",
+            "visibility": "consultant_scope",
+        },
+    ]
+    for p in posts:
+        db.add(
+            models.CommunityPost(
+                title=p["title"],
+                body=p["body"],
+                kind="channel",
+                crop_id=ginseng.id if ginseng else None,
+                visibility=p["visibility"],
+                author_type="consultant",
+                author_consultant_id=consultant.id,
+                author_name=consultant.name,
+            )
+        )
+    db.commit()
+
+
 def ensure_protected_admin(db: Session):
     """보호된(삭제 불가) 관리자 계정이 하나도 없으면, 가장 먼저 만들어진 계정을
     보호 대상으로 지정한다. 매 서버 시작 시 실행되어, 다른 관리자에 의해 보호 계정이
