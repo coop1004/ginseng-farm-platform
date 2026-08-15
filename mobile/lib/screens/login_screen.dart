@@ -52,7 +52,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   const Icon(Icons.eco, size: 56, color: AppColors.green),
                   const SizedBox(height: 12),
                   const Text(
-                    '인삼 AI 영농일지',
+                    '함께 쓰는 AI영농일지',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
                   ),

@@ -76,7 +76,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('인삼 AI 영농일지'),
+        title: const Text('함께 쓰는 AI영농일지'),
         actions: [
           if (cropProvider.hasMultipleCrops) _CropSwitcher(cropProvider: cropProvider),
           IconButton(

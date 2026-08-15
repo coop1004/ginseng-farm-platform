@@ -26,7 +26,7 @@ class GinsengFarmApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => CropProvider()),
       ],
       child: MaterialApp(
-        title: '인삼 AI 영농일지',
+        title: '함께 쓰는 AI영농일지',
         debugShowCheckedModeBanner: false,
         theme: buildAppTheme(),
         home: const AuthGate(),

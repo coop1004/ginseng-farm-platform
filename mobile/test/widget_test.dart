@@ -11,7 +11,7 @@ void main() {
     await tester.pumpWidget(const GinsengFarmApp());
     await tester.pumpAndSettle();
 
-    expect(find.text('인삼 AI 영농일지'), findsOneWidget);
+    expect(find.text('함께 쓰는 AI영농일지'), findsOneWidget);
     expect(find.text('로그인'), findsOneWidget);
     expect(find.text('계정이 없으신가요? 회원가입'), findsOneWidget);
   });
