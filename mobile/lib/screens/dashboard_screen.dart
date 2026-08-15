@@ -95,7 +95,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Text(today, style: TextStyle(fontSize: 12.5, color: Colors.grey.shade600)),
             const SizedBox(height: 4),
             Text(
-              '${auth.user?.name ?? ''}님, 오늘도 건강한 인삼 농사 되세요 🌱',
+              '${auth.user?.name ?? ''}대표님, 오늘도 건강한 농사되세요 🌱',
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
             ),
             if (auth.household != null)
