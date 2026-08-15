@@ -337,6 +337,7 @@ body {
   background: linear-gradient(180deg, var(--green-700), var(--green-600));
 }
 .login-screen.hidden { display: none; }
+.login-box.hidden { display: none; }
 .login-box {
   background: var(--white); border-radius: 16px; padding: 32px 28px;
   width: 340px; max-width: 90vw; box-shadow: 0 20px 60px rgba(0,0,0,0.25);
@@ -361,6 +362,12 @@ body {
   background: #fde3e3; color: var(--red-500); font-size: 12px; font-weight: 600; text-align: center;
 }
 .login-error.hidden { display: none; }
+
+.link-btn {
+  margin-top: 16px; background: none; border: none; color: var(--green-600);
+  font-size: 12px; font-weight: 600; cursor: pointer; text-align: center; padding: 4px;
+}
+.link-btn:hover { text-decoration: underline; }
 
 .app-shell.hidden { display: none; }
 

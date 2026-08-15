@@ -1084,6 +1084,8 @@ async function submitBroadcast() {
 function showLoginScreen() {
   document.getElementById("loginScreen").classList.remove("hidden");
   document.getElementById("appShell").classList.add("hidden");
+  const consultantShell = document.getElementById("consultantAppShell");
+  if (consultantShell) consultantShell.classList.add("hidden");
 }
 
 function showAppShell() {
