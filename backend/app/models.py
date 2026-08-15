@@ -30,6 +30,39 @@ class AdminUser(Base):
     created_at = Column(DateTime, default=dt.datetime.utcnow)
 
 
+class ConsultantUser(Base):
+    """병해충 진단 컨설턴트 계정. AdminUser(회사 관리자, 전체 농가 무제한 접근)와는
+    완전히 별개의 인증 체계 — 관리자가 배정한(ConsultantHousehold) 담당 농가로만
+    접근 범위가 제한된다."""
+
+    __tablename__ = "consultant_users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String(50), unique=True, nullable=False, index=True)
+    name = Column(String(50), nullable=False)
+    password_hash = Column(String(255), nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=dt.datetime.utcnow)
+
+    households = relationship("Household", secondary="consultant_households", viewonly=True)
+
+
+class ConsultantHousehold(Base):
+    """컨설턴트의 담당 농가 배정. HouseholdCrop과 동일한 다대다 매핑 패턴 —
+    관리자가 이 테이블을 직접 추가/삭제해서 배정/해제한다."""
+
+    __tablename__ = "consultant_households"
+    __table_args__ = (UniqueConstraint("consultant_id", "household_id", name="uq_consultant_household"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    consultant_id = Column(Integer, ForeignKey("consultant_users.id"), nullable=False)
+    household_id = Column(Integer, ForeignKey("households.id"), nullable=False)
+    assigned_at = Column(DateTime, default=dt.datetime.utcnow)
+
+    consultant = relationship("ConsultantUser")
+    household = relationship("Household")
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -56,6 +89,8 @@ class Household(Base):
     # 릴레이션 — 실제 등록/해제는 HouseholdCrop 행을 직접 추가/삭제해서 한다(unique 제약,
     # created_at 등을 다루려면 이쪽이 더 명확함).
     crops = relationship("Crop", secondary="household_crops", viewonly=True, order_by="Crop.sort_order")
+    # 관리자 대시보드 농가 상세 화면에서 "담당 컨설턴트" 표시용 읽기 전용 편의 릴레이션.
+    consultants = relationship("ConsultantUser", secondary="consultant_households", viewonly=True)
 
 
 class HouseholdMember(Base):

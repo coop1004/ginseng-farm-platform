@@ -92,6 +92,120 @@ def admin_delete(
     return {"ok": True}
 
 
+# ---------- 컨설턴트 계정 관리 ----------
+@router.post("/consultants", response_model=schemas.ConsultantOut)
+def create_consultant(
+    payload: schemas.ConsultantRegisterRequest,
+    db: Session = Depends(get_db),
+    _current_admin: models.AdminUser = Depends(get_current_admin),
+):
+    """신규 컨설턴트 계정 추가. AdminUser처럼 공개 가입이 아니라 관리자만 추가할 수 있다."""
+    if db.query(models.ConsultantUser).filter(models.ConsultantUser.username == payload.username).first():
+        raise HTTPException(status_code=400, detail="이미 사용 중인 아이디입니다.")
+    if len(payload.password) < 8:
+        raise HTTPException(status_code=400, detail="비밀번호는 8자 이상이어야 합니다.")
+    consultant = models.ConsultantUser(
+        username=payload.username,
+        name=payload.name,
+        password_hash=hash_password(payload.password),
+    )
+    db.add(consultant)
+    db.commit()
+    db.refresh(consultant)
+    return schemas.ConsultantOut.model_validate(consultant)
+
+
+@router.get("/consultants", response_model=List[schemas.ConsultantOut])
+def list_consultants(db: Session = Depends(get_db), _current_admin: models.AdminUser = Depends(get_current_admin)):
+    return db.query(models.ConsultantUser).order_by(models.ConsultantUser.created_at).all()
+
+
+@router.delete("/consultants/{consultant_id}")
+def delete_consultant(
+    consultant_id: int,
+    db: Session = Depends(get_db),
+    _current_admin: models.AdminUser = Depends(get_current_admin),
+):
+    target = db.query(models.ConsultantUser).filter(models.ConsultantUser.id == consultant_id).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="컨설턴트를 찾을 수 없습니다.")
+    db.delete(target)
+    db.commit()
+    return {"ok": True}
+
+
+@router.get("/consultants/{consultant_id}/households", response_model=List[schemas.HouseholdOut])
+def get_consultant_households(
+    consultant_id: int, db: Session = Depends(get_db), _current_admin: models.AdminUser = Depends(get_current_admin)
+):
+    consultant = db.query(models.ConsultantUser).filter(models.ConsultantUser.id == consultant_id).first()
+    if not consultant:
+        raise HTTPException(status_code=404, detail="컨설턴트를 찾을 수 없습니다.")
+    return consultant.households
+
+
+@router.post("/consultants/{consultant_id}/households/{household_id}", response_model=List[schemas.HouseholdOut])
+def assign_consultant_household(
+    consultant_id: int,
+    household_id: int,
+    db: Session = Depends(get_db),
+    _current_admin: models.AdminUser = Depends(get_current_admin),
+):
+    """농가를 컨설턴트의 담당 범위로 배정한다. 컨설턴트는 여기에 배정된 농가만 조회/등록할
+    수 있다(시스템의 모든 농가에 접근하는 게 아님 - deps.get_consultant_household_ids)."""
+    consultant = db.query(models.ConsultantUser).filter(models.ConsultantUser.id == consultant_id).first()
+    if not consultant:
+        raise HTTPException(status_code=404, detail="컨설턴트를 찾을 수 없습니다.")
+    household = db.query(models.Household).filter(models.Household.id == household_id).first()
+    if not household:
+        raise HTTPException(status_code=404, detail="농가를 찾을 수 없습니다.")
+
+    exists = (
+        db.query(models.ConsultantHousehold)
+        .filter(
+            models.ConsultantHousehold.consultant_id == consultant_id,
+            models.ConsultantHousehold.household_id == household_id,
+        )
+        .first()
+    )
+    if not exists:
+        db.add(models.ConsultantHousehold(consultant_id=consultant_id, household_id=household_id))
+        db.commit()
+    db.refresh(consultant)
+    return consultant.households
+
+
+@router.delete("/consultants/{consultant_id}/households/{household_id}", response_model=List[schemas.HouseholdOut])
+def unassign_consultant_household(
+    consultant_id: int,
+    household_id: int,
+    db: Session = Depends(get_db),
+    _current_admin: models.AdminUser = Depends(get_current_admin),
+):
+    consultant = db.query(models.ConsultantUser).filter(models.ConsultantUser.id == consultant_id).first()
+    if not consultant:
+        raise HTTPException(status_code=404, detail="컨설턴트를 찾을 수 없습니다.")
+    db.query(models.ConsultantHousehold).filter(
+        models.ConsultantHousehold.consultant_id == consultant_id,
+        models.ConsultantHousehold.household_id == household_id,
+    ).delete(synchronize_session=False)
+    db.commit()
+    db.refresh(consultant)
+    return consultant.households
+
+
+@router.get("/households/{household_id}/consultants", response_model=List[schemas.ConsultantOut])
+def get_household_consultants(
+    household_id: int, db: Session = Depends(get_db), _admin: models.AdminUser = Depends(get_current_admin)
+):
+    """농가 상세 화면에서 "담당 컨설턴트" 표시용. 배정/해제는 컨설턴트 쪽 엔드포인트를 쓴다
+    (컨설턴트 목록 화면에서 담당 농가를 관리하는 흐름이 기본이라, 여긴 조회 전용)."""
+    household = db.query(models.Household).filter(models.Household.id == household_id).first()
+    if not household:
+        raise HTTPException(status_code=404, detail="농가를 찾을 수 없습니다.")
+    return household.consultants
+
+
 @router.get("/stats/summary", response_model=schemas.StatsSummary)
 def admin_stats_summary(db: Session = Depends(get_db), _admin: models.AdminUser = Depends(get_current_admin)):
     """관리자 대시보드용 전사(全社) 통계 - 특정 농가로 필터링하지 않고 전체 집계."""

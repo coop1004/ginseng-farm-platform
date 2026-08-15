@@ -6,7 +6,11 @@ from sqlalchemy.orm import Session
 
 from app import models
 from app.database import get_db
-from app.services.auth_service import decode_access_token, decode_admin_access_token
+from app.services.auth_service import (
+    decode_access_token,
+    decode_admin_access_token,
+    decode_consultant_access_token,
+)
 
 
 def get_current_user(authorization: str = Header(None), db: Session = Depends(get_db)) -> models.User:
@@ -68,3 +72,40 @@ def get_current_admin(authorization: str = Header(None), db: Session = Depends(g
     if not admin:
         raise HTTPException(status_code=401, detail="관리자 계정을 찾을 수 없습니다.")
     return admin
+
+
+def get_current_consultant(
+    authorization: str = Header(None), db: Session = Depends(get_db)
+) -> models.ConsultantUser:
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="컨설턴트 로그인이 필요합니다.")
+
+    token = authorization[len("Bearer "):].strip()
+    try:
+        consultant_id = decode_consultant_access_token(token)
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=401, detail="유효하지 않거나 만료된 토큰입니다.")
+
+    consultant = db.query(models.ConsultantUser).filter(models.ConsultantUser.id == consultant_id).first()
+    if not consultant or not consultant.is_active:
+        raise HTTPException(status_code=401, detail="컨설턴트 계정을 찾을 수 없습니다.")
+    return consultant
+
+
+def get_consultant_household_ids(
+    current_consultant: models.ConsultantUser = Depends(get_current_consultant),
+    db: Session = Depends(get_db),
+) -> List[int]:
+    """로그인한 컨설턴트가 배정받은 담당 농가 id 목록. 컨설턴트가 시스템의 모든 농가가
+    아니라 배정된 농가로만 접근할 수 있도록 라우터에서 공통으로 재사용한다."""
+    rows = (
+        db.query(models.ConsultantHousehold.household_id)
+        .filter(models.ConsultantHousehold.consultant_id == current_consultant.id)
+        .all()
+    )
+    return [r[0] for r in rows]
+
+
+def ensure_consultant_farm_access(farm: models.Farm, consultant_household_ids: List[int]) -> None:
+    if farm.household_id not in consultant_household_ids:
+        raise HTTPException(status_code=404, detail="담당 농가의 농장이 아닙니다.")

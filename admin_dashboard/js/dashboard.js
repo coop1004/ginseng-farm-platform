@@ -373,6 +373,7 @@ function showHouseholdDetail(householdId) {
   document.getElementById("householdDetailTitle").textContent = `${household.household_name} · 농장 목록`;
 
   renderHouseholdCrops(householdId);
+  renderHouseholdConsultants(householdId);
 
   const farms = currentFarms.filter((f) => f.household_id === householdId);
   const tbody = document.querySelector("#householdFarmsTable tbody");
@@ -452,6 +453,77 @@ function renderHouseholdCrops(householdId) {
     .catch((e) => {
       container.innerHTML = "";
       showToast(`노출 작물 정보를 불러오지 못했습니다: ${e.message}`, true);
+    });
+}
+
+// 이 농가를 담당하는 컨설턴트를 관리자가 직접 배정/해제한다. 작물과 달리 "최소 1명"
+// 제약은 없다(컨설턴트 미배정 농가도 정상적인 상태) - x 버튼을 항상 보여준다.
+let currentConsultantsCache = [];
+
+function ensureConsultantsLoaded() {
+  if (currentConsultantsCache.length > 0) return Promise.resolve(currentConsultantsCache);
+  return Api.listConsultants().then((consultants) => {
+    currentConsultantsCache = consultants;
+    return consultants;
+  });
+}
+
+function renderHouseholdConsultants(householdId) {
+  const container = document.getElementById("householdConsultantChips");
+  container.innerHTML = "로딩 중...";
+
+  Promise.all([ensureConsultantsLoaded(), Api.getHouseholdConsultants(householdId)])
+    .then(([allConsultants, myConsultants]) => {
+      container.innerHTML = "";
+      const myIds = new Set(myConsultants.map((c) => c.id));
+
+      if (myConsultants.length === 0) {
+        const empty = document.createElement("span");
+        empty.style.cssText = "font-size:12px;color:var(--gray-400);";
+        empty.textContent = "배정된 컨설턴트 없음";
+        container.appendChild(empty);
+      }
+
+      myConsultants.forEach((c) => {
+        const chip = document.createElement("span");
+        chip.className = "badge badge-low";
+        chip.style.display = "inline-flex";
+        chip.style.alignItems = "center";
+        chip.style.gap = "4px";
+        chip.innerHTML = `👤 ${c.name}`;
+        const removeBtn = document.createElement("button");
+        removeBtn.textContent = "×";
+        removeBtn.title = "담당에서 해제";
+        removeBtn.style.cssText = "border:none;background:none;cursor:pointer;font-weight:800;padding:0 0 0 2px;";
+        removeBtn.addEventListener("click", () => {
+          Api.unassignConsultantHousehold(c.id, householdId)
+            .then(() => renderHouseholdConsultants(householdId))
+            .catch((e) => showToast(`담당 해제 실패: ${e.message}`, true));
+        });
+        chip.appendChild(removeBtn);
+        container.appendChild(chip);
+      });
+
+      const remaining = allConsultants.filter((c) => !myIds.has(c.id));
+      if (remaining.length > 0) {
+        const select = document.createElement("select");
+        select.style.cssText = "font-size:12px;padding:2px 4px;";
+        select.innerHTML = remaining.map((c) => `<option value="${c.id}">${c.name}</option>`).join("");
+        const addBtn = document.createElement("button");
+        addBtn.className = "btn btn-ghost btn-sm";
+        addBtn.textContent = "+ 컨설턴트 배정";
+        addBtn.addEventListener("click", () => {
+          Api.assignConsultantHousehold(select.value, householdId)
+            .then(() => renderHouseholdConsultants(householdId))
+            .catch((e) => showToast(`배정 실패: ${e.message}`, true));
+        });
+        container.appendChild(select);
+        container.appendChild(addBtn);
+      }
+    })
+    .catch((e) => {
+      container.innerHTML = "";
+      showToast(`담당 컨설턴트 정보를 불러오지 못했습니다: ${e.message}`, true);
     });
 }
 
@@ -1053,6 +1125,9 @@ async function openAccountModal() {
   document.getElementById("adminNewName").value = "";
   document.getElementById("adminNewUsername").value = "";
   document.getElementById("adminNewPassword").value = "";
+  document.getElementById("consultantNewName").value = "";
+  document.getElementById("consultantNewUsername").value = "";
+  document.getElementById("consultantNewPassword").value = "";
   document.getElementById("accountModal").classList.remove("hidden");
   try {
     const me = await Api.getMe();
@@ -1062,6 +1137,7 @@ async function openAccountModal() {
     // 조회 실패해도 모달 자체는 그대로 사용 가능하도록 무시
   }
   loadAdminList();
+  loadConsultantList();
 }
 
 function closeAccountModal() {
@@ -1167,6 +1243,77 @@ async function deleteAdmin(adminId, name) {
     await Api.deleteAdmin(adminId);
     showToast(`${name} 관리자 계정이 삭제되었습니다.`);
     loadAdminList();
+  } catch (e) {
+    if (e.isAuthError) {
+      closeAccountModal();
+      showLoginScreen();
+      return;
+    }
+    showToast(e.message, true);
+  }
+}
+
+// ---------- Consultant account management ----------
+function loadConsultantList() {
+  Api.listConsultants()
+    .then((consultants) => {
+      const ul = document.getElementById("consultantListUl");
+      ul.innerHTML = "";
+      consultants.forEach((c) => {
+        const li = document.createElement("li");
+        li.className = "admin-list-item";
+
+        const label = document.createElement("span");
+        label.textContent = `${c.name} (${c.username})`;
+        li.appendChild(label);
+
+        const delBtn = document.createElement("button");
+        delBtn.textContent = "삭제";
+        delBtn.className = "admin-delete-btn";
+        delBtn.addEventListener("click", () => deleteConsultant(c.id, c.name));
+        li.appendChild(delBtn);
+
+        ul.appendChild(li);
+      });
+    })
+    .catch(() => {});
+}
+
+async function submitAddConsultant() {
+  const name = document.getElementById("consultantNewName").value.trim();
+  const username = document.getElementById("consultantNewUsername").value.trim();
+  const password = document.getElementById("consultantNewPassword").value;
+  if (!name || !username || !password) {
+    showToast("이름, 아이디, 초기 비밀번호를 모두 입력해주세요.", true);
+    return;
+  }
+  if (password.length < 8) {
+    showToast("초기 비밀번호는 8자 이상이어야 합니다.", true);
+    return;
+  }
+  try {
+    await Api.registerConsultant(username, password, name);
+    showToast(`${name} 컨설턴트 계정이 추가되었습니다.`);
+    document.getElementById("consultantNewName").value = "";
+    document.getElementById("consultantNewUsername").value = "";
+    document.getElementById("consultantNewPassword").value = "";
+    loadConsultantList();
+  } catch (e) {
+    if (e.isAuthError) {
+      closeAccountModal();
+      showLoginScreen();
+      return;
+    }
+    showToast(e.message, true);
+  }
+}
+
+async function deleteConsultant(consultantId, name) {
+  if (!confirm(`${name} 컨설턴트 계정을 삭제하시겠습니까? 담당 농가 배정도 함께 해제됩니다.`)) return;
+  try {
+    await Api.deleteConsultant(consultantId);
+    showToast(`${name} 컨설턴트 계정이 삭제되었습니다.`);
+    loadConsultantList();
   } catch (e) {
     if (e.isAuthError) {
       closeAccountModal();
@@ -1317,6 +1464,7 @@ function init() {
   });
   document.getElementById("pwSubmit").addEventListener("click", submitChangePassword);
   document.getElementById("adminAddSubmit").addEventListener("click", submitAddAdmin);
+  document.getElementById("consultantAddSubmit").addEventListener("click", submitAddConsultant);
 
   document.getElementById("expertDiagnosisCancel").addEventListener("click", closeExpertDiagnosisModal);
   document.getElementById("expertDiagnosisSubmit").addEventListener("click", submitExpertDiagnosis);

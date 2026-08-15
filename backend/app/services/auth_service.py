@@ -43,6 +43,21 @@ def decode_admin_access_token(token: str) -> int:
     return int(payload["admin_sub"])
 
 
+def create_consultant_access_token(consultant_id: int) -> str:
+    """컨설턴트용 토큰도 admin과 마찬가지로 클레임 이름을 분리해서(consultant_sub)
+    농가/관리자 토큰과 섞여 쓰이지 않게 한다."""
+    expire = dt.datetime.utcnow() + dt.timedelta(minutes=settings.jwt_expire_minutes)
+    payload = {"consultant_sub": str(consultant_id), "exp": expire}
+    return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+
+
+def decode_consultant_access_token(token: str) -> int:
+    payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
+    if "consultant_sub" not in payload:
+        raise jwt.InvalidTokenError("컨설턴트 토큰이 아닙니다.")
+    return int(payload["consultant_sub"])
+
+
 def generate_join_code(length: int = 6) -> str:
     alphabet = string.ascii_uppercase + string.digits
     return "".join(random.choices(alphabet, k=length))

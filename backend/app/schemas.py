@@ -95,6 +95,32 @@ class AdminRegisterRequest(BaseModel):
     name: str
 
 
+# ---------- Consultant Auth ----------
+class ConsultantLoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class ConsultantOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    username: str
+    name: str
+    is_active: bool = True
+
+
+class ConsultantTokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    consultant: ConsultantOut
+
+
+class ConsultantRegisterRequest(BaseModel):
+    username: str
+    password: str
+    name: str
+
+
 # ---------- Crop ----------
 class GrowthStageOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)

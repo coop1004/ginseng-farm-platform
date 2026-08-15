@@ -114,5 +114,14 @@ const Api = (() => {
       }),
     deleteAdmin: (adminId) =>
       request(`/api/admin/auth/${adminId}`, { method: "DELETE" }),
+    listConsultants: () => request("/api/admin/consultants"),
+    registerConsultant: (username, password, name) =>
+      request("/api/admin/consultants", { method: "POST", body: JSON.stringify({ username, password, name }) }),
+    deleteConsultant: (consultantId) => request(`/api/admin/consultants/${consultantId}`, { method: "DELETE" }),
+    getHouseholdConsultants: (householdId) => request(`/api/admin/households/${householdId}/consultants`),
+    assignConsultantHousehold: (consultantId, householdId) =>
+      request(`/api/admin/consultants/${consultantId}/households/${householdId}`, { method: "POST" }),
+    unassignConsultantHousehold: (consultantId, householdId) =>
+      request(`/api/admin/consultants/${consultantId}/households/${householdId}`, { method: "DELETE" }),
   };
 })();

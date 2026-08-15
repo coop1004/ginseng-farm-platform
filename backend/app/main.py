@@ -7,6 +7,7 @@ from app.database import Base, SessionLocal, engine, run_light_migrations
 from app.routers import (
     admin,
     auth,
+    consultant,
     crops,
     diagnosis,
     farms,
@@ -25,6 +26,7 @@ from app.seed import (
     ensure_protected_admin,
     seed_admin_if_empty,
     seed_crops_if_empty,
+    seed_demo_consultant_if_empty,
     seed_if_empty,
     seed_treatment_references_if_empty,
 )
@@ -63,6 +65,7 @@ app.include_router(weather.farmer_router)
 app.include_router(reference.router)
 app.include_router(crops.router)
 app.include_router(pest_reference.router)
+app.include_router(consultant.router)
 
 
 @app.on_event("startup")
@@ -79,6 +82,7 @@ def on_startup():
         seed_pilot_crop_pest_diseases_if_empty(db)
         seed_regional_pilot_crop_demo_if_empty(db)
         backfill_household_crops_if_missing(db)
+        seed_demo_consultant_if_empty(db)
     finally:
         db.close()
 

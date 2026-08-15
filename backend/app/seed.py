@@ -400,6 +400,30 @@ def seed_admin_if_empty(db: Session):
     db.commit()
 
 
+def seed_demo_consultant_if_empty(db: Session):
+    """데모/테스트 편의를 위해 컨설턴트 계정이 하나도 없으면 1개 만들고, 이미 시딩된
+    데모 농가 중 처음 두 곳(김인삼 농가, 박풍기 농가)을 담당 농가로 배정해둔다.
+    seed_if_empty 이후에 호출되어야 한다(그 함수가 만드는 household를 배정 대상으로 씀)."""
+    if db.query(models.ConsultantUser).count() > 0:
+        return
+    consultant = models.ConsultantUser(
+        username="consultant1",
+        name="정병해 컨설턴트",
+        password_hash=hash_password(DEMO_PASSWORD),
+    )
+    db.add(consultant)
+    db.flush()
+
+    demo_households = (
+        db.query(models.Household)
+        .filter(models.Household.join_code.in_(["DEMO01", "DEMO02"]))
+        .all()
+    )
+    for household in demo_households:
+        db.add(models.ConsultantHousehold(consultant_id=consultant.id, household_id=household.id))
+    db.commit()
+
+
 def ensure_protected_admin(db: Session):
     """보호된(삭제 불가) 관리자 계정이 하나도 없으면, 가장 먼저 만들어진 계정을
     보호 대상으로 지정한다. 매 서버 시작 시 실행되어, 다른 관리자에 의해 보호 계정이
