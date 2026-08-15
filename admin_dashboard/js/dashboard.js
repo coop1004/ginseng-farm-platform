@@ -1269,6 +1269,13 @@ function loadConsultantList() {
         label.textContent = `${c.name} (${c.username})`;
         li.appendChild(label);
 
+        const statsBtn = document.createElement("button");
+        statsBtn.textContent = "통계";
+        statsBtn.className = "btn btn-ghost btn-sm";
+        statsBtn.style.marginRight = "6px";
+        statsBtn.addEventListener("click", () => openConsultantStatsModal(c.id, c.name));
+        li.appendChild(statsBtn);
+
         const delBtn = document.createElement("button");
         delBtn.textContent = "삭제";
         delBtn.className = "admin-delete-btn";
@@ -1279,6 +1286,28 @@ function loadConsultantList() {
       });
     })
     .catch(() => {});
+}
+
+function openConsultantStatsModal(consultantId, name) {
+  document.getElementById("consultantStatsSub").textContent = `${name} 컨설턴트`;
+  const body = document.getElementById("consultantStatsModalBody");
+  body.textContent = "불러오는 중…";
+  document.getElementById("consultantStatsModal").classList.remove("hidden");
+  Api.getConsultantStats(consultantId)
+    .then((stats) => {
+      body.innerHTML = renderConsultantStatsHtml(stats);
+    })
+    .catch((e) => {
+      if (e.isAuthError) {
+        showLoginScreen();
+        return;
+      }
+      body.textContent = `통계를 불러오지 못했습니다: ${e.message}`;
+    });
+}
+
+function closeConsultantStatsModal() {
+  document.getElementById("consultantStatsModal").classList.add("hidden");
 }
 
 async function submitAddConsultant() {
@@ -1467,6 +1496,10 @@ function init() {
   document.getElementById("pwSubmit").addEventListener("click", submitChangePassword);
   document.getElementById("adminAddSubmit").addEventListener("click", submitAddAdmin);
   document.getElementById("consultantAddSubmit").addEventListener("click", submitAddConsultant);
+  document.getElementById("consultantStatsModalClose").addEventListener("click", closeConsultantStatsModal);
+  document.getElementById("consultantStatsModal").addEventListener("click", (e) => {
+    if (e.target.id === "consultantStatsModal") closeConsultantStatsModal();
+  });
 
   document.getElementById("expertDiagnosisCancel").addEventListener("click", closeExpertDiagnosisModal);
   document.getElementById("expertDiagnosisSubmit").addEventListener("click", submitExpertDiagnosis);

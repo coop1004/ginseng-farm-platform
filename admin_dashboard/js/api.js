@@ -123,5 +123,6 @@ const Api = (() => {
       request(`/api/admin/consultants/${consultantId}/households/${householdId}`, { method: "POST" }),
     unassignConsultantHousehold: (consultantId, householdId) =>
       request(`/api/admin/consultants/${consultantId}/households/${householdId}`, { method: "DELETE" }),
+    getConsultantStats: (consultantId) => request(`/api/admin/consultants/${consultantId}/stats`),
   };
 })();

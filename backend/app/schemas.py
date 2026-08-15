@@ -121,6 +121,18 @@ class ConsultantRegisterRequest(BaseModel):
     name: str
 
 
+class ConsultantStatsOut(BaseModel):
+    household_count: int
+    farm_count: int
+    total_diagnosis_count: int
+    my_diagnosis_count: int
+    my_final_diagnosis_count: int
+    my_comment_count: int
+    farmer_feedback_correct: int
+    farmer_feedback_incorrect: int
+    farmer_feedback_pending: int
+
+
 # ---------- Crop ----------
 class GrowthStageOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)

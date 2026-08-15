@@ -10,6 +10,7 @@ from app import models, schemas
 from app.database import get_db
 from app.deps import get_current_admin
 from app.routers.stats import build_summary
+from app.services import consultant_service
 from app.services.auth_service import create_admin_access_token, hash_password, verify_password
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -192,6 +193,18 @@ def unassign_consultant_household(
     db.commit()
     db.refresh(consultant)
     return consultant.households
+
+
+@router.get("/consultants/{consultant_id}/stats", response_model=schemas.ConsultantStatsOut)
+def get_consultant_stats(
+    consultant_id: int, db: Session = Depends(get_db), _current_admin: models.AdminUser = Depends(get_current_admin)
+):
+    """관리자가 특정 컨설턴트의 활동 실적을 본다. 컨설턴트 본인 화면(/api/consultant/stats/summary)과
+    동일한 집계 로직(consultant_service.compute_stats)을 재사용한다."""
+    consultant = db.query(models.ConsultantUser).filter(models.ConsultantUser.id == consultant_id).first()
+    if not consultant:
+        raise HTTPException(status_code=404, detail="컨설턴트를 찾을 수 없습니다.")
+    return consultant_service.compute_stats(db, consultant)
 
 
 @router.get("/households/{household_id}/consultants", response_model=List[schemas.ConsultantOut])

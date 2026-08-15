@@ -11,6 +11,7 @@ from app.deps import (
     get_consultant_household_ids,
     get_current_consultant,
 )
+from app.services import consultant_service
 from app.services.auth_service import create_consultant_access_token, verify_password
 from app.services.diagnosis_service import add_comment, create_diagnosis_record, to_response
 
@@ -197,3 +198,13 @@ def create_consultant_diagnosis_comment(
     return add_comment(
         db, d, "consultant", current_consultant.name, payload.body, author_consultant_id=current_consultant.id
     )
+
+
+@router.get("/stats/summary", response_model=schemas.ConsultantStatsOut)
+def get_my_stats(
+    current_consultant: models.ConsultantUser = Depends(get_current_consultant),
+    db: Session = Depends(get_db),
+):
+    """담당 농가 수, 본인이 등록/최종확정한 진단 실적, 남긴 코멘트 수, 담당 농가의
+    AI 진단 대비 실제 발생 피드백 현황을 집계한다."""
+    return consultant_service.compute_stats(db, current_consultant)

@@ -63,6 +63,7 @@ const ConsultantApi = (() => {
         body: JSON.stringify({ disease_name: diseaseName, note: note || null }),
       }),
     getComments: (diagnosisId) => request(`/api/consultant/diagnoses/${diagnosisId}/comments`),
+    getStats: () => request("/api/consultant/stats/summary"),
     createComment: (diagnosisId, body) =>
       request(`/api/consultant/diagnoses/${diagnosisId}/comments`, {
         method: "POST",
@@ -387,9 +388,43 @@ function backToConsultantHouseholdList() {
   document.getElementById("consultantHouseholdListPanel").classList.remove("hidden");
 }
 
-// ---------- 내 활동 통계 (5단계에서 채움) ----------
+// ---------- 내 활동 통계 ----------
+// 컨설턴트 본인 화면과 관리자가 특정 컨설턴트 통계를 보는 모달(dashboard.js
+// openConsultantStatsModal)이 동일한 렌더링 로직을 공유한다.
+function renderConsultantStatsHtml(s) {
+  const total = s.farmer_feedback_correct + s.farmer_feedback_incorrect + s.farmer_feedback_pending;
+  return `
+    <div class="cards-grid">
+      <div class="stat-card"><div><div class="stat-value">${s.household_count}</div><div class="stat-label">담당 농가 수</div></div></div>
+      <div class="stat-card"><div><div class="stat-value">${s.farm_count}</div><div class="stat-label">담당 농장 수</div></div></div>
+      <div class="stat-card"><div><div class="stat-value">${s.my_diagnosis_count}</div><div class="stat-label">본인 등록 진단 건수</div></div></div>
+      <div class="stat-card"><div><div class="stat-value">${s.my_final_diagnosis_count}</div><div class="stat-label">본인 최종확정 건수</div></div></div>
+      <div class="stat-card"><div><div class="stat-value">${s.my_comment_count}</div><div class="stat-label">남긴 코멘트 수</div></div></div>
+      <div class="stat-card"><div><div class="stat-value">${s.total_diagnosis_count}</div><div class="stat-label">담당 농가 전체 진단 건수</div></div></div>
+    </div>
+    <div class="panel-sub" style="margin-top:14px;">담당 농가 AI 진단 피드백 (총 ${total}건 중 확인됨)</div>
+    <div style="margin-top:6px;">
+      <span class="badge badge-low">일치 ${s.farmer_feedback_correct}건</span>
+      <span class="badge badge-high" style="margin-left:6px;">불일치 ${s.farmer_feedback_incorrect}건</span>
+      <span class="badge" style="margin-left:6px; background:#eee; color:#666;">미확인 ${s.farmer_feedback_pending}건</span>
+    </div>
+  `;
+}
+
 function loadConsultantStats() {
-  document.getElementById("consultantStatsBody").textContent = "준비 중입니다.";
+  const body = document.getElementById("consultantStatsBody");
+  body.textContent = "불러오는 중…";
+  ConsultantApi.getStats()
+    .then((stats) => {
+      body.innerHTML = renderConsultantStatsHtml(stats);
+    })
+    .catch((e) => {
+      if (e.isAuthError) {
+        handleConsultantLogout();
+        return;
+      }
+      body.textContent = `통계를 불러오지 못했습니다: ${e.message}`;
+    });
 }
 
 // ---------- 초기화 ----------
