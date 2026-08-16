@@ -133,6 +133,20 @@ class ConsultantStatsOut(BaseModel):
     farmer_feedback_pending: int
 
 
+class ConsultantRankingItem(BaseModel):
+    consultant_id: int
+    name: str
+    diagnosis_count_this_month: int
+    total_diagnosis_count: int
+
+
+class ConsultantActivitySummaryOut(BaseModel):
+    consultant_count: int
+    active_consultant_count: int
+    diagnosis_count_this_month: int
+    ranking: List[ConsultantRankingItem]
+
+
 # ---------- Crop ----------
 class GrowthStageOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)

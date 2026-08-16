@@ -125,6 +125,8 @@ const Api = (() => {
     unassignConsultantHousehold: (consultantId, householdId) =>
       request(`/api/admin/consultants/${consultantId}/households/${householdId}`, { method: "DELETE" }),
     getConsultantStats: (consultantId) => request(`/api/admin/consultants/${consultantId}/stats`),
+    getConsultantActivitySummary: (topN) =>
+      request(`/api/admin/consultants/stats/summary${topN ? `?top_n=${topN}` : ""}`),
     listCommunityReports: () => request("/api/admin/community/reports"),
     updateCommunityPostStatus: (postId, status) =>
       request(`/api/admin/community/posts/${postId}`, { method: "PATCH", body: JSON.stringify({ status }) }),

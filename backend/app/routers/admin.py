@@ -122,6 +122,18 @@ def list_consultants(db: Session = Depends(get_db), _current_admin: models.Admin
     return db.query(models.ConsultantUser).order_by(models.ConsultantUser.created_at).all()
 
 
+@router.get("/consultants/stats/summary", response_model=schemas.ConsultantActivitySummaryOut)
+def admin_consultants_stats_summary(
+    top_n: int = 5, db: Session = Depends(get_db), _admin: models.AdminUser = Depends(get_current_admin)
+):
+    """관리자 대시보드 메인 화면(종합 현황)의 "컨설턴트 활동 실적" 요약 카드용. 개별
+    컨설턴트 상세는 여전히 GET /consultants/{consultant_id}/stats를 그대로 쓴다 - 계정관리
+    화면에 있던 실적통계를 메인 화면으로 옮기면서, 요약(이번 달 합계 + 상위 랭킹)은 여기서
+    새로 계산하고 상세 조회는 기존 엔드포인트를 재사용하는 구조로 나눴다. top_n은 메인 화면
+    카드(상위 5명)와 "더보기" 상세 모달(전체)이 같은 엔드포인트를 다른 개수로 재사용하기 위함."""
+    return consultant_service.compute_all_consultants_summary(db, top_n=top_n)
+
+
 @router.delete("/consultants/{consultant_id}")
 def delete_consultant(
     consultant_id: int,

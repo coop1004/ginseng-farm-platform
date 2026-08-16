@@ -1316,13 +1316,9 @@ function loadConsultantList() {
         label.textContent = `${c.name} (${c.username})`;
         li.appendChild(label);
 
-        const statsBtn = document.createElement("button");
-        statsBtn.textContent = "통계";
-        statsBtn.className = "btn btn-ghost btn-sm";
-        statsBtn.style.marginRight = "6px";
-        statsBtn.addEventListener("click", () => openConsultantStatsModal(c.id, c.name));
-        li.appendChild(statsBtn);
-
+        // 활동 실적통계는 계정관리에서 뺐다 - 대시보드 메인 화면(종합 현황)의
+        // "컨설턴트 활동 실적" 카드 -> 상세 모달에서 컨설턴트 이름을 눌러 확인한다.
+        // 여기(계정관리)에는 계정 자체를 다루는 기능(삭제 등)만 남긴다.
         const delBtn = document.createElement("button");
         delBtn.textContent = "삭제";
         delBtn.className = "admin-delete-btn";
@@ -1355,6 +1351,64 @@ function openConsultantStatsModal(consultantId, name) {
 
 function closeConsultantStatsModal() {
   document.getElementById("consultantStatsModal").classList.add("hidden");
+}
+
+// ---------- 컨설턴트 활동 실적 요약 (종합 현황 메인 화면 카드) ----------
+function loadConsultantActivitySummary() {
+  Api.getConsultantActivitySummary()
+    .then((summary) => {
+      document.getElementById("consultantActivityMonthCount").textContent = summary.diagnosis_count_this_month;
+      document.getElementById("consultantActivityActiveCount").textContent =
+        `${summary.active_consultant_count} / ${summary.consultant_count}`;
+      document.getElementById("consultantActivityRanking").innerHTML = renderConsultantRankingRows(summary.ranking, false);
+    })
+    .catch(() => {});
+}
+
+function renderConsultantRankingRows(ranking, clickableDetail) {
+  if (!ranking.length) {
+    return `<li class="admin-list-item"><span class="panel-sub">등록된 컨설턴트가 없습니다.</span></li>`;
+  }
+  return ranking
+    .map((r, i) => {
+      const nameHtml = clickableDetail
+        ? `<a href="#" class="consultant-ranking-name" data-consultant-id="${r.consultant_id}" data-consultant-name="${r.name}">${i + 1}. ${r.name}</a>`
+        : `${i + 1}. ${r.name}`;
+      return `<li class="admin-list-item">
+        <span>${nameHtml}</span>
+        <span class="panel-sub">이번 달 ${r.diagnosis_count_this_month}건 · 누적 ${r.total_diagnosis_count}건</span>
+      </li>`;
+    })
+    .join("");
+}
+
+function openConsultantActivityModal() {
+  const modal = document.getElementById("consultantActivityModal");
+  const body = document.getElementById("consultantActivityModalBody");
+  body.textContent = "불러오는 중…";
+  modal.classList.remove("hidden");
+  Api.getConsultantActivitySummary(1000) // 상세 모달은 상위 N명 제한 없이 전체를 보여준다
+    .then((summary) => {
+      body.innerHTML = `<ul class="admin-list">${renderConsultantRankingRows(summary.ranking, true)}</ul>`;
+      body.querySelectorAll(".consultant-ranking-name").forEach((el) => {
+        el.addEventListener("click", (e) => {
+          e.preventDefault();
+          openConsultantStatsModal(Number(el.dataset.consultantId), el.dataset.consultantName);
+        });
+      });
+    })
+    .catch((e) => {
+      if (e.isAuthError) {
+        closeConsultantActivityModal();
+        showLoginScreen();
+        return;
+      }
+      body.textContent = `실적을 불러오지 못했습니다: ${e.message}`;
+    });
+}
+
+function closeConsultantActivityModal() {
+  document.getElementById("consultantActivityModal").classList.add("hidden");
 }
 
 async function deleteConsultant(consultantId, name) {
@@ -1547,6 +1601,7 @@ async function loadAll() {
     populateWeatherFarmSelect();
     loadWeather();
     loadReferences();
+    loadConsultantActivitySummary();
   } catch (e) {
     if (e.isAuthError) {
       showLoginScreen();
@@ -1670,6 +1725,7 @@ function init() {
   document.getElementById("statFarmsCard").addEventListener("click", () => {
     document.querySelector('.nav-item[data-section="farms"]').click();
   });
+  document.getElementById("consultantActivityCard").addEventListener("click", openConsultantActivityModal);
 
   document.getElementById("refreshBtn").addEventListener("click", loadAll);
   document.getElementById("apiBaseSave").addEventListener("click", () => {
@@ -1708,6 +1764,10 @@ function init() {
   document.getElementById("newAccountRole").addEventListener("change", updateNewAccountRoleUi);
   document.getElementById("newAccountSubmit").addEventListener("click", submitAddAccount);
   document.getElementById("consultantStatsModalClose").addEventListener("click", closeConsultantStatsModal);
+  document.getElementById("consultantActivityModalClose").addEventListener("click", closeConsultantActivityModal);
+  document.getElementById("consultantActivityModal").addEventListener("click", (e) => {
+    if (e.target.id === "consultantActivityModal") closeConsultantActivityModal();
+  });
   document.getElementById("consultantStatsModal").addEventListener("click", (e) => {
     if (e.target.id === "consultantStatsModal") closeConsultantStatsModal();
   });
