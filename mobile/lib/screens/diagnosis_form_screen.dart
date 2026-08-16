@@ -29,6 +29,10 @@ class _DiagnosisFormScreenState extends State<DiagnosisFormScreen> {
   String _type = diagnosisTypes.first;
   final List<File> _photos = [];
   bool _analyzing = false;
+  // null이면 "확인 안 함" - 서버가 사진 EXIF 촬영일 또는 오늘 날짜로 자동 결정한다.
+  // 앨범에서 고른 사진이나 카카오톡 등으로 전달받은 사진은 촬영일이 실제 발생일과
+  // 다를 수 있어, 사용자가 직접 날짜를 확인/수정할 수 있게 달력을 열어준다.
+  DateTime? _occurrenceDate;
 
   @override
   void initState() {
@@ -56,6 +60,17 @@ class _DiagnosisFormScreenState extends State<DiagnosisFormScreen> {
     setState(() => _photos.removeAt(index));
   }
 
+  Future<void> _pickOccurrenceDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _occurrenceDate ?? now,
+      firstDate: now.subtract(const Duration(days: 730)),
+      lastDate: now,
+    );
+    if (picked != null) setState(() => _occurrenceDate = picked);
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate() || _farm == null) return;
     if (_photos.isEmpty) {
@@ -69,6 +84,7 @@ class _DiagnosisFormScreenState extends State<DiagnosisFormScreen> {
         diagnosisType: _type,
         cropName: _farm?.cropName ?? '인삼',
         photos: _photos,
+        occurrenceDate: _occurrenceDate,
       );
       if (mounted) {
         Navigator.of(context).pushReplacement(
@@ -121,9 +137,23 @@ class _DiagnosisFormScreenState extends State<DiagnosisFormScreen> {
                       child: Text(_farm?.cropName ?? '인삼'),
                     ),
                     const SizedBox(height: 12),
-                    InputDecorator(
-                      decoration: const InputDecoration(labelText: '발생일자(자동입력)', prefixIcon: Icon(Icons.today_outlined)),
-                      child: Text('${today.year}년 ${today.month}월 ${today.day}일'),
+                    InkWell(
+                      onTap: _pickOccurrenceDate,
+                      child: InputDecorator(
+                        decoration: const InputDecoration(
+                          labelText: '발생(확인)일자',
+                          prefixIcon: Icon(Icons.event_outlined),
+                          suffixIcon: Icon(Icons.edit_calendar_outlined),
+                        ),
+                        child: Text(_occurrenceDate != null
+                            ? '${_occurrenceDate!.year}년 ${_occurrenceDate!.month}월 ${_occurrenceDate!.day}일'
+                            : '${today.year}년 ${today.month}월 ${today.day}일 (자동)'),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '기본값은 사진 촬영일 또는 오늘 날짜입니다. 앨범에서 고른 사진이나 전달받은 사진이라면 날짜를 눌러 직접 확인해주세요.',
+                      style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
                     ),
                     const SizedBox(height: 16),
                     Text('피해 부위 사진 * (여러 장 첨부 가능)', style: TextStyle(fontSize: 12.5, color: Colors.grey.shade700)),

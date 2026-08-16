@@ -280,6 +280,7 @@ class ApiService {
     required String diagnosisType,
     required String cropName,
     required List<File> photos,
+    DateTime? occurrenceDate,
   }) async {
     final res = await _sendMultipartWithRetry(() async {
       final uri = await _uri('/api/diagnoses');
@@ -288,6 +289,15 @@ class ApiService {
         ..fields['farm_id'] = farmId.toString()
         ..fields['diagnosis_type'] = diagnosisType
         ..fields['crop_name'] = cropName;
+      // 사용자가 직접 고른 날짜가 있을 때만 보낸다 - 안 보내면 서버가 사진 EXIF
+      // 촬영일(있으면)이나 오늘 날짜로 알아서 채운다(diagnosis_service.py).
+      // 항상 오늘 날짜를 보내면 그 자동 판단을 매번 덮어써버리게 된다.
+      if (occurrenceDate != null) {
+        final y = occurrenceDate.year.toString().padLeft(4, '0');
+        final m = occurrenceDate.month.toString().padLeft(2, '0');
+        final d = occurrenceDate.day.toString().padLeft(2, '0');
+        request.fields['occurrence_date'] = '$y-$m-$d';
+      }
       for (final photo in photos) {
         request.files.add(await http.MultipartFile.fromPath('photos', photo.path));
       }
