@@ -4,10 +4,17 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>인삼 농장 통합 모니터링 대시보드</title>
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#1b4d1e" />
+<link rel="icon" href="icons/icon-192.png" />
+<link rel="apple-touch-icon" href="icons/icon-192.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="다함께 차차차" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<link rel="stylesheet" href="css/style.css?v=4" />
+<link rel="stylesheet" href="css/style.css?v=5" />
 </head>
 <body>
 <div id="loginScreen" class="login-screen">
@@ -41,10 +48,10 @@
 <div class="app-shell hidden" id="appShell">
   <aside class="sidebar">
     <div class="brand">
-      <div class="brand-mark">蔘</div>
+      <div class="brand-mark"><img src="icons/icon-192.png" alt="다함께 차차차" /></div>
       <div>
         <div class="brand-title">함께 쓰는 AI영농일지</div>
-        <div class="brand-sub">농자재사 관리자 대시보드</div>
+        <div class="brand-sub">다함께 차차차 - 관리자 대시보드</div>
       </div>
     </div>
     <nav class="nav">
@@ -65,6 +72,7 @@
         <input id="apiBaseInput" type="text" value="http://localhost:8000" />
         <button id="apiBaseSave">적용</button>
       </div>
+      <button id="installBtn" class="logout-btn install-btn">🖥 바탕화면에 바로가기 추가</button>
       <button id="accountBtn" class="logout-btn">⚙ 계정 관리</button>
       <button id="logoutBtn" class="logout-btn">로그아웃</button>
     </div>
@@ -638,7 +646,12 @@
 <div id="toast" class="toast hidden"></div>
 
 <script src="js/api.js?v=3"></script>
-<script src="js/dashboard.js?v=3"></script>
+<script src="js/dashboard.js?v=4"></script>
 <script src="js/consultant.js?v=3"></script>
+<script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+  }
+</script>
 </body>
 </html>

@@ -4,6 +4,30 @@ let mapMarkers = [];
 let currentFarms = [];
 let currentHouseholds = [];
 
+// "바탕화면에 바로가기" — 크롬/엣지/안드로이드는 이 이벤트를 잡아뒀다가 버튼 클릭 시
+// prompt()로 설치창을 띄운다. 이벤트가 오기 전에 버튼을 누르면(iOS Safari처럼 이
+// 이벤트 자체가 없는 브라우저 포함) 수동 설치 방법을 안내한다.
+let deferredInstallPrompt = null;
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+});
+
+async function handleInstallClick() {
+  if (deferredInstallPrompt) {
+    deferredInstallPrompt.prompt();
+    await deferredInstallPrompt.userChoice;
+    deferredInstallPrompt = null;
+    return;
+  }
+  const ua = navigator.userAgent;
+  const isIOS = /iphone|ipad|ipod/i.test(ua);
+  const msg = isIOS
+    ? 'Safari 하단(또는 상단) 공유 아이콘을 누른 뒤 "홈 화면에 추가"를 선택해주세요.'
+    : '이미 설치되어 있거나, 이 브라우저는 자동 설치를 지원하지 않습니다. 크롬이라면 주소창 오른쪽의 설치 아이콘(⊕) 또는 우측 상단 메뉴(⋮) → "앱 설치"를 확인해주세요.';
+  alert(msg);
+}
+
 const typeColors = {
   "병해": "#c62828",
   "해충": "#ef6c00",
@@ -1673,6 +1697,7 @@ function init() {
 
   document.getElementById("loginForm").addEventListener("submit", handleLoginSubmit);
   document.getElementById("logoutBtn").addEventListener("click", handleLogout);
+  document.getElementById("installBtn").addEventListener("click", handleInstallClick);
 
   document.getElementById("accountBtn").addEventListener("click", openAccountModal);
   document.getElementById("accountClose").addEventListener("click", closeAccountModal);
