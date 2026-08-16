@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 
 import '../models/app_notification.dart';
 import '../models/crop.dart';
-import '../models/stats.dart';
 import '../providers/auth_provider.dart';
 import '../providers/crop_provider.dart';
 import '../providers/farm_provider.dart';
@@ -13,10 +12,8 @@ import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 import 'community_screen.dart';
 import 'diagnosis_form_screen.dart';
-import 'farm_form_screen.dart';
 import 'pest_reference_screen.dart';
 import 'settings_screen.dart';
-import 'stats_screen.dart';
 import 'work_log_form_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -28,9 +25,7 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   final _api = ApiService();
-  StatsSummary? _summary;
   List<AppNotification> _notifications = [];
-  bool _loading = true;
   int? _lastLoadedCropId;
 
   @override
@@ -40,21 +35,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
     try {
-      final cropId = mounted ? context.read<CropProvider>().activeCrop?.id : null;
-      final results = await Future.wait([
-        _api.getStatsSummary(cropId: cropId),
-        _api.getNotifications(),
-      ]);
-      setState(() {
-        _summary = results[0] as StatsSummary;
-        _notifications = (results[1] as List<AppNotification>).take(5).toList();
-      });
+      final notifications = await _api.getNotifications();
+      setState(() => _notifications = notifications.take(5).toList());
     } catch (_) {
       // 홈 화면은 오프라인이어도 조용히 실패 (개별 탭에서 재시도 가능)
-    } finally {
-      setState(() => _loading = false);
     }
   }
 
@@ -65,9 +50,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final cropProvider = context.watch<CropProvider>();
     final today = DateFormat('yyyy년 MM월 dd일 (E)', 'ko_KR').format(DateTime.now());
 
-    // CropProvider는 로그인 직후 비동기로 채워지고(작물 전환 시에도 바뀜) 활성 작물이
-    // 달라지면 그 작물 기준으로 요약을 다시 불러온다. 등록 작물이 1개뿐인 농가는 activeCrop이
-    // 한 번 정해진 뒤로는 안 바뀌므로 최초 1회만 다시 로드되고 이후엔 지금과 동일하게 동작한다.
+    // CropProvider는 로그인 직후 비동기로 채워진다(작물 전환 시에도 바뀜) - 최초 1회
+    // activeCrop이 정해질 때 알림을 한 번 더 불러와 로그인 직후의 빈 상태를 채운다.
     final activeCropId = cropProvider.activeCrop?.id;
     if (activeCropId != _lastLoadedCropId) {
       _lastLoadedCropId = activeCropId;
@@ -93,33 +77,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
           children: [
             Text(today, style: TextStyle(fontSize: 12.5, color: Colors.grey.shade600)),
-            const SizedBox(height: 4),
+            const SizedBox(height: 6),
+            // 이름 길이와 무관하게 항상 이름 뒤(쉼표)에서 줄이 바뀌도록 두 줄을 별도 Text로 분리한다
+            // (자동 줄바꿈에 맡기면 "건강한 농/사되세요"처럼 단어 중간이 잘리는 문제가 있었음).
             Text(
-              '${auth.user?.name ?? ''}대표님, 오늘도 건강한 농사되세요 🌱',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+              '${auth.user?.name ?? ''}대표님,',
+              style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
             ),
-            if (auth.household != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: Text(
-                  '${auth.household!.name} · 농가 코드 ${auth.household!.joinCode}',
-                  style: TextStyle(fontSize: 11.5, color: Colors.grey.shade500),
-                ),
-              ),
+            const Text(
+              '오늘도 든든한 하루되세요 🌱',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+            ),
             const SizedBox(height: 18),
             _quickActions(context),
-            const SectionTitle('한눈에 보는 현황'),
-            _loading
-                ? const SizedBox(height: 80, child: LoadingView())
-                : _summary == null
-                    ? Text('서버에 연결할 수 없습니다. 우측 상단 설정에서 서버 주소를 확인해주세요.',
-                        style: TextStyle(color: Colors.grey.shade500, fontSize: 12.5))
-                    : _summaryRow(_summary!),
-            const SectionTitle('농자재사 처방 알림', subtitle: '관리자가 보낸 최신 알림'),
+            const SectionTitle('회사 공지·처방알림', subtitle: '관리자가 보낸 최신 알림'),
             if (_notifications.isEmpty)
               Text('수신된 알림이 없습니다.', style: TextStyle(color: Colors.grey.shade500, fontSize: 12.5))
             else
               ..._notifications.map((n) => _NotificationTile(notification: n)),
+            const SectionTitle('병해충 정보', subtitle: '카테고리별로 참고자료를 확인하세요'),
+            const _PestCategoryRow(),
           ],
         ),
       ),
@@ -132,17 +109,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         Row(
           children: [
             Expanded(
-              child: _actionButton(
-                context,
-                icon: Icons.add_business_outlined,
-                label: '농장 등록',
-                color: AppColors.green,
-                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FarmFormScreen())),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _actionButton(
+              child: _primaryActionButton(
                 context,
                 icon: Icons.edit_note_outlined,
                 label: '작업 기록',
@@ -150,28 +117,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const WorkLogFormScreen())),
               ),
             ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: _actionButton(
-                context,
-                icon: Icons.biotech_outlined,
-                label: 'AI 진단',
-                color: AppColors.orange,
-                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DiagnosisFormScreen())),
-              ),
-            ),
             const SizedBox(width: 10),
             Expanded(
-              child: _actionButton(
+              child: _primaryActionButton(
                 context,
-                icon: Icons.menu_book_outlined,
-                label: '병해충 정보',
-                color: Colors.purple,
-                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PestReferenceScreen())),
+                icon: Icons.biotech_outlined,
+                label: '병해충 진단',
+                color: AppColors.orange,
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DiagnosisFormScreen())),
               ),
             ),
           ],
@@ -184,53 +137,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _actionButton(BuildContext context,
+  Widget _primaryActionButton(BuildContext context,
       {required IconData icon, required String label, required Color color, required VoidCallback onTap}) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(14),
       child: Card(
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16),
+          padding: const EdgeInsets.symmetric(vertical: 24),
           child: Column(
             children: [
-              Icon(icon, color: color, size: 26),
-              const SizedBox(height: 8),
-              Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+              Icon(icon, color: color, size: 32),
+              const SizedBox(height: 10),
+              Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _summaryRow(StatsSummary s) {
-    return GestureDetector(
-      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const StatsScreen())),
-      child: Row(
-        children: [
-          Expanded(child: _miniStat('농장', '${s.totalFarms}')),
-          Expanded(child: _miniStat('영농일지', '${s.totalWorkLogs}')),
-          Expanded(child: _miniStat('AI진단', '${s.totalDiagnoses}')),
-          Expanded(
-              child: _miniStat(
-                  '정확도', s.aiVsActual['accuracy_percent'] != null ? '${s.aiVsActual['accuracy_percent']}%' : '-')),
-        ],
-      ),
-    );
-  }
-
-  Widget _miniStat(String label, String value) {
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 3),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        child: Column(
-          children: [
-            Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 2),
-            Text(label, style: TextStyle(fontSize: 10.5, color: Colors.grey.shade600)),
-          ],
         ),
       ),
     );
@@ -257,7 +178,7 @@ class _CommunityEntryCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('커뮤니티', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800)),
+                    const Text('컨설턴트 공지', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800)),
                     Text('컨설턴트 공지·팁, 농가끼리 정보 공유',
                         style: TextStyle(fontSize: 11.5, color: Colors.grey.shade500)),
                   ],
@@ -268,6 +189,52 @@ class _CommunityEntryCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// 홈 화면 하단의 병해충 정보 진입점 — 병해/해충/생리장애 3개 카테고리 아이콘.
+/// PestReference.type이 이미 이 3가지 값으로 채워져 있어(diagnosisTypes와 동일)
+/// 별도 분류 기준 없이 그대로 필터 조건으로 재사용한다.
+class _PestCategoryRow extends StatelessWidget {
+  const _PestCategoryRow();
+
+  static const _categories = [
+    (type: '병해', icon: Icons.coronavirus_outlined),
+    (type: '해충', icon: Icons.bug_report_outlined),
+    (type: '생리장애', icon: Icons.eco_outlined),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: _categories
+          .map(
+            (c) => Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(14),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => PestReferenceScreen(initialType: c.type)),
+                  ),
+                  child: Card(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      child: Column(
+                        children: [
+                          Icon(c.icon, color: diagnosisTypeColors[c.type] ?? Colors.grey, size: 24),
+                          const SizedBox(height: 8),
+                          Text(c.type, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          )
+          .toList(),
     );
   }
 }

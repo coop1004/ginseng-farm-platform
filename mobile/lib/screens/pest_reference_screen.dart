@@ -12,7 +12,11 @@ import '../widgets/common.dart';
 /// 작물을 선택하면 그 작물의 병해충 목록·방제 정보가 달라지는 것을 보여주는 화면.
 /// 인삼은 실서비스 데이터, 고추/배추는 구조 확장을 보여주기 위한 샘플 데이터다.
 class PestReferenceScreen extends StatefulWidget {
-  const PestReferenceScreen({super.key});
+  /// 홈 화면의 병해/해충/생리장애 카테고리 카드에서 진입했을 때 처음부터 적용할 필터.
+  /// null이면(예: 기존 진입 경로) 전체를 보여준다.
+  final String? initialType;
+
+  const PestReferenceScreen({super.key, this.initialType});
 
   @override
   State<PestReferenceScreen> createState() => _PestReferenceScreenState();
@@ -27,10 +31,12 @@ class _PestReferenceScreenState extends State<PestReferenceScreen> {
   bool _loadingCrops = true;
   bool _loadingRefs = false;
   String? _error;
+  String? _selectedType;
 
   @override
   void initState() {
     super.initState();
+    _selectedType = widget.initialType;
     _loadCrops();
   }
 
@@ -73,8 +79,12 @@ class _PestReferenceScreenState extends State<PestReferenceScreen> {
     _loadReferences(crop.id);
   }
 
+  List<PestReference> get _filteredReferences =>
+      _selectedType == null ? _references : _references.where((r) => r.type == _selectedType).toList();
+
   @override
   Widget build(BuildContext context) {
+    final filtered = _filteredReferences;
     return Scaffold(
       appBar: AppBar(title: const Text('병해충 참고자료')),
       body: _loadingCrops
@@ -94,6 +104,25 @@ class _PestReferenceScreenState extends State<PestReferenceScreen> {
                                   onSelected: (_) => _onCropSelected(c),
                                 ))
                             .toList(),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+                      child: Wrap(
+                        spacing: 8,
+                        children: [
+                          ChoiceChip(
+                            label: const Text('전체'),
+                            selected: _selectedType == null,
+                            onSelected: (_) => setState(() => _selectedType = null),
+                          ),
+                          ...diagnosisTypes.map((t) => ChoiceChip(
+                                label: Text(t),
+                                selected: _selectedType == t,
+                                selectedColor: (diagnosisTypeColors[t] ?? Colors.grey).withOpacity(0.18),
+                                onSelected: (_) => setState(() => _selectedType = t),
+                              )),
+                        ],
                       ),
                     ),
                     if (_selectedCrop?.isSampleData == true)
@@ -121,12 +150,12 @@ class _PestReferenceScreenState extends State<PestReferenceScreen> {
                     Expanded(
                       child: _loadingRefs
                           ? const LoadingView()
-                          : _references.isEmpty
-                              ? const EmptyView(message: '등록된 참고자료가 없습니다.')
+                          : filtered.isEmpty
+                              ? EmptyView(message: _selectedType == null ? '등록된 참고자료가 없습니다.' : '$_selectedType 카테고리에 등록된 참고자료가 없습니다.')
                               : ListView.builder(
                                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 40),
-                                  itemCount: _references.length,
-                                  itemBuilder: (context, i) => _PestReferenceCard(reference: _references[i], api: _api),
+                                  itemCount: filtered.length,
+                                  itemBuilder: (context, i) => _PestReferenceCard(reference: filtered[i], api: _api),
                                 ),
                     ),
                   ],
