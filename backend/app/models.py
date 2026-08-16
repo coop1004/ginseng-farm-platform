@@ -17,6 +17,30 @@ from sqlalchemy.orm import relationship
 from app.database import Base
 
 
+class Organization(Base):
+    """회원사(농자재회사/컨설턴트그룹/기술센터/생산자단체 등). 지금은 "농자재회사A" 하나뿐이지만,
+    핵심 테이블(농가/농장/진단/처방/컨설턴트 계정·배정)에 organization_id를 미리 붙여둬서
+    나중에 회원사가 늘어날 때 데이터 구조를 바꾸지 않고 확장할 수 있도록 준비해둔다. 회사별
+    전환 UI, 권한 분리 로직, 회사 관리자 화면은 아직 만들지 않았다 - 실제 두 번째 회원사가
+    생길 때 별도로 구현한다."""
+
+    __tablename__ = "organizations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), nullable=False)
+    # 자유 텍스트: 농자재회사 / 컨설턴트그룹 / 기술센터 / 생산자단체 등. 지금은 값만 채워두고
+    # 유형별로 다르게 동작하는 로직은 아직 없다.
+    org_type = Column(String(30), nullable=True)
+    created_at = Column(DateTime, default=dt.datetime.utcnow)
+
+
+# 지금 유일한 회원사("농자재회사A")의 id. 아래 핵심 테이블들의 organization_id 기본값으로
+# 쓰인다 - seed.seed_default_organization_if_empty가 다른 모든 시드보다 먼저 실행되어 이
+# id로 그 행을 만들어둔다. 두 번째 회원사가 생기기 전까지는 이 상수 하나만 바꾸면 새로
+# 생성되는 데이터의 기본 소속을 전환할 수 있다.
+DEFAULT_ORGANIZATION_ID = 1
+
+
 class AdminUser(Base):
     __tablename__ = "admin_users"
 
@@ -38,6 +62,7 @@ class ConsultantUser(Base):
     __tablename__ = "consultant_users"
 
     id = Column(Integer, primary_key=True, index=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False, default=DEFAULT_ORGANIZATION_ID)
     username = Column(String(50), unique=True, nullable=False, index=True)
     name = Column(String(50), nullable=False)
     password_hash = Column(String(255), nullable=False)
@@ -55,6 +80,7 @@ class ConsultantHousehold(Base):
     __table_args__ = (UniqueConstraint("consultant_id", "household_id", name="uq_consultant_household"),)
 
     id = Column(Integer, primary_key=True, index=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False, default=DEFAULT_ORGANIZATION_ID)
     consultant_id = Column(Integer, ForeignKey("consultant_users.id"), nullable=False)
     household_id = Column(Integer, ForeignKey("households.id"), nullable=False)
     assigned_at = Column(DateTime, default=dt.datetime.utcnow)
@@ -79,6 +105,7 @@ class Household(Base):
     __tablename__ = "households"
 
     id = Column(Integer, primary_key=True, index=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False, default=DEFAULT_ORGANIZATION_ID)
     name = Column(String(100), nullable=False)  # 농가명 (대표자/농가 이름)
     join_code = Column(String(10), unique=True, nullable=False, index=True)
     created_at = Column(DateTime, default=dt.datetime.utcnow)
@@ -164,6 +191,7 @@ class Farm(Base):
     __tablename__ = "farms"
 
     id = Column(Integer, primary_key=True, index=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False, default=DEFAULT_ORGANIZATION_ID)
     household_id = Column(Integer, ForeignKey("households.id"), nullable=False)
     crop_id = Column(Integer, ForeignKey("crops.id"), nullable=True)  # seed 직후 항상 채워짐(앱 레벨 필수 취급)
     growth_stage_id = Column(Integer, ForeignKey("growth_stages.id"), nullable=True)  # 인삼 농장은 비워둠
@@ -206,6 +234,7 @@ class Diagnosis(Base):
     __tablename__ = "diagnoses"
 
     id = Column(Integer, primary_key=True, index=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False, default=DEFAULT_ORGANIZATION_ID)
     farm_id = Column(Integer, ForeignKey("farms.id"), nullable=False)
 
     diagnosis_type = Column(String(20), nullable=False)  # 병해 / 해충 / 생리장애
@@ -307,6 +336,7 @@ class Notification(Base):
     __tablename__ = "notifications"
 
     id = Column(Integer, primary_key=True, index=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False, default=DEFAULT_ORGANIZATION_ID)
     farm_id = Column(Integer, ForeignKey("farms.id"), nullable=False)
     diagnosis_id = Column(Integer, ForeignKey("diagnoses.id"), nullable=True)
 

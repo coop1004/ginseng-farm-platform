@@ -28,6 +28,7 @@ from app.seed import (
     seed_admin_if_empty,
     seed_community_channel_posts_if_empty,
     seed_crops_if_empty,
+    seed_default_organization_if_empty,
     seed_demo_consultant_if_empty,
     seed_if_empty,
     seed_treatment_references_if_empty,
@@ -75,6 +76,7 @@ app.include_router(community.router)
 def on_startup():
     db = SessionLocal()
     try:
+        seed_default_organization_if_empty(db)
         seed_crops_if_empty(db)
         backfill_crop_ids_if_missing(db)
         seed_if_empty(db)

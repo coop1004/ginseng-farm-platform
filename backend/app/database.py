@@ -47,3 +47,13 @@ def run_light_migrations():
     _add_column_if_missing(inspector, "treatment_references", "photo_path", "VARCHAR(255)")
     _add_column_if_missing(inspector, "diagnoses", "created_by_type", "VARCHAR(20) NOT NULL DEFAULT 'household'")
     _add_column_if_missing(inspector, "diagnoses", "created_by_consultant_id", "INTEGER")
+    # organization_id: 여러 회원사(농자재회사/컨설턴트그룹 등) 확장을 대비한 준비 작업.
+    # NOT NULL DEFAULT 1로 추가하면 SQLite가 기존 행 전체를 즉시 채워준다(별도 백필 스크립트
+    # 불필요) - 1은 seed.seed_default_organization_if_empty가 가장 먼저 만드는 "농자재회사A"의 id
+    # (models.DEFAULT_ORGANIZATION_ID)와 반드시 일치해야 한다.
+    _add_column_if_missing(inspector, "households", "organization_id", "INTEGER NOT NULL DEFAULT 1")
+    _add_column_if_missing(inspector, "farms", "organization_id", "INTEGER NOT NULL DEFAULT 1")
+    _add_column_if_missing(inspector, "diagnoses", "organization_id", "INTEGER NOT NULL DEFAULT 1")
+    _add_column_if_missing(inspector, "notifications", "organization_id", "INTEGER NOT NULL DEFAULT 1")
+    _add_column_if_missing(inspector, "consultant_households", "organization_id", "INTEGER NOT NULL DEFAULT 1")
+    _add_column_if_missing(inspector, "consultant_users", "organization_id", "INTEGER NOT NULL DEFAULT 1")

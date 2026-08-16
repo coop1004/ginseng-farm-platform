@@ -282,6 +282,17 @@ def _seed_weather_history(db: Session, farm: models.Farm, today: dt.date, days: 
         )
 
 
+def seed_default_organization_if_empty(db: Session):
+    """지금 유일한 회원사("농자재회사A")를 organizations 테이블에 심는다. 다른 모든 시드
+    함수보다 먼저 호출되어야 한다 - Household/Farm/Diagnosis/Notification/컨설턴트 계정·배정이
+    전부 organization_id 컬럼의 기본값(models.DEFAULT_ORGANIZATION_ID=1)으로 이 행을 참조하므로,
+    반드시 이 함수가 만드는 첫 번째(=id 1) organizations 행이어야 한다."""
+    if db.query(models.Organization).count() > 0:
+        return
+    db.add(models.Organization(name="농자재회사A", org_type="농자재회사"))
+    db.commit()
+
+
 GINSENG_GROWTH_STAGES = ["1년근", "2년근", "3년근", "4년근", "5년근", "6년근"]
 
 PILOT_CROPS = [
