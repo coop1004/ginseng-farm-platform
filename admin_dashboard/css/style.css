@@ -258,6 +258,7 @@ body {
 .modal-backdrop.hidden { display: none; }
 .modal {
   background: white; border-radius: 14px; padding: 22px; width: 420px; max-width: 90vw;
+  max-height: 88vh; overflow-y: auto;
   box-shadow: 0 10px 40px rgba(0,0,0,0.2);
 }
 .modal h3 { margin: 0 0 4px; font-size: 16px; }
@@ -306,6 +307,7 @@ body {
 .radio-label input { width: auto; }
 .broadcast-sub { margin-top: 8px; }
 .broadcast-sub.hidden { display: none; }
+.panel-sub.hidden { display: none; }
 .broadcast-sub select {
   width: 100%; padding: 9px 10px; border-radius: 8px; border: 1px solid var(--gray-200); font-size: 12.5px;
 }

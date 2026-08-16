@@ -1128,12 +1128,11 @@ let currentAdminId = null;
 async function openAccountModal() {
   document.getElementById("pwCurrent").value = "";
   document.getElementById("pwNew").value = "";
-  document.getElementById("adminNewName").value = "";
-  document.getElementById("adminNewUsername").value = "";
-  document.getElementById("adminNewPassword").value = "";
-  document.getElementById("consultantNewName").value = "";
-  document.getElementById("consultantNewUsername").value = "";
-  document.getElementById("consultantNewPassword").value = "";
+  document.getElementById("newAccountRole").value = "admin";
+  document.getElementById("newAccountName").value = "";
+  document.getElementById("newAccountUsername").value = "";
+  document.getElementById("newAccountPassword").value = "";
+  document.getElementById("newAccountConsultantNote").classList.add("hidden");
   document.getElementById("accountModal").classList.remove("hidden");
   try {
     const me = await Api.getMe();
@@ -1214,10 +1213,16 @@ async function submitChangePassword() {
   }
 }
 
-async function submitAddAdmin() {
-  const name = document.getElementById("adminNewName").value.trim();
-  const username = document.getElementById("adminNewUsername").value.trim();
-  const password = document.getElementById("adminNewPassword").value;
+function updateNewAccountRoleUi() {
+  const isConsultant = document.getElementById("newAccountRole").value === "consultant";
+  document.getElementById("newAccountConsultantNote").classList.toggle("hidden", !isConsultant);
+}
+
+async function submitAddAccount() {
+  const role = document.getElementById("newAccountRole").value;
+  const name = document.getElementById("newAccountName").value.trim();
+  const username = document.getElementById("newAccountUsername").value.trim();
+  const password = document.getElementById("newAccountPassword").value;
   if (!name || !username || !password) {
     showToast("이름, 아이디, 초기 비밀번호를 모두 입력해주세요.", true);
     return;
@@ -1227,12 +1232,18 @@ async function submitAddAdmin() {
     return;
   }
   try {
-    await Api.registerAdmin(username, password, name);
-    showToast(`${name} 관리자 계정이 추가되었습니다.`);
-    document.getElementById("adminNewName").value = "";
-    document.getElementById("adminNewUsername").value = "";
-    document.getElementById("adminNewPassword").value = "";
-    loadAdminList();
+    if (role === "consultant") {
+      await Api.registerConsultant(username, password, name);
+      showToast(`${name} 컨설턴트 계정이 추가되었습니다.`);
+      loadConsultantList();
+    } else {
+      await Api.registerAdmin(username, password, name);
+      showToast(`${name} 관리자 계정이 추가되었습니다.`);
+      loadAdminList();
+    }
+    document.getElementById("newAccountName").value = "";
+    document.getElementById("newAccountUsername").value = "";
+    document.getElementById("newAccountPassword").value = "";
   } catch (e) {
     if (e.isAuthError) {
       closeAccountModal();
@@ -1312,35 +1323,6 @@ function openConsultantStatsModal(consultantId, name) {
 
 function closeConsultantStatsModal() {
   document.getElementById("consultantStatsModal").classList.add("hidden");
-}
-
-async function submitAddConsultant() {
-  const name = document.getElementById("consultantNewName").value.trim();
-  const username = document.getElementById("consultantNewUsername").value.trim();
-  const password = document.getElementById("consultantNewPassword").value;
-  if (!name || !username || !password) {
-    showToast("이름, 아이디, 초기 비밀번호를 모두 입력해주세요.", true);
-    return;
-  }
-  if (password.length < 8) {
-    showToast("초기 비밀번호는 8자 이상이어야 합니다.", true);
-    return;
-  }
-  try {
-    await Api.registerConsultant(username, password, name);
-    showToast(`${name} 컨설턴트 계정이 추가되었습니다.`);
-    document.getElementById("consultantNewName").value = "";
-    document.getElementById("consultantNewUsername").value = "";
-    document.getElementById("consultantNewPassword").value = "";
-    loadConsultantList();
-  } catch (e) {
-    if (e.isAuthError) {
-      closeAccountModal();
-      showLoginScreen();
-      return;
-    }
-    showToast(e.message, true);
-  }
 }
 
 async function deleteConsultant(consultantId, name) {
@@ -1589,8 +1571,8 @@ function init() {
     if (e.target.id === "accountModal") closeAccountModal();
   });
   document.getElementById("pwSubmit").addEventListener("click", submitChangePassword);
-  document.getElementById("adminAddSubmit").addEventListener("click", submitAddAdmin);
-  document.getElementById("consultantAddSubmit").addEventListener("click", submitAddConsultant);
+  document.getElementById("newAccountRole").addEventListener("change", updateNewAccountRoleUi);
+  document.getElementById("newAccountSubmit").addEventListener("click", submitAddAccount);
   document.getElementById("consultantStatsModalClose").addEventListener("click", closeConsultantStatsModal);
   document.getElementById("consultantStatsModal").addEventListener("click", (e) => {
     if (e.target.id === "consultantStatsModal") closeConsultantStatsModal();
