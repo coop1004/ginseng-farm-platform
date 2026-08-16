@@ -58,3 +58,7 @@ def run_light_migrations():
     _add_column_if_missing(inspector, "consultant_households", "organization_id", "INTEGER NOT NULL DEFAULT 1")
     _add_column_if_missing(inspector, "consultant_users", "organization_id", "INTEGER NOT NULL DEFAULT 1")
     _add_column_if_missing(inspector, "admin_users", "organization_id", "INTEGER NOT NULL DEFAULT 1")
+    # 병해충·자재 CMS 정리: 병해충정보(treatment_references)는 공용으로 유지하고, 자재
+    # 카탈로그(agri_materials)와 병해충↔자재 매핑(pest_disease_materials)에만 붙인다.
+    _add_column_if_missing(inspector, "agri_materials", "organization_id", "INTEGER NOT NULL DEFAULT 1")
+    _add_column_if_missing(inspector, "pest_disease_materials", "organization_id", "INTEGER NOT NULL DEFAULT 1")

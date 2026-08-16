@@ -421,11 +421,16 @@ class TreatmentReference(Base):
 
 class AgriMaterial(Base):
     """방제 자재(농자재) 카탈로그. 병해충 참고자료(TreatmentReference)에서 재사용되는
-    친환경/화학 자재 마스터 — 같은 자재를 여러 병해충에 중복 입력하지 않도록 분리."""
+    친환경/화학 자재 마스터 — 같은 자재를 여러 병해충에 중복 입력하지 않도록 분리.
+
+    organization_id: 병해충정보(TreatmentReference)와 달리 자재 카탈로그는 회사별로
+    갖는 게 자연스러워 organization_id를 붙였다. 지금은 조회/저장 시 이 값으로
+    필터링하는 로직은 없다(자리만 마련 - 다른 핵심 테이블과 동일한 수준)."""
 
     __tablename__ = "agri_materials"
 
     id = Column(Integer, primary_key=True, index=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False, default=DEFAULT_ORGANIZATION_ID)
     name = Column(String(150), nullable=False, unique=True)
     category = Column(String(20), nullable=False)  # 친환경 / 화학
     active_ingredient = Column(String(255), nullable=True)
@@ -439,11 +444,16 @@ class PestDiseaseMaterial(Base):
     """TreatmentReference(병해충) ↔ AgriMaterial(농자재) 다대다 연결. usage/note를
     이 병해충에 한해 다르게 쓰고 싶을 때만 override 필드를 채우고, 없으면 자재의
     기본값(default_usage/note)을 그대로 쓴다. 친환경/화학 구분은 자재 자체의
-    category로만 판단한다(별도 role 컬럼을 두지 않아 데이터 불일치 가능성을 없앰)."""
+    category로만 판단한다(별도 role 컬럼을 두지 않아 데이터 불일치 가능성을 없앰).
+
+    organization_id: "어떤 회사가 어떤 병해충에 어떤 자재를 추천하는지"의 매핑 자체가
+    회사별로 달라질 수 있어 붙였다 - 공용인 병해충정보(pest_disease)와 회사별 자재
+    카탈로그를 잇는 이 연결 테이블이 다대다 관계의 실질적인 "회사별 분리 지점"이다."""
 
     __tablename__ = "pest_disease_materials"
 
     id = Column(Integer, primary_key=True, index=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False, default=DEFAULT_ORGANIZATION_ID)
     pest_disease_id = Column(Integer, ForeignKey("treatment_references.id"), nullable=False)
     agri_material_id = Column(Integer, ForeignKey("agri_materials.id"), nullable=False)
     usage_override = Column(Text, nullable=True)
