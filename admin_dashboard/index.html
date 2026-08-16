@@ -176,6 +176,37 @@
         <div class="panel-sub" style="margin-bottom: 4px;">이번 달 활동 순위 TOP 5</div>
         <ul class="admin-list" id="consultantActivityRanking"></ul>
       </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <h2>진단 기록 날씨 신뢰도</h2>
+          <span class="panel-sub">전체 진단 기록 중 촬영 시점 실측 날씨와 대체/가상 값의 비율입니다</span>
+        </div>
+        <div class="cards-grid" style="margin-bottom: 8px;">
+          <div class="stat-card">
+            <div class="stat-icon icon-green">✅</div>
+            <div>
+              <div class="stat-value" id="statWeatherReal">-</div>
+              <div class="stat-label">실측 날씨 (촬영 시점)</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon icon-orange">🔁</div>
+            <div>
+              <div class="stat-value" id="statWeatherFallback">-</div>
+              <div class="stat-label">대체 날씨 (조회 시점)</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon icon-purple">🧪</div>
+            <div>
+              <div class="stat-value" id="statWeatherDemo">-</div>
+              <div class="stat-label">가상 값 (데모/미확인)</div>
+            </div>
+          </div>
+        </div>
+        <p class="panel-note" id="statWeatherNote"></p>
+      </div>
     </section>
 
     <section id="map" class="section hidden">

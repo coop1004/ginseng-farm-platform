@@ -117,6 +117,17 @@ function renderSummary(summary) {
   const acc = summary.ai_vs_actual.accuracy_percent;
   document.getElementById("statAccuracy").textContent = acc !== null ? `${acc}%` : "데이터 부족";
 
+  const wr = summary.weather_reliability;
+  if (wr) {
+    document.getElementById("statWeatherReal").textContent = wr.real_count;
+    document.getElementById("statWeatherFallback").textContent = wr.current_fallback_count;
+    document.getElementById("statWeatherDemo").textContent = wr.demo_count + wr.unavailable_count;
+    document.getElementById("statWeatherNote").textContent =
+      wr.total_diagnoses > 0
+        ? `전체 진단 ${wr.total_diagnoses}건 중 실측 날씨는 ${wr.real_count}건입니다. (위치 정보 없어 미기록 ${wr.unavailable_count}건 포함)`
+        : "아직 진단 기록이 없습니다.";
+  }
+
   renderTypeChart(summary.diagnoses_by_type);
   renderMonthlyChart(summary.monthly_diagnoses);
   renderTopPestChart(summary.top_pests);
@@ -1576,12 +1587,24 @@ function renderDiagnosisDetailBody(d) {
     ${
       d.weather_temp_c == null
         ? `<p style="font-size:12.5px; color: var(--gray-500);">위치 정보를 확인할 수 없어 날씨 데이터가 반영되지 않았습니다.</p>`
-        : `<p style="font-size:12.5px; color: var(--gray-600);">
+        : `
+    ${
+      d.weather_source !== "openweather_timemachine" && d.weather_source !== "openweather_current"
+        ? `<p style="font-size:11.5px; color: var(--orange-500); background:#fdf0d8; border-radius:6px; padding:6px 10px; margin-bottom:6px; font-weight:600;">⚠ 실제 기상 데이터가 아닌 임시 값입니다</p>`
+        : ""
+    }
+    <p style="font-size:12.5px; color: var(--gray-600);">
       기온 ${d.weather_temp_c.toFixed(1)}℃ ·
       습도 ${d.weather_humidity_percent != null ? Math.round(d.weather_humidity_percent) + "%" : "-"} ·
       강우량 ${d.weather_rainfall_mm != null ? d.weather_rainfall_mm.toFixed(1) + "mm" : "-"} ·
       풍속 ${d.weather_wind_ms != null ? d.weather_wind_ms.toFixed(1) + "m/s" : "-"}
-    </p>`
+    </p>
+    ${
+      d.weather_source === "openweather_current"
+        ? `<p style="font-size:11px; color: var(--gray-400); margin-top:2px;">촬영 시점이 아닌 조회 시점 기준 날씨입니다</p>`
+        : ""
+    }
+    `
     }
     ${
       d.gps_estimated || d.photo_taken_at_estimated

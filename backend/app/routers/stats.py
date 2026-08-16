@@ -47,6 +47,21 @@ def build_summary(farm_query: Query, work_query: Query, diag_query: Query) -> di
         "accuracy_percent": round((correct / len(confirmed)) * 100, 1) if confirmed else None,
     }
 
+    # weather_source가 없는(None) 레코드는 이 컬럼이 생기기 전(항상 DEMO_MODE였던 시절)에
+    # 만들어진 오래된 진단이라, 실질적으로는 demo와 동일하게 취급한다 - "이 값이 실측인지"를
+    # 한눈에 구분하는 게 목적이라 None을 별도 카테고리로 두면 오히려 혼란만 커진다.
+    real_count = sum(1 for d in diagnoses if d.weather_source == "openweather_timemachine")
+    current_fallback_count = sum(1 for d in diagnoses if d.weather_source == "openweather_current")
+    unavailable_count = sum(1 for d in diagnoses if d.weather_source == "unavailable")
+    demo_count = len(diagnoses) - real_count - current_fallback_count - unavailable_count
+    weather_reliability = {
+        "real_count": real_count,
+        "current_fallback_count": current_fallback_count,
+        "demo_count": demo_count,
+        "unavailable_count": unavailable_count,
+        "total_diagnoses": len(diagnoses),
+    }
+
     return {
         "total_farms": farm_query.count(),
         "total_work_logs": work_query.count(),
@@ -56,6 +71,7 @@ def build_summary(farm_query: Query, work_query: Query, diag_query: Query) -> di
         "monthly_diagnoses": monthly,
         "diagnoses_by_farm": diagnoses_by_farm,
         "ai_vs_actual": ai_vs_actual,
+        "weather_reliability": weather_reliability,
     }
 
 

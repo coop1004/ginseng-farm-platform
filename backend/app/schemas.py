@@ -392,6 +392,17 @@ class FarmStatCount(BaseModel):
     count: int
 
 
+class WeatherReliabilitySummary(BaseModel):
+    """진단 기록의 weather_source 값 분포 - 촬영 시점 실측치(real_count)와 대체/가상값을
+    한눈에 구분하기 위한 집계. 관리자 대시보드 종합 현황 카드용."""
+
+    real_count: int  # openweather_timemachine (촬영 시점 실측)
+    current_fallback_count: int  # openweather_current (조회 시점 날씨로 대체됨)
+    demo_count: int  # demo 또는 값 없음(구버전 레코드) - 실제 관측치 아님
+    unavailable_count: int  # unavailable (위치 정보 자체가 없어 날씨 미기록)
+    total_diagnoses: int
+
+
 class StatsSummary(BaseModel):
     total_farms: int
     total_households: Optional[int] = None
@@ -402,6 +413,7 @@ class StatsSummary(BaseModel):
     monthly_diagnoses: List[MonthlyCount]
     diagnoses_by_farm: List[FarmStatCount]
     ai_vs_actual: dict
+    weather_reliability: Optional[WeatherReliabilitySummary] = None
 
 
 # ---------- Weather ----------

@@ -564,6 +564,11 @@ class _WeatherRow extends StatelessWidget {
   /// weather_temp_c 등을 전부 비워둔 채로 저장한다).
   bool get _unavailable => diagnosis.weatherTempC == null;
 
+  /// 촬영 시점의 실측 관측치(openweather_timemachine)가 아닌 경우 — 조회 시점 대체값이거나
+  /// 완전한 시뮬레이션 값. 사용자가 실측치로 오해하지 않도록 구분 표시가 필요하다.
+  bool get _isCurrentFallback => diagnosis.weatherSource == 'openweather_current';
+  bool get _isDemo => diagnosis.weatherSource != 'openweather_timemachine' && diagnosis.weatherSource != 'openweather_current';
+
   @override
   Widget build(BuildContext context) {
     if (_unavailable) {
@@ -593,6 +598,30 @@ class _WeatherRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
         child: Column(
           children: [
+            if (_isDemo) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange.shade200),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.science_outlined, size: 16, color: Colors.orange.shade800),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        '실제 기상 데이터가 아닌 임시 값입니다',
+                        style: TextStyle(fontSize: 11.5, color: Colors.orange.shade900, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
@@ -602,6 +631,14 @@ class _WeatherRow extends StatelessWidget {
                 _weatherItem(Icons.air, '${diagnosis.weatherWindMs?.toStringAsFixed(1) ?? '-'}m/s', '풍속'),
               ],
             ),
+            if (_isCurrentFallback) ...[
+              const SizedBox(height: 8),
+              Text(
+                '촬영 시점이 아닌 조회 시점 기준 날씨입니다',
+                style: TextStyle(fontSize: 10.5, color: Colors.blueGrey.shade400),
+                textAlign: TextAlign.center,
+              ),
+            ],
             if (diagnosis.gpsEstimated || diagnosis.photoTakenAtEstimated) ...[
               const SizedBox(height: 8),
               Text(

@@ -1,10 +1,13 @@
 import datetime as dt
+import logging
 import random
 from typing import Optional
 
 import httpx
 
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 ONECALL_TIMEMACHINE_URL = "https://api.openweathermap.org/data/3.0/onecall/timemachine"
 CURRENT_WEATHER_URL = "https://api.openweathermap.org/data/2.5/weather"
@@ -56,6 +59,8 @@ async def get_weather_at(
 
     timestamp = int((at or dt.datetime.utcnow()).timestamp())
 
+    now_iso = dt.datetime.utcnow().isoformat()
+
     async with httpx.AsyncClient(timeout=8.0) as client:
         try:
             resp = await client.get(
@@ -80,8 +85,28 @@ async def get_weather_at(
                     "wind_ms": point.get("wind_speed"),
                     "source": "openweather_timemachine",
                 }
-        except httpx.HTTPError:
-            pass
+            # 나중에 "왜 이 진단이 실측이 아니었는지" 추적할 수 있도록, 조용히 다음 폴백으로
+            # 넘어가기 전에 실패 사유(상태코드/응답 본문 일부)와 시각을 남긴다. One Call 3.0은
+            # 별도 유료 구독이 필요해 401/403이 흔한 실패 사유다.
+            logger.warning(
+                "[weather_service] %s Time Machine 조회 실패 (lat=%s, lng=%s, requested_at=%s): "
+                "HTTP %s - %s",
+                now_iso,
+                lat,
+                lng,
+                at,
+                resp.status_code,
+                resp.text[:200],
+            )
+        except httpx.HTTPError as e:
+            logger.warning(
+                "[weather_service] %s Time Machine 조회 예외 (lat=%s, lng=%s, requested_at=%s): %s",
+                now_iso,
+                lat,
+                lng,
+                at,
+                e,
+            )
 
         try:
             resp = await client.get(
@@ -104,7 +129,22 @@ async def get_weather_at(
                     "wind_ms": data.get("wind", {}).get("speed"),
                     "source": "openweather_current",
                 }
-        except httpx.HTTPError:
-            pass
+            logger.warning(
+                "[weather_service] %s 현재 날씨 조회도 실패 (lat=%s, lng=%s): HTTP %s - %s. "
+                "계절 추정치(demo)로 대체됩니다.",
+                now_iso,
+                lat,
+                lng,
+                resp.status_code,
+                resp.text[:200],
+            )
+        except httpx.HTTPError as e:
+            logger.warning(
+                "[weather_service] %s 현재 날씨 조회 예외 (lat=%s, lng=%s): %s. 계절 추정치(demo)로 대체됩니다.",
+                now_iso,
+                lat,
+                lng,
+                e,
+            )
 
     return _seasonal_demo_weather(at)
