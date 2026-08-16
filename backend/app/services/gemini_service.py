@@ -56,6 +56,17 @@ def _load_active_references(db: Session, crop_id: Optional[int]) -> list:
     return result
 
 
+def _weather_context_line(weather: dict) -> str:
+    """weather가 비어있으면(사진 EXIF도, 농장 등록 위치도 없어 위치를 알 수 없는 경우)
+    "None℃" 같은 값이 그대로 프롬프트에 들어가 마치 실제 기상값처럼 보이는 것을 막는다."""
+    if not weather or weather.get("temp_c") is None:
+        return "- 위치 정보를 확인할 수 없어 기상 조건 없이 사진만으로 진단합니다."
+    return f"""- 기온: {weather.get('temp_c')}℃
+- 습도: {weather.get('humidity_percent')}%
+- 강우량: {weather.get('rainfall_mm')}mm
+- 풍속: {weather.get('wind_ms')}m/s"""
+
+
 def _build_prompt(diagnosis_type: str, crop_name: str, weather: dict, reference_db: list) -> str:
     db_context = json.dumps(reference_db, ensure_ascii=False, indent=2)
     return f"""당신은 {crop_name} 재배 전문 식물병리학자입니다. 아래 첨부된 작물 피해 부위 사진과 당시 기상 조건, 그리고 회사의 친환경 방제 자재 데이터베이스를 종합적으로 분석하여 진단하세요.
@@ -63,10 +74,7 @@ def _build_prompt(diagnosis_type: str, crop_name: str, weather: dict, reference_
 [진단 유형]: {diagnosis_type}
 [작물명]: {crop_name}
 [촬영 당시 기상 조건]
-- 기온: {weather.get('temp_c')}℃
-- 습도: {weather.get('humidity_percent')}%
-- 강우량: {weather.get('rainfall_mm')}mm
-- 풍속: {weather.get('wind_ms')}m/s
+{_weather_context_line(weather)}
 
 [회사 자체 친환경 방제 자재 데이터베이스]
 {db_context}

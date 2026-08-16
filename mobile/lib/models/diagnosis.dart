@@ -33,7 +33,9 @@ class Diagnosis {
 
   final double? gpsLat;
   final double? gpsLng;
+  final bool gpsEstimated;
   final DateTime? photoTakenAt;
+  final bool photoTakenAtEstimated;
 
   final double? weatherTempC;
   final double? weatherHumidityPercent;
@@ -76,7 +78,9 @@ class Diagnosis {
     this.photoPaths = const [],
     this.gpsLat,
     this.gpsLng,
+    this.gpsEstimated = false,
     this.photoTakenAt,
+    this.photoTakenAtEstimated = false,
     this.weatherTempC,
     this.weatherHumidityPercent,
     this.weatherRainfallMm,
@@ -112,7 +116,9 @@ class Diagnosis {
       photoPaths: (json['photo_paths'] as List<dynamic>? ?? []).map((e) => e as String).toList(),
       gpsLat: (json['gps_lat'] as num?)?.toDouble(),
       gpsLng: (json['gps_lng'] as num?)?.toDouble(),
+      gpsEstimated: json['gps_estimated'] ?? false,
       photoTakenAt: json['photo_taken_at'] != null ? DateTime.tryParse(json['photo_taken_at']) : null,
+      photoTakenAtEstimated: json['photo_taken_at_estimated'] ?? false,
       weatherTempC: (json['weather_temp_c'] as num?)?.toDouble(),
       weatherHumidityPercent: (json['weather_humidity_percent'] as num?)?.toDouble(),
       weatherRainfallMm: (json['weather_rainfall_mm'] as num?)?.toDouble(),

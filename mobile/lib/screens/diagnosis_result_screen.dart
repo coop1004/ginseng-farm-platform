@@ -559,19 +559,60 @@ class _WeatherRow extends StatelessWidget {
   final Diagnosis diagnosis;
   const _WeatherRow({required this.diagnosis});
 
+  /// 사진 EXIF도, 농장 등록 위치도 없어 대체할 위치 정보가 전혀 없었던 경우.
+  /// 이때는 가짜 날씨를 보여주지 않고 이유를 안내한다(diagnosis_service가 이 경우
+  /// weather_temp_c 등을 전부 비워둔 채로 저장한다).
+  bool get _unavailable => diagnosis.weatherTempC == null;
+
   @override
   Widget build(BuildContext context) {
+    if (_unavailable) {
+      return Card(
+        color: const Color(0xFFF3F6F3),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          child: Row(
+            children: [
+              Icon(Icons.location_off_outlined, size: 18, color: Colors.grey.shade600),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '위치 정보를 확인할 수 없어 날씨 데이터가 반영되지 않았습니다.',
+                  style: TextStyle(fontSize: 12.5, color: Colors.grey.shade700),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Card(
       color: const Color(0xFFF3F6F3),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
+        child: Column(
           children: [
-            _weatherItem(Icons.thermostat, '${diagnosis.weatherTempC?.toStringAsFixed(1) ?? '-'}℃', '기온'),
-            _weatherItem(Icons.water_drop_outlined, '${diagnosis.weatherHumidityPercent?.toStringAsFixed(0) ?? '-'}%', '습도'),
-            _weatherItem(Icons.grain, '${diagnosis.weatherRainfallMm?.toStringAsFixed(1) ?? '-'}mm', '강우량'),
-            _weatherItem(Icons.air, '${diagnosis.weatherWindMs?.toStringAsFixed(1) ?? '-'}m/s', '풍속'),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _weatherItem(Icons.thermostat, '${diagnosis.weatherTempC?.toStringAsFixed(1) ?? '-'}℃', '기온'),
+                _weatherItem(Icons.water_drop_outlined, '${diagnosis.weatherHumidityPercent?.toStringAsFixed(0) ?? '-'}%', '습도'),
+                _weatherItem(Icons.grain, '${diagnosis.weatherRainfallMm?.toStringAsFixed(1) ?? '-'}mm', '강우량'),
+                _weatherItem(Icons.air, '${diagnosis.weatherWindMs?.toStringAsFixed(1) ?? '-'}m/s', '풍속'),
+              ],
+            ),
+            if (diagnosis.gpsEstimated || diagnosis.photoTakenAtEstimated) ...[
+              const SizedBox(height: 8),
+              Text(
+                [
+                  if (diagnosis.gpsEstimated) '정확한 촬영 위치 대신 농장 등록 주소 기준으로 조회됨',
+                  if (diagnosis.photoTakenAtEstimated) '촬영시각 확인 불가로 업로드 시각 기준으로 조회됨',
+                ].join(' · '),
+                style: TextStyle(fontSize: 10.5, color: Colors.grey.shade500),
+                textAlign: TextAlign.center,
+              ),
+            ],
           ],
         ),
       ),

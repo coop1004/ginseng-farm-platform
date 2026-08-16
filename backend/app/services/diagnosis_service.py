@@ -55,7 +55,9 @@ def to_response(d: models.Diagnosis) -> dict:
         "photo_paths": [p.photo_path for p in d.photos] if d.photos else ([d.photo_path] if d.photo_path else []),
         "gps_lat": d.gps_lat,
         "gps_lng": d.gps_lng,
+        "gps_estimated": d.gps_estimated,
         "photo_taken_at": d.photo_taken_at,
+        "photo_taken_at_estimated": d.photo_taken_at_estimated,
         "weather_temp_c": d.weather_temp_c,
         "weather_humidity_percent": d.weather_humidity_percent,
         "weather_rainfall_mm": d.weather_rainfall_mm,
@@ -107,14 +109,33 @@ async def create_diagnosis_record(
 
     photo_paths = [save_upload(p) for p in photos]
     full_path = os.path.join(settings.upload_dir, photo_paths[0])
+    upload_received_at = dt.datetime.utcnow()
 
+    # 사진 EXIF에 GPS/촬영시각이 없는 경우(카카오톡/문자 전달 사진, 편집본, 위치권한 꺼짐 등)에도
+    # 진단 자체는 막히지 않아야 한다 - 아래 순서로 대체하고, 대체가 일어났는지는 별도 플래그로 남겨
+    # 진단 상세화면에서 "실제 촬영값이 아님"을 알 수 있게 한다.
     gps_lat, gps_lng, taken_at = exif_service.extract_gps_and_datetime(full_path)
+    gps_estimated = False
     if gps_lat is None:
-        gps_lat, gps_lng = farm.latitude, farm.longitude
+        if farm.latitude is not None and farm.longitude is not None:
+            gps_lat, gps_lng = farm.latitude, farm.longitude
+            gps_estimated = True
+        # 농장 위치도 등록되어 있지 않으면 gps_lat/lng은 None으로 남는다 - 날씨 조회 자체를 생략한다.
 
-    weather = await weather_service.get_weather_at(gps_lat, gps_lng, taken_at)
+    photo_taken_at_estimated = taken_at is None
+    weather_query_at = taken_at or upload_received_at
+    if photo_taken_at_estimated:
+        taken_at = upload_received_at
 
-    ai_result = gemini_service.diagnose(full_path, diagnosis_type, resolved_crop_name, weather, db, crop_id)
+    if gps_lat is not None and gps_lng is not None:
+        weather = await weather_service.get_weather_at(gps_lat, gps_lng, weather_query_at)
+    else:
+        # 사진에도, 농장 등록 정보에도 위치를 알 근거가 전혀 없다 - 이 경우 계절 추정치 같은
+        # 그럴듯한 데모 날씨를 채워넣지 않는다(실제 위치와 무관한 값이 진짜 날씨처럼 보이는
+        # 것을 방지). weather_* 필드는 비워두고 화면에서 안내 문구로 보여준다.
+        weather = None
+
+    ai_result = gemini_service.diagnose(full_path, diagnosis_type, resolved_crop_name, weather or {}, db, crop_id)
 
     diagnosis = models.Diagnosis(
         farm_id=farm.id,
@@ -124,12 +145,14 @@ async def create_diagnosis_record(
         photo_path=photo_paths[0],
         gps_lat=gps_lat,
         gps_lng=gps_lng,
+        gps_estimated=gps_estimated,
         photo_taken_at=taken_at,
-        weather_temp_c=weather.get("temp_c"),
-        weather_humidity_percent=weather.get("humidity_percent"),
-        weather_rainfall_mm=weather.get("rainfall_mm"),
-        weather_wind_ms=weather.get("wind_ms"),
-        weather_source=weather.get("source"),
+        photo_taken_at_estimated=photo_taken_at_estimated,
+        weather_temp_c=weather.get("temp_c") if weather else None,
+        weather_humidity_percent=weather.get("humidity_percent") if weather else None,
+        weather_rainfall_mm=weather.get("rainfall_mm") if weather else None,
+        weather_wind_ms=weather.get("wind_ms") if weather else None,
+        weather_source=weather.get("source") if weather else "unavailable",
         ai_disease_name=ai_result.get("disease_name_kr"),
         ai_disease_name_en=ai_result.get("disease_name_en"),
         ai_symptoms=ai_result.get("symptoms"),

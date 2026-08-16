@@ -62,3 +62,6 @@ def run_light_migrations():
     # 카탈로그(agri_materials)와 병해충↔자재 매핑(pest_disease_materials)에만 붙인다.
     _add_column_if_missing(inspector, "agri_materials", "organization_id", "INTEGER NOT NULL DEFAULT 1")
     _add_column_if_missing(inspector, "pest_disease_materials", "organization_id", "INTEGER NOT NULL DEFAULT 1")
+    # 사진 EXIF에 GPS/촬영시각이 없을 때 대체값(농장 등록 주소/업로드 시각)을 썼는지 표시.
+    _add_column_if_missing(inspector, "diagnoses", "gps_estimated", "BOOLEAN NOT NULL DEFAULT 0")
+    _add_column_if_missing(inspector, "diagnoses", "photo_taken_at_estimated", "BOOLEAN NOT NULL DEFAULT 0")

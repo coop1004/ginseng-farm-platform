@@ -233,7 +233,9 @@ class DiagnosisCreateResponse(BaseModel):
 
     gps_lat: Optional[float] = None
     gps_lng: Optional[float] = None
+    gps_estimated: bool = False
     photo_taken_at: Optional[dt.datetime] = None
+    photo_taken_at_estimated: bool = False
 
     weather_temp_c: Optional[float] = None
     weather_humidity_percent: Optional[float] = None

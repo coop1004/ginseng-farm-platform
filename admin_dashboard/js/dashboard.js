@@ -1422,12 +1422,26 @@ function renderDiagnosisDetailBody(d) {
     </div>
     ${d.ai_symptoms ? `<div class="panel-sub" style="margin-top:14px;">특징 및 증상</div><p style="font-size:13px;">${d.ai_symptoms}</p>` : ""}
     <div class="panel-sub" style="margin-top:14px;">촬영 당시 기상 정보</div>
-    <p style="font-size:12.5px; color: var(--gray-600);">
-      기온 ${d.weather_temp_c != null ? d.weather_temp_c.toFixed(1) + "℃" : "-"} ·
+    ${
+      d.weather_temp_c == null
+        ? `<p style="font-size:12.5px; color: var(--gray-500);">위치 정보를 확인할 수 없어 날씨 데이터가 반영되지 않았습니다.</p>`
+        : `<p style="font-size:12.5px; color: var(--gray-600);">
+      기온 ${d.weather_temp_c.toFixed(1)}℃ ·
       습도 ${d.weather_humidity_percent != null ? Math.round(d.weather_humidity_percent) + "%" : "-"} ·
       강우량 ${d.weather_rainfall_mm != null ? d.weather_rainfall_mm.toFixed(1) + "mm" : "-"} ·
       풍속 ${d.weather_wind_ms != null ? d.weather_wind_ms.toFixed(1) + "m/s" : "-"}
-    </p>
+    </p>`
+    }
+    ${
+      d.gps_estimated || d.photo_taken_at_estimated
+        ? `<p style="font-size:11px; color: var(--gray-400); margin-top:4px;">${[
+            d.gps_estimated ? "정확한 촬영 위치 대신 농장 등록 주소 기준으로 조회됨" : null,
+            d.photo_taken_at_estimated ? "촬영시각 확인 불가로 업로드 시각 기준으로 조회됨" : null,
+          ]
+            .filter(Boolean)
+            .join(" · ")}</p>`
+        : ""
+    }
     ${finalBlock}
     <div class="panel-sub" style="margin-top:14px;">친환경 방제 자재 (우선 추천)</div>
     ${treatmentList(d.eco_treatments)}

@@ -243,17 +243,25 @@ class Diagnosis(Base):
     occurrence_date = Column(Date, default=dt.date.today)
     photo_path = Column(String(255), nullable=True)
 
-    # EXIF로부터 추출한 정보
+    # EXIF로부터 추출한 정보. 사진에 GPS/촬영시각이 없으면(카카오톡 전달, 편집본, 위치권한
+    # 꺼짐 등) gps_estimated/photo_taken_at_estimated로 대체값이 쓰였음을 표시한다 -
+    # 값 자체(gps_lat 등)만 보고는 "실제 촬영 위치"인지 "농장 등록 주소로 대체"한 건지
+    # 구분할 수 없기 때문에 별도 플래그로 남긴다.
     gps_lat = Column(Float, nullable=True)
     gps_lng = Column(Float, nullable=True)
+    gps_estimated = Column(Boolean, default=False, nullable=False)  # True면 농장 등록 주소로 대체된 좌표
     photo_taken_at = Column(DateTime, nullable=True)
+    photo_taken_at_estimated = Column(Boolean, default=False, nullable=False)  # True면 업로드 시각으로 대체됨
 
-    # OpenWeather 연동 결과
+    # OpenWeather 연동 결과. gps_lat/lng을 전혀 알 수 없을 때(사진 EXIF도 없고 농장 주소도
+    # 미등록)는 위치 기반 날씨를 추정할 근거가 없으므로 weather_source="unavailable"로 남기고
+    # weather_* 필드는 전부 비워둔다 - 이 경우 데모 시즌 날씨를 채워넣지 않는다(사실과 무관한
+    # 값이 마치 실제 날씨인 것처럼 보이는 걸 방지).
     weather_temp_c = Column(Float, nullable=True)
     weather_humidity_percent = Column(Float, nullable=True)
     weather_rainfall_mm = Column(Float, nullable=True)
     weather_wind_ms = Column(Float, nullable=True)
-    weather_source = Column(String(20), nullable=True)  # api / demo
+    weather_source = Column(String(20), nullable=True)  # openweather_current / openweather_timemachine / demo / unavailable
 
     # Gemini 진단 결과
     ai_disease_name = Column(String(100), nullable=True)
