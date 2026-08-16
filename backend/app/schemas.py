@@ -136,14 +136,19 @@ class ConsultantStatsOut(BaseModel):
 class ConsultantRankingItem(BaseModel):
     consultant_id: int
     name: str
-    diagnosis_count_this_month: int
-    total_diagnosis_count: int
+    diagnosis_count: int  # 조회 기간 내 등록 건수
+    comment_count: int  # 조회 기간 내 코멘트 수
+    final_diagnosis_count: int  # 조회 기간 내 본인 최종확정 건수
+    feedback_correct: int
+    feedback_incorrect: int
+    feedback_accuracy_percent: Optional[float] = None  # 일치/(일치+불일치)*100, 피드백 없으면 None
+    total_diagnosis_count: int  # 전체 기간 누적(기간과 무관, 참고용)
 
 
 class ConsultantActivitySummaryOut(BaseModel):
     consultant_count: int
     active_consultant_count: int
-    diagnosis_count_this_month: int
+    diagnosis_count: int  # 조회 기간 내 전체 컨설턴트 합산 진단 건수
     ranking: List[ConsultantRankingItem]
 
 

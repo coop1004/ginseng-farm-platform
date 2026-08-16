@@ -63,6 +63,7 @@
       <a href="#weather" class="nav-item" data-section="weather">🌤️ 기상 데이터</a>
       <a href="#reference" class="nav-item" data-section="reference">📚 병해충·자재 자료</a>
       <a href="#notifications" class="nav-item" data-section="notifications">📨 처방 알림 이력</a>
+      <a href="#consultant-activity" class="nav-item" data-section="consultant-activity">📈 컨설턴트 활동현황</a>
       <a href="#community" class="nav-item" data-section="community">🚩 커뮤니티 신고 검수</a>
     </nav>
     <div class="sidebar-footer">
@@ -150,10 +151,10 @@
         </div>
       </div>
 
-      <div class="panel household-farm-row-clickable" id="consultantActivityCard" title="컨설턴트별 상세 실적 보기">
+      <div class="panel household-farm-row-clickable" id="consultantActivityCard" title="컨설턴트 활동현황 화면으로 이동">
         <div class="panel-header">
           <h2>컨설턴트 활동 실적</h2>
-          <span class="panel-sub">이번 달 기준 · 클릭하면 컨설턴트별 상세를 볼 수 있습니다</span>
+          <span class="panel-sub">이번 달 기준 · 클릭하면 "컨설턴트 활동현황" 화면에서 전체 기간·개인별로 볼 수 있습니다</span>
         </div>
         <div class="cards-grid" style="margin-bottom: 12px;">
           <div class="stat-card">
@@ -339,6 +340,72 @@
         </div>
       </div>
     </section>
+
+    <section id="consultant-activity" class="section hidden">
+      <div class="panel">
+        <div class="panel-header">
+          <h2>기간 선택</h2>
+          <span class="panel-sub">아래 요약·목록·상세보기가 모두 선택한 기간을 기준으로 계산됩니다</span>
+        </div>
+        <div class="weather-controls">
+          <label>기간</label>
+          <select id="consultantActivityPeriod">
+            <option value="this_month" selected>이번 달</option>
+            <option value="last_month">지난 달</option>
+            <option value="last_3_months">최근 3개월</option>
+            <option value="this_year">올해</option>
+            <option value="all">전체 기간</option>
+            <option value="custom">사용자 지정</option>
+          </select>
+          <span id="consultantActivityCustomRange" class="hidden">
+            <label>시작일</label>
+            <input id="consultantActivityStartDate" type="date" />
+            <label>종료일</label>
+            <input id="consultantActivityEndDate" type="date" />
+            <button id="consultantActivityCustomApply" class="btn btn-ghost btn-sm">적용</button>
+          </span>
+        </div>
+      </div>
+
+      <div class="cards-grid">
+        <div class="stat-card">
+          <div class="stat-icon icon-blue">🩺</div>
+          <div>
+            <div class="stat-value" id="consultantActivityPageDiagnosisCount">-</div>
+            <div class="stat-label">선택 기간 전체 진단 건수</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon icon-green">🧑‍🌾</div>
+          <div>
+            <div class="stat-value" id="consultantActivityPageActiveCount">-</div>
+            <div class="stat-label">활동 중인 컨설턴트 수</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <h2>컨설턴트별 활동 (전체 보기)</h2>
+          <span class="panel-sub">열 제목을 누르면 정렬, 행을 누르면 개인별 상세를 볼 수 있습니다</span>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table" id="consultantActivityTable">
+            <thead>
+              <tr>
+                <th data-sort="name">이름</th>
+                <th data-sort="diagnosis_count">진단 건수</th>
+                <th data-sort="final_diagnosis_count">최종확정 건수</th>
+                <th data-sort="comment_count">코멘트 수</th>
+                <th data-sort="feedback_accuracy_percent">피드백 일치율</th>
+                <th data-sort="total_diagnosis_count">누적(전체기간)</th>
+              </tr>
+            </thead>
+            <tbody id="consultantActivityTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
   </main>
 </div>
 
@@ -479,17 +546,6 @@
     <div id="consultantStatsModalBody">불러오는 중…</div>
     <div class="modal-actions">
       <button id="consultantStatsModalClose" class="btn btn-ghost">닫기</button>
-    </div>
-  </div>
-</div>
-
-<div id="consultantActivityModal" class="modal-backdrop hidden">
-  <div class="modal modal-wide">
-    <h3>컨설턴트별 활동 실적</h3>
-    <p class="modal-farm">전체 컨설턴트의 이번 달·누적 진단 등록 건수입니다. 이름을 누르면 담당 농가·코멘트 수 등 상세 실적을 볼 수 있습니다.</p>
-    <div id="consultantActivityModalBody">불러오는 중…</div>
-    <div class="modal-actions">
-      <button id="consultantActivityModalClose" class="btn btn-ghost">닫기</button>
     </div>
   </div>
 </div>
@@ -681,8 +737,8 @@
 
 <div id="toast" class="toast hidden"></div>
 
-<script src="js/api.js?v=4"></script>
-<script src="js/dashboard.js?v=5"></script>
+<script src="js/api.js?v=5"></script>
+<script src="js/dashboard.js?v=6"></script>
 <script src="js/consultant.js?v=3"></script>
 <script>
   if ("serviceWorker" in navigator) {

@@ -196,6 +196,12 @@ body {
 .weather-controls select {
   padding: 7px 10px; border-radius: 8px; border: 1px solid var(--gray-200); font-size: 12.5px;
 }
+.weather-controls input[type="date"] {
+  padding: 6px 8px; border-radius: 8px; border: 1px solid var(--gray-200); font-size: 12.5px;
+}
+.weather-controls span.hidden { display: none; }
+#consultantActivityTable th[data-sort] { cursor: pointer; user-select: none; }
+#consultantActivityTable th[data-sort]:hover { color: var(--green-700); }
 
 /* Photos */
 .photo-filter-tabs { display: flex; gap: 8px; margin-bottom: 16px; }

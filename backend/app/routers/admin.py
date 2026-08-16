@@ -124,14 +124,20 @@ def list_consultants(db: Session = Depends(get_db), _current_admin: models.Admin
 
 @router.get("/consultants/stats/summary", response_model=schemas.ConsultantActivitySummaryOut)
 def admin_consultants_stats_summary(
-    top_n: int = 5, db: Session = Depends(get_db), _admin: models.AdminUser = Depends(get_current_admin)
+    top_n: int = 5,
+    period: str = "this_month",
+    start_date: Optional[dt.date] = None,
+    end_date: Optional[dt.date] = None,
+    db: Session = Depends(get_db),
+    _admin: models.AdminUser = Depends(get_current_admin),
 ):
-    """관리자 대시보드 메인 화면(종합 현황)의 "컨설턴트 활동 실적" 요약 카드용. 개별
-    컨설턴트 상세는 여전히 GET /consultants/{consultant_id}/stats를 그대로 쓴다 - 계정관리
-    화면에 있던 실적통계를 메인 화면으로 옮기면서, 요약(이번 달 합계 + 상위 랭킹)은 여기서
-    새로 계산하고 상세 조회는 기존 엔드포인트를 재사용하는 구조로 나눴다. top_n은 메인 화면
-    카드(상위 5명)와 "더보기" 상세 모달(전체)이 같은 엔드포인트를 다른 개수로 재사용하기 위함."""
-    return consultant_service.compute_all_consultants_summary(db, top_n=top_n)
+    """관리자 대시보드 메인 화면(종합 현황)의 "컨설턴트 활동 실적" 요약 카드와, 좌측 메뉴의
+    "컨설턴트 활동현황" 전용 화면이 함께 쓰는 엔드포인트. period 기본값을 "this_month"로 둬서
+    메인 화면 카드의 기존 동작(이번 달 스냅샷, 상위 5명)을 그대로 보존하고, 전용 화면은
+    period/start_date/end_date/top_n을 명시적으로 바꿔가며 같은 엔드포인트를 재사용한다.
+    개별 컨설턴트 상세는 여전히 GET /consultants/{consultant_id}/stats를 그대로 쓴다."""
+    start, end = consultant_service.resolve_period_range(period, start_date, end_date)
+    return consultant_service.compute_all_consultants_summary(db, top_n=top_n, start=start, end=end)
 
 
 @router.delete("/consultants/{consultant_id}")
@@ -210,14 +216,22 @@ def unassign_consultant_household(
 
 @router.get("/consultants/{consultant_id}/stats", response_model=schemas.ConsultantStatsOut)
 def get_consultant_stats(
-    consultant_id: int, db: Session = Depends(get_db), _current_admin: models.AdminUser = Depends(get_current_admin)
+    consultant_id: int,
+    period: str = "all",
+    start_date: Optional[dt.date] = None,
+    end_date: Optional[dt.date] = None,
+    db: Session = Depends(get_db),
+    _current_admin: models.AdminUser = Depends(get_current_admin),
 ):
     """관리자가 특정 컨설턴트의 활동 실적을 본다. 컨설턴트 본인 화면(/api/consultant/stats/summary)과
-    동일한 집계 로직(consultant_service.compute_stats)을 재사용한다."""
+    동일한 집계 로직(consultant_service.compute_stats)을 재사용한다. period 기본값을 "all"(무제한)로
+    둬서, 파라미터 없이 부르던 기존 호출부(컨설턴트 본인 화면, 계정관리에서 옮기기 전의 상세 모달)의
+    동작을 그대로 보존한다 - "컨설턴트 활동현황" 화면에서는 선택한 기간을 명시적으로 넘긴다."""
     consultant = db.query(models.ConsultantUser).filter(models.ConsultantUser.id == consultant_id).first()
     if not consultant:
         raise HTTPException(status_code=404, detail="컨설턴트를 찾을 수 없습니다.")
-    return consultant_service.compute_stats(db, consultant)
+    start, end = consultant_service.resolve_period_range(period, start_date, end_date)
+    return consultant_service.compute_stats(db, consultant, start=start, end=end)
 
 
 @router.get("/households/{household_id}/consultants", response_model=List[schemas.ConsultantOut])

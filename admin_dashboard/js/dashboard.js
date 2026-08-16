@@ -76,6 +76,7 @@ function initNav() {
     weather: "기상 데이터",
     reference: "병해충·자재 자료",
     notifications: "처방 알림 이력",
+    "consultant-activity": "컨설턴트 활동현황",
     community: "커뮤니티 신고 검수",
   };
   navItems.forEach((item) => {
@@ -98,6 +99,9 @@ function initNav() {
       }
       if (section === "community") {
         loadCommunityReports();
+      }
+      if (section === "consultant-activity") {
+        loadConsultantActivityPage();
       }
     });
   });
@@ -1331,12 +1335,24 @@ function loadConsultantList() {
     .catch(() => {});
 }
 
-function openConsultantStatsModal(consultantId, name) {
-  document.getElementById("consultantStatsSub").textContent = `${name} 컨설턴트`;
+const CONSULTANT_PERIOD_LABELS = {
+  this_month: "이번 달",
+  last_month: "지난 달",
+  last_3_months: "최근 3개월",
+  this_year: "올해",
+  all: "전체 기간",
+};
+
+function openConsultantStatsModal(consultantId, name, periodOpts = {}) {
+  const periodLabel =
+    periodOpts.startDate || periodOpts.endDate
+      ? `${periodOpts.startDate || "처음"} ~ ${periodOpts.endDate || "지금"}`
+      : CONSULTANT_PERIOD_LABELS[periodOpts.period] || "전체 기간";
+  document.getElementById("consultantStatsSub").textContent = `${name} 컨설턴트 · ${periodLabel}`;
   const body = document.getElementById("consultantStatsModalBody");
   body.textContent = "불러오는 중…";
   document.getElementById("consultantStatsModal").classList.remove("hidden");
-  Api.getConsultantStats(consultantId)
+  Api.getConsultantStats(consultantId, periodOpts)
     .then((stats) => {
       body.innerHTML = renderConsultantStatsHtml(stats);
     })
@@ -1353,62 +1369,119 @@ function closeConsultantStatsModal() {
   document.getElementById("consultantStatsModal").classList.add("hidden");
 }
 
-// ---------- 컨설턴트 활동 실적 요약 (종합 현황 메인 화면 카드) ----------
+// ---------- 컨설턴트 활동 실적 요약 (종합 현황 메인 화면 카드 - 항상 "이번 달" 스냅샷) ----------
 function loadConsultantActivitySummary() {
-  Api.getConsultantActivitySummary()
+  Api.getConsultantActivitySummary({ topN: 5 })
     .then((summary) => {
-      document.getElementById("consultantActivityMonthCount").textContent = summary.diagnosis_count_this_month;
+      document.getElementById("consultantActivityMonthCount").textContent = summary.diagnosis_count;
       document.getElementById("consultantActivityActiveCount").textContent =
         `${summary.active_consultant_count} / ${summary.consultant_count}`;
-      document.getElementById("consultantActivityRanking").innerHTML = renderConsultantRankingRows(summary.ranking, false);
+      document.getElementById("consultantActivityRanking").innerHTML = renderConsultantRankingMiniList(summary.ranking);
     })
     .catch(() => {});
 }
 
-function renderConsultantRankingRows(ranking, clickableDetail) {
+function renderConsultantRankingMiniList(ranking) {
   if (!ranking.length) {
     return `<li class="admin-list-item"><span class="panel-sub">등록된 컨설턴트가 없습니다.</span></li>`;
   }
   return ranking
-    .map((r, i) => {
-      const nameHtml = clickableDetail
-        ? `<a href="#" class="consultant-ranking-name" data-consultant-id="${r.consultant_id}" data-consultant-name="${r.name}">${i + 1}. ${r.name}</a>`
-        : `${i + 1}. ${r.name}`;
-      return `<li class="admin-list-item">
-        <span>${nameHtml}</span>
-        <span class="panel-sub">이번 달 ${r.diagnosis_count_this_month}건 · 누적 ${r.total_diagnosis_count}건</span>
-      </li>`;
-    })
+    .map(
+      (r, i) => `<li class="admin-list-item">
+        <span>${i + 1}. ${r.name}</span>
+        <span class="panel-sub">이번 달 ${r.diagnosis_count}건 · 누적 ${r.total_diagnosis_count}건</span>
+      </li>`
+    )
     .join("");
 }
 
-function openConsultantActivityModal() {
-  const modal = document.getElementById("consultantActivityModal");
-  const body = document.getElementById("consultantActivityModalBody");
-  body.textContent = "불러오는 중…";
-  modal.classList.remove("hidden");
-  Api.getConsultantActivitySummary(1000) // 상세 모달은 상위 N명 제한 없이 전체를 보여준다
+// ---------- 컨설턴트 활동현황 (전용 화면 - 기간 선택 + 전체 보기 + 개인별 상세) ----------
+const CONSULTANT_ACTIVITY_COLUMN_LABELS = {
+  name: "이름",
+  diagnosis_count: "진단 건수",
+  final_diagnosis_count: "최종확정 건수",
+  comment_count: "코멘트 수",
+  feedback_accuracy_percent: "피드백 일치율",
+  total_diagnosis_count: "누적(전체기간)",
+};
+
+let consultantActivityState = {
+  period: "this_month",
+  startDate: null,
+  endDate: null,
+  sortField: "diagnosis_count",
+  sortDir: "desc",
+  ranking: [],
+};
+
+function loadConsultantActivityPage() {
+  const { period, startDate, endDate } = consultantActivityState;
+  Api.getConsultantActivitySummary({ topN: 1000, period, startDate, endDate })
     .then((summary) => {
-      body.innerHTML = `<ul class="admin-list">${renderConsultantRankingRows(summary.ranking, true)}</ul>`;
-      body.querySelectorAll(".consultant-ranking-name").forEach((el) => {
-        el.addEventListener("click", (e) => {
-          e.preventDefault();
-          openConsultantStatsModal(Number(el.dataset.consultantId), el.dataset.consultantName);
-        });
-      });
+      document.getElementById("consultantActivityPageDiagnosisCount").textContent = summary.diagnosis_count;
+      document.getElementById("consultantActivityPageActiveCount").textContent =
+        `${summary.active_consultant_count} / ${summary.consultant_count}`;
+      consultantActivityState.ranking = summary.ranking;
+      renderConsultantActivityTable();
     })
     .catch((e) => {
       if (e.isAuthError) {
-        closeConsultantActivityModal();
         showLoginScreen();
         return;
       }
-      body.textContent = `실적을 불러오지 못했습니다: ${e.message}`;
+      showToast(`컨설턴트 활동현황을 불러오지 못했습니다: ${e.message}`, true);
     });
 }
 
-function closeConsultantActivityModal() {
-  document.getElementById("consultantActivityModal").classList.add("hidden");
+function sortedConsultantActivityRanking() {
+  const { sortField, sortDir, ranking } = consultantActivityState;
+  return [...ranking].sort((a, b) => {
+    if (sortField === "name") {
+      return sortDir === "asc" ? a.name.localeCompare(b.name, "ko") : b.name.localeCompare(a.name, "ko");
+    }
+    // 피드백 일치율은 데이터가 없으면 null - 정렬에서는 가장 낮은 값으로 취급한다.
+    const av = a[sortField] ?? -1;
+    const bv = b[sortField] ?? -1;
+    return sortDir === "asc" ? av - bv : bv - av;
+  });
+}
+
+function renderConsultantActivityTable() {
+  const tbody = document.getElementById("consultantActivityTableBody");
+  const rows = sortedConsultantActivityRanking();
+  tbody.innerHTML = rows.length
+    ? rows
+        .map(
+          (r) => `<tr class="clickable-row" data-consultant-id="${r.consultant_id}" data-consultant-name="${r.name}">
+        <td>${r.name}</td>
+        <td>${r.diagnosis_count}</td>
+        <td>${r.final_diagnosis_count}</td>
+        <td>${r.comment_count}</td>
+        <td>${r.feedback_accuracy_percent != null ? r.feedback_accuracy_percent + "%" : "-"}</td>
+        <td>${r.total_diagnosis_count}</td>
+      </tr>`
+        )
+        .join("")
+    : `<tr><td colspan="6" style="text-align:center; color: var(--gray-400);">등록된 컨설턴트가 없습니다.</td></tr>`;
+
+  tbody.querySelectorAll("tr.clickable-row").forEach((tr) => {
+    tr.addEventListener("click", () => {
+      openConsultantStatsModal(Number(tr.dataset.consultantId), tr.dataset.consultantName, {
+        period: consultantActivityState.period,
+        startDate: consultantActivityState.startDate,
+        endDate: consultantActivityState.endDate,
+      });
+    });
+  });
+
+  document.querySelectorAll('#consultantActivityTable th[data-sort]').forEach((th) => {
+    const field = th.dataset.sort;
+    const label = CONSULTANT_ACTIVITY_COLUMN_LABELS[field] || field;
+    th.textContent =
+      field === consultantActivityState.sortField
+        ? `${label} ${consultantActivityState.sortDir === "asc" ? "▲" : "▼"}`
+        : label;
+  });
 }
 
 async function deleteConsultant(consultantId, name) {
@@ -1725,7 +1798,44 @@ function init() {
   document.getElementById("statFarmsCard").addEventListener("click", () => {
     document.querySelector('.nav-item[data-section="farms"]').click();
   });
-  document.getElementById("consultantActivityCard").addEventListener("click", openConsultantActivityModal);
+  document.getElementById("consultantActivityCard").addEventListener("click", () => {
+    document.querySelector('.nav-item[data-section="consultant-activity"]').click();
+  });
+
+  document.querySelectorAll('#consultantActivityTable th[data-sort]').forEach((th) => {
+    th.addEventListener("click", () => {
+      const field = th.dataset.sort;
+      if (consultantActivityState.sortField === field) {
+        consultantActivityState.sortDir = consultantActivityState.sortDir === "asc" ? "desc" : "asc";
+      } else {
+        consultantActivityState.sortField = field;
+        consultantActivityState.sortDir = "desc";
+      }
+      renderConsultantActivityTable();
+    });
+  });
+
+  document.getElementById("consultantActivityPeriod").addEventListener("change", (e) => {
+    const val = e.target.value;
+    consultantActivityState.period = val;
+    document.getElementById("consultantActivityCustomRange").classList.toggle("hidden", val !== "custom");
+    if (val !== "custom") {
+      consultantActivityState.startDate = null;
+      consultantActivityState.endDate = null;
+      loadConsultantActivityPage();
+    }
+  });
+  document.getElementById("consultantActivityCustomApply").addEventListener("click", () => {
+    const start = document.getElementById("consultantActivityStartDate").value;
+    const end = document.getElementById("consultantActivityEndDate").value;
+    if (!start && !end) {
+      showToast("시작일 또는 종료일을 선택해주세요.", true);
+      return;
+    }
+    consultantActivityState.startDate = start || null;
+    consultantActivityState.endDate = end || null;
+    loadConsultantActivityPage();
+  });
 
   document.getElementById("refreshBtn").addEventListener("click", loadAll);
   document.getElementById("apiBaseSave").addEventListener("click", () => {
@@ -1764,10 +1874,6 @@ function init() {
   document.getElementById("newAccountRole").addEventListener("change", updateNewAccountRoleUi);
   document.getElementById("newAccountSubmit").addEventListener("click", submitAddAccount);
   document.getElementById("consultantStatsModalClose").addEventListener("click", closeConsultantStatsModal);
-  document.getElementById("consultantActivityModalClose").addEventListener("click", closeConsultantActivityModal);
-  document.getElementById("consultantActivityModal").addEventListener("click", (e) => {
-    if (e.target.id === "consultantActivityModal") closeConsultantActivityModal();
-  });
   document.getElementById("consultantStatsModal").addEventListener("click", (e) => {
     if (e.target.id === "consultantStatsModal") closeConsultantStatsModal();
   });

@@ -124,9 +124,23 @@ const Api = (() => {
       request(`/api/admin/consultants/${consultantId}/households/${householdId}`, { method: "POST" }),
     unassignConsultantHousehold: (consultantId, householdId) =>
       request(`/api/admin/consultants/${consultantId}/households/${householdId}`, { method: "DELETE" }),
-    getConsultantStats: (consultantId) => request(`/api/admin/consultants/${consultantId}/stats`),
-    getConsultantActivitySummary: (topN) =>
-      request(`/api/admin/consultants/stats/summary${topN ? `?top_n=${topN}` : ""}`),
+    getConsultantStats: (consultantId, { period, startDate, endDate } = {}) => {
+      const params = new URLSearchParams();
+      if (period) params.set("period", period);
+      if (startDate) params.set("start_date", startDate);
+      if (endDate) params.set("end_date", endDate);
+      const qs = params.toString();
+      return request(`/api/admin/consultants/${consultantId}/stats${qs ? `?${qs}` : ""}`);
+    },
+    getConsultantActivitySummary: ({ topN, period, startDate, endDate } = {}) => {
+      const params = new URLSearchParams();
+      if (topN) params.set("top_n", topN);
+      if (period) params.set("period", period);
+      if (startDate) params.set("start_date", startDate);
+      if (endDate) params.set("end_date", endDate);
+      const qs = params.toString();
+      return request(`/api/admin/consultants/stats/summary${qs ? `?${qs}` : ""}`);
+    },
     listCommunityReports: () => request("/api/admin/community/reports"),
     updateCommunityPostStatus: (postId, status) =>
       request(`/api/admin/community/posts/${postId}`, { method: "PATCH", body: JSON.stringify({ status }) }),
