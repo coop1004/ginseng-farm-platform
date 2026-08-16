@@ -45,6 +45,7 @@ class AdminUser(Base):
     __tablename__ = "admin_users"
 
     id = Column(Integer, primary_key=True, index=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False, default=DEFAULT_ORGANIZATION_ID)
     username = Column(String(50), unique=True, nullable=False, index=True)
     name = Column(String(50), nullable=False)
     password_hash = Column(String(255), nullable=False)

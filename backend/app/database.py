@@ -57,3 +57,4 @@ def run_light_migrations():
     _add_column_if_missing(inspector, "notifications", "organization_id", "INTEGER NOT NULL DEFAULT 1")
     _add_column_if_missing(inspector, "consultant_households", "organization_id", "INTEGER NOT NULL DEFAULT 1")
     _add_column_if_missing(inspector, "consultant_users", "organization_id", "INTEGER NOT NULL DEFAULT 1")
+    _add_column_if_missing(inspector, "admin_users", "organization_id", "INTEGER NOT NULL DEFAULT 1")
