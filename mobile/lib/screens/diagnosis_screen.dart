@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:table_calendar/table_calendar.dart';
 
 import '../models/diagnosis.dart';
 import '../models/farm.dart';
@@ -23,6 +24,12 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
   final _api = ApiService();
   Farm? _filterFarm;
   String? _filterType;
+
+  // work_log_screen.dart와 동일한 캘린더 패턴 재사용 - 농장/유형은 서버 조회 조건으로
+  // 그대로 두고, 날짜 선택은 이미 불러온 목록 위에 클라이언트에서 한 번 더 거른다.
+  bool _showCalendar = false;
+  DateTime _focusedDay = DateTime.now();
+  DateTime? _selectedDay;
 
   List<Diagnosis> _items = [];
   bool _loading = true;
@@ -49,13 +56,37 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
     }
   }
 
+  Map<DateTime, List<Diagnosis>> get _byDay {
+    final map = <DateTime, List<Diagnosis>>{};
+    for (final item in _items) {
+      final key = DateTime(item.occurrenceDate.year, item.occurrenceDate.month, item.occurrenceDate.day);
+      map.putIfAbsent(key, () => []).add(item);
+    }
+    return map;
+  }
+
   @override
   Widget build(BuildContext context) {
     final activeCropId = context.watch<CropProvider>().activeCrop?.id;
     final farms = context.watch<FarmProvider>().forCrop(activeCropId);
+    final visibleItems = _selectedDay == null
+        ? _items
+        : _items.where((d) =>
+            d.occurrenceDate.year == _selectedDay!.year &&
+            d.occurrenceDate.month == _selectedDay!.month &&
+            d.occurrenceDate.day == _selectedDay!.day).toList();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('AI 병해충 진단')),
+      appBar: AppBar(
+        title: const Text('병해충일지'),
+        actions: [
+          IconButton(
+            icon: Icon(_showCalendar ? Icons.view_list : Icons.calendar_month),
+            tooltip: _showCalendar ? '목록 보기' : '캘린더 보기',
+            onPressed: () => setState(() => _showCalendar = !_showCalendar),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
           final created = await Navigator.of(context).push<bool>(
@@ -106,6 +137,31 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
               ],
             ),
           ),
+          if (_showCalendar)
+            Card(
+              margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: TableCalendar<Diagnosis>(
+                locale: 'ko_KR',
+                firstDay: DateTime(2020, 1, 1),
+                lastDay: DateTime(2035, 12, 31),
+                focusedDay: _focusedDay,
+                selectedDayPredicate: (d) => _selectedDay != null && isSameDay(d, _selectedDay),
+                eventLoader: (day) => _byDay[DateTime(day.year, day.month, day.day)] ?? [],
+                onDaySelected: (selected, focused) {
+                  setState(() {
+                    _selectedDay = isSameDay(_selectedDay, selected) ? null : selected;
+                    _focusedDay = focused;
+                  });
+                },
+                onPageChanged: (focused) => _focusedDay = focused,
+                calendarStyle: const CalendarStyle(
+                  markerDecoration: BoxDecoration(color: AppColors.orange, shape: BoxShape.circle),
+                  todayDecoration: BoxDecoration(color: Color(0xFFA5D6A7), shape: BoxShape.circle),
+                  selectedDecoration: BoxDecoration(color: Color(0xFF2E7D32), shape: BoxShape.circle),
+                ),
+                headerStyle: const HeaderStyle(formatButtonVisible: false, titleCentered: true),
+              ),
+            ),
           Expanded(
             child: RefreshIndicator(
               onRefresh: _load,
@@ -113,12 +169,14 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
                   ? const LoadingView()
                   : _error != null
                       ? ErrorView(message: '진단 기록을 불러오지 못했습니다.\n$_error', onRetry: _load)
-                      : _items.isEmpty
-                          ? const EmptyView(message: '진단 기록이 없습니다.', icon: Icons.biotech_outlined)
+                      : visibleItems.isEmpty
+                          ? EmptyView(
+                              message: _selectedDay == null ? '진단 기록이 없습니다.' : '선택한 날짜에 진단 기록이 없습니다.',
+                              icon: Icons.biotech_outlined)
                           : ListView.builder(
                               padding: const EdgeInsets.fromLTRB(16, 8, 16, 90),
-                              itemCount: _items.length,
-                              itemBuilder: (context, i) => _DiagnosisCard(item: _items[i]),
+                              itemCount: visibleItems.length,
+                              itemBuilder: (context, i) => _DiagnosisCard(item: visibleItems[i]),
                             ),
             ),
           ),
