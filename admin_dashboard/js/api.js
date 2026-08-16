@@ -89,6 +89,7 @@ const Api = (() => {
       const query = qs.toString();
       return request(`/api/admin/diagnoses${query ? `?${query}` : ""}`);
     },
+    getDiagnosisDetail: (diagnosisId) => request(`/api/admin/diagnoses/${diagnosisId}`),
     getNotifications: () => request("/api/admin/notifications"),
     sendNotification: (payload) =>
       request("/api/admin/notifications", {

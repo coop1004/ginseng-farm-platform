@@ -384,6 +384,7 @@ function showHouseholdDetail(householdId) {
   tbody.innerHTML = "";
   farms.forEach((f) => {
     const tr = document.createElement("tr");
+    if (f.last_diagnosis) tr.className = "household-farm-row-clickable";
     tr.innerHTML = `
       <td><strong>${f.farm_name}</strong></td>
       <td>${f.region || "-"}</td>
@@ -395,6 +396,12 @@ function showHouseholdDetail(householdId) {
       <td><span class="${riskBadgeClass(f.risk_level)}">${f.risk_level}</span></td>
       <td><button class="btn btn-primary btn-sm" data-farm-id="${f.farm_id}" data-farm-name="${f.farm_name}">처방 알림</button></td>
     `;
+    if (f.last_diagnosis) {
+      tr.addEventListener("click", (e) => {
+        if (e.target.closest("button")) return;
+        openDiagnosisDetailModal(f.last_diagnosis.id);
+      });
+    }
     tbody.appendChild(tr);
   });
 
@@ -556,7 +563,7 @@ function renderFeed(feed) {
   }
   feed.forEach((item) => {
     const div = document.createElement("div");
-    div.className = "feed-item";
+    div.className = "feed-item feed-item-clickable";
     div.innerHTML = `
       <div class="feed-dot" style="background:${typeColors[item.diagnosis_type] || "#999"}"></div>
       <div class="feed-main">
@@ -566,6 +573,7 @@ function renderFeed(feed) {
       <div class="feed-confidence">${item.confidence != null ? Math.round(item.confidence * 100) + "%" : ""}</div>
       <div class="feed-time">${timeAgo(item.created_at)}</div>
     `;
+    div.addEventListener("click", () => openDiagnosisDetailModal(item.id));
     list.appendChild(div);
   });
 }
@@ -1341,6 +1349,93 @@ async function deleteConsultant(consultantId, name) {
   }
 }
 
+// ---------- Diagnosis detail (농가 모니터링 / 실시간 진단 피드에서 항목 클릭) ----------
+function openDiagnosisDetailModal(diagnosisId) {
+  if (!diagnosisId) return;
+  document.getElementById("diagnosisDetailModal").classList.remove("hidden");
+  document.getElementById("diagnosisDetailSub").textContent = `진단 #${diagnosisId}`;
+  document.getElementById("diagnosisDetailBody").innerHTML = "불러오는 중…";
+  Api.getDiagnosisDetail(diagnosisId)
+    .then(renderDiagnosisDetailBody)
+    .catch((e) => {
+      if (e.isAuthError) {
+        closeDiagnosisDetailModal();
+        showLoginScreen();
+        return;
+      }
+      document.getElementById("diagnosisDetailBody").innerHTML = `불러오기 실패: ${e.message}`;
+    });
+}
+
+function closeDiagnosisDetailModal() {
+  document.getElementById("diagnosisDetailModal").classList.add("hidden");
+}
+
+function renderDiagnosisDetailBody(d) {
+  document.getElementById("diagnosisDetailSub").textContent =
+    `${d.household_name || "-"} · ${d.farm_name || "-"} (${d.region || "-"}) · ${fmtDate(d.occurrence_date)}`;
+
+  const photoPaths = d.photo_paths && d.photo_paths.length ? d.photo_paths : d.photo_path ? [d.photo_path] : [];
+  const photosHtml = photoPaths.length
+    ? `<div class="diagnosis-photo-grid">${photoPaths
+        .map((p) => `<img src="${Api.getBaseUrl()}/uploads/${p}" alt="진단 사진" loading="lazy" />`)
+        .join("")}</div>`
+    : `<div class="photo-card-noimg">첨부된 사진이 없습니다.</div>`;
+
+  const effectiveName = d.final_disease_name || d.ai_disease_name || "진단명 없음";
+  const registrant =
+    d.created_by_type === "consultant" ? `👤 ${d.created_by_consultant_name || "컨설턴트"}` : "🌾 농가 직접 등록";
+
+  const treatmentList = (items) =>
+    items && items.length
+      ? `<ul class="admin-list">${items
+          .map(
+            (t) =>
+              `<li class="admin-list-item" style="display:block;">
+                <strong>${t.product_name}</strong> <span style="color: var(--gray-500);">(${t.active_ingredient})</span>
+                <div style="font-size:12px; color: var(--gray-600); margin-top:2px;">${t.usage}</div>
+                ${t.note ? `<div style="font-size:11px; color: var(--gray-400); margin-top:2px;">※ ${t.note}</div>` : ""}
+              </li>`
+          )
+          .join("")}</ul>`
+      : `<p class="panel-sub">등록된 자료가 없습니다.</p>`;
+
+  const finalBlock = d.final_disease_name
+    ? `
+      <div class="panel-sub" style="margin-top:14px;">최종 확정 진단</div>
+      <p><strong>${d.final_disease_name}</strong> <span class="${typeBadgeClass(d.diagnosis_type)}">${
+        d.final_diagnosis_source === "expert" ? "전문가 확정" : d.final_diagnosis_source === "consultant" ? "컨설턴트 확정" : "농가 직접확인"
+      }</span></p>
+      ${d.final_diagnosis_note ? `<p style="font-size:12.5px; color: var(--gray-600);">${d.final_diagnosis_note}</p>` : ""}
+      <p style="font-size:11.5px; color: var(--gray-400);">확정자: ${d.final_diagnosis_by || "-"} · ${d.final_diagnosis_at ? fmtDate(d.final_diagnosis_at) : "-"}</p>
+    `
+    : "";
+
+  document.getElementById("diagnosisDetailBody").innerHTML = `
+    ${photosHtml}
+    <div style="margin-top:14px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+      <span class="badge badge-type-${d.diagnosis_type}">${d.diagnosis_type}</span>
+      <strong style="font-size:15px;">${effectiveName}</strong>
+      ${d.ai_confidence != null ? `<span class="feed-confidence">AI 확신도 ${Math.round(d.ai_confidence * 100)}%</span>` : ""}
+      <span class="status-badge status-${d.status}">${d.status}</span>
+      <span style="font-size:11.5px; color: var(--gray-500); margin-left:auto;">${registrant}</span>
+    </div>
+    ${d.ai_symptoms ? `<div class="panel-sub" style="margin-top:14px;">특징 및 증상</div><p style="font-size:13px;">${d.ai_symptoms}</p>` : ""}
+    <div class="panel-sub" style="margin-top:14px;">촬영 당시 기상 정보</div>
+    <p style="font-size:12.5px; color: var(--gray-600);">
+      기온 ${d.weather_temp_c != null ? d.weather_temp_c.toFixed(1) + "℃" : "-"} ·
+      습도 ${d.weather_humidity_percent != null ? Math.round(d.weather_humidity_percent) + "%" : "-"} ·
+      강우량 ${d.weather_rainfall_mm != null ? d.weather_rainfall_mm.toFixed(1) + "mm" : "-"} ·
+      풍속 ${d.weather_wind_ms != null ? d.weather_wind_ms.toFixed(1) + "m/s" : "-"}
+    </p>
+    ${finalBlock}
+    <div class="panel-sub" style="margin-top:14px;">친환경 방제 자재 (우선 추천)</div>
+    ${treatmentList(d.eco_treatments)}
+    <div class="panel-sub" style="margin-top:10px;">화학적 관리법 (보조 정보)</div>
+    ${treatmentList(d.chemical_treatments)}
+  `;
+}
+
 // ---------- Expert diagnosis override ----------
 let expertDiagnosisTargetId = null;
 
@@ -1576,6 +1671,11 @@ function init() {
   document.getElementById("consultantStatsModalClose").addEventListener("click", closeConsultantStatsModal);
   document.getElementById("consultantStatsModal").addEventListener("click", (e) => {
     if (e.target.id === "consultantStatsModal") closeConsultantStatsModal();
+  });
+
+  document.getElementById("diagnosisDetailClose").addEventListener("click", closeDiagnosisDetailModal);
+  document.getElementById("diagnosisDetailModal").addEventListener("click", (e) => {
+    if (e.target.id === "diagnosisDetailModal") closeDiagnosisDetailModal();
   });
 
   document.getElementById("expertDiagnosisCancel").addEventListener("click", closeExpertDiagnosisModal);

@@ -12,6 +12,7 @@ from app.deps import get_current_admin
 from app.routers.stats import build_summary
 from app.services import community_service, consultant_service
 from app.services.auth_service import create_admin_access_token, hash_password, verify_password
+from app.services.diagnosis_service import to_response as diagnosis_to_response
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -385,6 +386,22 @@ def admin_diagnoses(
         out.created_by_consultant_name = d.created_by_consultant.name if d.created_by_consultant else None
         results.append(out)
     return results
+
+
+@router.get("/diagnoses/{diagnosis_id}")
+def admin_diagnosis_detail(
+    diagnosis_id: int, db: Session = Depends(get_db), _admin: models.AdminUser = Depends(get_current_admin)
+):
+    """농가 모니터링·실시간 진단 피드에서 항목 클릭 시 보여줄 진단 전체 상세(사진 전체,
+    특징/증상, 친환경/화학 방제법 등). 농가·컨설턴트 화면과 동일한 diagnosis_service.to_response를
+    재사용해 필드가 어긋나지 않게 하고, 관리자 화면에 필요한 household_name/region만 덧붙인다."""
+    d = db.query(models.Diagnosis).filter(models.Diagnosis.id == diagnosis_id).first()
+    if not d:
+        raise HTTPException(status_code=404, detail="진단 기록을 찾을 수 없습니다.")
+    data = diagnosis_to_response(d)
+    data["household_name"] = d.farm.household.name if d.farm and d.farm.household else None
+    data["region"] = d.farm.region if d.farm else None
+    return data
 
 
 @router.patch("/diagnoses/{diagnosis_id}/final-diagnosis", response_model=schemas.AdminDiagnosisOut)
