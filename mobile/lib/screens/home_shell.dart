@@ -37,7 +37,7 @@ class _HomeShellState extends State<HomeShell> {
           BottomNavigationBarItem(
               icon: Icon(Icons.edit_note_outlined), activeIcon: Icon(Icons.edit_note), label: '영농일지'),
           BottomNavigationBarItem(
-              icon: Icon(Icons.biotech_outlined), activeIcon: Icon(Icons.biotech), label: 'AI진단'),
+              icon: Icon(Icons.biotech_outlined), activeIcon: Icon(Icons.biotech), label: '병해충일지'),
           BottomNavigationBarItem(
               icon: Icon(Icons.bar_chart_outlined), activeIcon: Icon(Icons.bar_chart), label: '통계'),
         ],

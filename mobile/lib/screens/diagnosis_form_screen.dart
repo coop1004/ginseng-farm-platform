@@ -91,7 +91,7 @@ class _DiagnosisFormScreenState extends State<DiagnosisFormScreen> {
     final today = DateTime.now();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('AI 병해충 · 생리장애 진단')),
+      appBar: AppBar(title: const Text('병해충 진단')),
       body: farms.isEmpty
           ? const Padding(padding: EdgeInsets.all(24), child: Center(child: Text('먼저 농장을 등록해주세요.')))
           : AbsorbPointer(
