@@ -330,6 +330,8 @@ class _DiagnosisResultScreenState extends State<DiagnosisResultScreen> {
                     style: TextStyle(fontSize: 12.5, color: Colors.grey.shade600, fontWeight: FontWeight.w600)),
               ],
             ),
+          const SizedBox(height: 10),
+          const _SavedConfirmationBadge(),
           const SizedBox(height: 14),
           _buildFinalDiagnosisCard(),
           const SizedBox(height: 14),
@@ -554,6 +556,31 @@ class _DiagnosisResultScreenState extends State<DiagnosisResultScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
       decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(999)),
       child: Text(text, style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w700)),
+    );
+  }
+}
+
+/// 병명·확신도 카드 바로 아래에서 화면 진입 즉시(별도 액션 없이) 보이는 저장 확인
+/// 안내 - 이 화면에 들어오는 시점엔 이미 diagnosis_service가 사진 저장부터 AI
+/// 진단까지 한 번에 끝낸 뒤라 저장이 안 된 상태 자체가 존재하지 않는다. 그럼에도
+/// "저장 버튼이 안 보여서 불안하다"는 피드백이 있었기 때문에, 버튼을 누르게 하는
+/// 대신(안 눌러도 이미 저장됐다는 잘못된 인식을 줄 수 있어) 사실을 그대로 안내만 한다.
+class _SavedConfirmationBadge extends StatelessWidget {
+  const _SavedConfirmationBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const Icon(Icons.check_circle, color: AppColors.green, size: 15),
+        const SizedBox(width: 5),
+        Expanded(
+          child: Text(
+            '진단이 저장되었습니다 — 화면을 나가셔도 안전합니다.',
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600, fontWeight: FontWeight.w600),
+          ),
+        ),
+      ],
     );
   }
 }
