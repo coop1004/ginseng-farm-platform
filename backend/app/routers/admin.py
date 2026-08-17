@@ -235,6 +235,8 @@ def assign_consultant_household(
     household = db.query(models.Household).filter(models.Household.id == household_id).first()
     if not household:
         raise HTTPException(status_code=404, detail="농가를 찾을 수 없습니다.")
+    if household.status == "withdrawn":
+        raise HTTPException(status_code=400, detail="탈퇴 처리된 농가에는 컨설턴트를 배정할 수 없습니다.")
 
     exists = (
         db.query(models.ConsultantHousehold)
@@ -316,7 +318,9 @@ def get_household_detail(
         .filter(models.HouseholdMember.household_id == household_id)
         .all()
     )
-    return schemas.HouseholdDetailOut(id=household.id, name=household.name, join_code=household.join_code, members=members)
+    return schemas.HouseholdDetailOut(
+        id=household.id, name=household.name, join_code=household.join_code, status=household.status, members=members
+    )
 
 
 @router.patch("/households/{household_id}", response_model=schemas.HouseholdOut)
@@ -332,6 +336,74 @@ def update_household(
         raise HTTPException(status_code=404, detail="농가를 찾을 수 없습니다.")
     if payload.name is not None:
         household.name = payload.name
+    db.commit()
+    db.refresh(household)
+    return household
+
+
+@router.post("/households/{household_id}/suspend", response_model=schemas.HouseholdOut)
+def suspend_household(
+    household_id: int, db: Session = Depends(get_db), _admin: models.AdminUser = Depends(get_current_admin)
+):
+    """로그인만 막는 되돌릴 수 있는 조치 - 기존 데이터는 전혀 건드리지 않는다."""
+    household = db.query(models.Household).filter(models.Household.id == household_id).first()
+    if not household:
+        raise HTTPException(status_code=404, detail="농가를 찾을 수 없습니다.")
+    if household.status == "withdrawn":
+        raise HTTPException(status_code=400, detail="이미 탈퇴 처리된 농가입니다.")
+    household.status = "suspended"
+    db.commit()
+    db.refresh(household)
+    return household
+
+
+@router.post("/households/{household_id}/reactivate", response_model=schemas.HouseholdOut)
+def reactivate_household(
+    household_id: int, db: Session = Depends(get_db), _admin: models.AdminUser = Depends(get_current_admin)
+):
+    household = db.query(models.Household).filter(models.Household.id == household_id).first()
+    if not household:
+        raise HTTPException(status_code=404, detail="농가를 찾을 수 없습니다.")
+    if household.status == "withdrawn":
+        raise HTTPException(status_code=400, detail="탈퇴 처리된 농가는 복구할 수 없습니다.")
+    household.status = "active"
+    db.commit()
+    db.refresh(household)
+    return household
+
+
+@router.post("/households/{household_id}/withdraw", response_model=schemas.HouseholdOut)
+def withdraw_household(
+    household_id: int, db: Session = Depends(get_db), _admin: models.AdminUser = Depends(get_current_admin)
+):
+    """농가의 탈퇴 요청을 관리자가 대신 처리한다 - 되돌릴 수 없다. 개인식별정보(농가명,
+    대표자 이름/전화번호, 농장 상세주소)는 즉시 익명화하고, region(시/군)은 지역 통계
+    집계를 위해 그대로 남긴다. 진단·작업일지 기록은 전혀 건드리지 않는다(삭제도, 수정도
+    하지 않음) - 익명화된 이름/주소로 인해 더 이상 특정 개인을 가리키지 않게 될 뿐이다."""
+    household = db.query(models.Household).filter(models.Household.id == household_id).first()
+    if not household:
+        raise HTTPException(status_code=404, detail="농가를 찾을 수 없습니다.")
+    if household.status == "withdrawn":
+        raise HTTPException(status_code=400, detail="이미 탈퇴 처리된 농가입니다.")
+
+    household.status = "withdrawn"
+    household.name = f"탈퇴회원_{household.id}"
+
+    members = (
+        db.query(models.User)
+        .join(models.HouseholdMember, models.HouseholdMember.user_id == models.User.id)
+        .filter(models.HouseholdMember.household_id == household_id)
+        .all()
+    )
+    for member in members:
+        member.name = f"탈퇴회원_{member.id}"
+        member.phone = f"탈퇴_{member.id}"
+
+    farms = db.query(models.Farm).filter(models.Farm.household_id == household_id).all()
+    for farm in farms:
+        farm.address = "비공개(탈퇴 처리됨)"
+        farm.phone = None
+
     db.commit()
     db.refresh(household)
     return household
@@ -415,6 +487,7 @@ def farms_overview(db: Session = Depends(get_db), _admin: models.AdminUser = Dep
                 "farm_name": farm.farm_name,
                 "household_id": farm.household_id,
                 "household_name": farm.household.name if farm.household else None,
+                "household_status": farm.household.status if farm.household else None,
                 "region": farm.region,
                 "address": farm.address,
                 "latitude": farm.latitude,
@@ -691,6 +764,8 @@ def send_notification(
     farm = db.query(models.Farm).filter(models.Farm.id == payload.farm_id).first()
     if not farm:
         raise HTTPException(status_code=404, detail="농장을 찾을 수 없습니다.")
+    if farm.household and farm.household.status == "withdrawn":
+        raise HTTPException(status_code=400, detail="탈퇴 처리된 농가에는 알림을 보낼 수 없습니다.")
 
     notification = models.Notification(**payload.model_dump(), organization_id=farm.organization_id)
     db.add(notification)
@@ -725,18 +800,36 @@ def broadcast_notification(
     else:
         target_org_id = None
 
+    # 탈퇴 처리된 농가는 세 경로 모두에서 자동으로 제외한다 - "all"/"region"은 애초에 쿼리에서
+    # 걸러내고, "farms"는 관리자가 명시적으로 고른 id 중 탈퇴 농가만 조용히 빠진다(에러 대신
+    # 자동 제외 - 관리자가 목록을 만들 때 이미 탈퇴 여부를 몰랐을 수 있으므로).
+    not_withdrawn = models.Household.status != "withdrawn"
+
     if payload.target_type == "all":
-        farms = db.query(models.Farm).filter(models.Farm.organization_id == target_org_id).all()
+        farms = (
+            db.query(models.Farm)
+            .join(models.Household, models.Farm.household_id == models.Household.id)
+            .filter(models.Farm.organization_id == target_org_id, not_withdrawn)
+            .all()
+        )
     elif payload.target_type == "region":
         if not payload.region:
             raise HTTPException(status_code=400, detail="지역을 선택해주세요.")
-        farms = db.query(models.Farm).filter(
-            models.Farm.region == payload.region, models.Farm.organization_id == target_org_id
-        ).all()
+        farms = (
+            db.query(models.Farm)
+            .join(models.Household, models.Farm.household_id == models.Household.id)
+            .filter(models.Farm.region == payload.region, models.Farm.organization_id == target_org_id, not_withdrawn)
+            .all()
+        )
     elif payload.target_type == "farms":
         if not payload.farm_ids:
             raise HTTPException(status_code=400, detail="대상 농가를 선택해주세요.")
-        farms = db.query(models.Farm).filter(models.Farm.id.in_(payload.farm_ids)).all()
+        farms = (
+            db.query(models.Farm)
+            .join(models.Household, models.Farm.household_id == models.Household.id)
+            .filter(models.Farm.id.in_(payload.farm_ids), not_withdrawn)
+            .all()
+        )
     else:
         raise HTTPException(status_code=400, detail="target_type은 all/region/farms 중 하나여야 합니다.")
 

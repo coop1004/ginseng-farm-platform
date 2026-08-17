@@ -40,6 +40,11 @@ def get_current_household_id(
     )
     if not membership:
         raise HTTPException(status_code=403, detail="소속된 농가가 없습니다.")
+    # 로그인 시점 이후에 정지/탈퇴 처리됐을 수 있으므로, 이미 발급된 토큰이라도 매 요청마다
+    # 다시 확인한다 - 그래야 "로그인 즉시 차단"이 이미 로그인해둔 세션에도 적용된다.
+    household = db.query(models.Household).filter(models.Household.id == membership.household_id).first()
+    if household and household.status in ("suspended", "withdrawn"):
+        raise HTTPException(status_code=403, detail="이용이 제한된 계정입니다. 관리자에게 문의해주세요.")
     return membership.household_id
 
 

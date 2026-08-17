@@ -131,6 +131,12 @@ const Api = (() => {
       request(`/api/admin/users/${userId}`, { method: "PATCH", body: JSON.stringify(payload) }),
     resetHouseholdUserPassword: (userId) =>
       request(`/api/admin/users/${userId}/reset-password`, { method: "POST" }),
+    suspendHousehold: (householdId) =>
+      request(`/api/admin/households/${householdId}/suspend`, { method: "POST" }),
+    reactivateHousehold: (householdId) =>
+      request(`/api/admin/households/${householdId}/reactivate`, { method: "POST" }),
+    withdrawHousehold: (householdId) =>
+      request(`/api/admin/households/${householdId}/withdraw`, { method: "POST" }),
     getHouseholdConsultants: (householdId) => request(`/api/admin/households/${householdId}/consultants`),
     assignConsultantHousehold: (consultantId, householdId) =>
       request(`/api/admin/consultants/${consultantId}/households/${householdId}`, { method: "POST" }),

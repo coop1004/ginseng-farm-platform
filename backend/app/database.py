@@ -72,3 +72,5 @@ def run_light_migrations():
     # 관리자가 컨설턴트 정보를 대신 수정할 수 있게 하는 작업의 일부 - 기존엔 연락처를
     # 저장할 컬럼 자체가 없었다.
     _add_column_if_missing(inspector, "consultant_users", "phone", "VARCHAR(30)")
+    # 계정 정지/탈퇴 처리 - 기존 농가는 전부 active로 즉시 백필된다.
+    _add_column_if_missing(inspector, "households", "status", "VARCHAR(20) NOT NULL DEFAULT 'active'")

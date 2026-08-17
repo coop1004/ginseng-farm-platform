@@ -355,6 +355,7 @@ function aggregateHouseholds(farms) {
       map.set(f.household_id, {
         household_id: f.household_id,
         household_name: f.household_name || "-",
+        household_status: f.household_status || "active",
         farm_count: 0,
         regions: new Set(),
         diagnosis_count_30d: 0,
@@ -383,6 +384,12 @@ function aggregateHouseholds(farms) {
   return result;
 }
 
+function householdStatusBadgeHtml(status) {
+  if (status === "withdrawn") return ' <span class="status-badge status-탈퇴">탈퇴</span>';
+  if (status === "suspended") return ' <span class="status-badge status-정지">정지</span>';
+  return "";
+}
+
 function renderHouseholdsTable(farms) {
   currentFarms = farms;
   currentHouseholds = aggregateHouseholds(farms);
@@ -394,7 +401,7 @@ function renderHouseholdsTable(farms) {
     const tr = document.createElement("tr");
     tr.className = "clickable-row";
     tr.innerHTML = `
-      <td><strong>${h.household_name}</strong></td>
+      <td><strong>${h.household_name}</strong>${householdStatusBadgeHtml(h.household_status)}</td>
       <td>${h.farm_count}개</td>
       <td>${h.regions.join(", ") || "-"}</td>
       <td>${h.last_diagnosis ? `${h.last_diagnosis.name} <span class="${typeBadgeClass(h.last_diagnosis.type)}">${h.last_diagnosis.type}</span>` : "-"}</td>
@@ -417,7 +424,7 @@ function showHouseholdDetail(householdId) {
 
   renderHouseholdAccountInfo(householdId);
   renderHouseholdCrops(householdId);
-  renderHouseholdConsultants(householdId);
+  renderHouseholdConsultants(householdId, household.household_status);
 
   const farms = currentFarms.filter((f) => f.household_id === householdId);
   const tbody = document.querySelector("#householdFarmsTable tbody");
@@ -539,41 +546,134 @@ async function resetConsultantPasswordFlow(consultantId) {
   }
 }
 
+const HOUSEHOLD_STATUS_LABEL = { active: "정상", suspended: "정지됨", withdrawn: "탈퇴 처리됨" };
+
+async function suspendHouseholdFlow(householdId, refresh) {
+  if (!confirm("이 농가 계정을 정지하시겠습니까?\n로그인만 즉시 차단되고 기존 데이터는 전혀 바뀌지 않습니다. 언제든 해제할 수 있습니다.")) return;
+  try {
+    await Api.suspendHousehold(householdId);
+    showToast("계정이 정지되었습니다.");
+    refresh();
+  } catch (e) {
+    if (e.isAuthError) {
+      showLoginScreen();
+      return;
+    }
+    showToast(e.message, true);
+  }
+}
+
+async function reactivateHouseholdFlow(householdId, refresh) {
+  if (!confirm("정지를 해제하시겠습니까? 즉시 다시 로그인할 수 있게 됩니다.")) return;
+  try {
+    await Api.reactivateHousehold(householdId);
+    showToast("정지가 해제되었습니다.");
+    refresh();
+  } catch (e) {
+    if (e.isAuthError) {
+      showLoginScreen();
+      return;
+    }
+    showToast(e.message, true);
+  }
+}
+
+async function withdrawHouseholdFlow(householdId, householdName, refresh) {
+  const warned = confirm(
+    `"${householdName}" 농가를 탈퇴 처리하시겠습니까?\n\n` +
+      "⚠ 이 작업은 되돌릴 수 없습니다.\n" +
+      "- 로그인이 즉시 차단됩니다\n" +
+      "- 농가명·대표자 이름/전화번호가 익명화됩니다\n" +
+      "- 진단·작업일지 기록은 삭제되지 않고 그대로 보존됩니다(단, 익명화로 인해 더 이상 특정 개인을 가리키지 않게 됩니다)\n" +
+      "- 컨설턴트 배정·처방 알림 발송 대상에서 제외됩니다"
+  );
+  if (!warned) return;
+  const typed = prompt('정말 진행하려면 아래 입력창에 "탈퇴"를 입력해주세요.');
+  if (typed !== "탈퇴") {
+    showToast("입력값이 일치하지 않아 취소되었습니다.", true);
+    return;
+  }
+  try {
+    await Api.withdrawHousehold(householdId);
+    showToast("탈퇴 처리되었습니다.");
+    refresh();
+    renderHouseholdConsultants(householdId, "withdrawn");
+  } catch (e) {
+    if (e.isAuthError) {
+      showLoginScreen();
+      return;
+    }
+    showToast(e.message, true);
+  }
+}
+
 async function renderHouseholdAccountInfo(householdId) {
   const container = document.getElementById("householdAccountInfo");
   container.innerHTML = "불러오는 중…";
   try {
     const detail = await Api.getHouseholdDetail(householdId);
     const refresh = () => renderHouseholdAccountInfo(householdId);
-    const memberRows = detail.members
-      .map(
-        (m) => `
+    const isWithdrawn = detail.status === "withdrawn";
+    const isSuspended = detail.status === "suspended";
+
+    const memberRows = isWithdrawn
+      ? ""
+      : detail.members
+          .map(
+            (m) => `
       <div class="account-info-row">
         <span>${m.name} · ${m.phone}</span>
         <button class="btn btn-ghost btn-sm" data-edit-user="${m.id}">정보 수정</button>
         <button class="btn btn-ghost btn-sm" data-reset-user="${m.id}">비밀번호 초기화</button>
       </div>`
-      )
-      .join("");
-    container.innerHTML = `
+          )
+          .join("");
+
+    const statusLine = `
       <div class="account-info-row">
-        <span><strong>${detail.name}</strong> (농가명) · 가입코드 ${detail.join_code}</span>
-        <button class="btn btn-ghost btn-sm" id="editHouseholdNameBtn">정보 수정</button>
-      </div>
-      ${memberRows}
-    `;
-    document.getElementById("editHouseholdNameBtn").addEventListener("click", () => {
-      openEditInfoModal("household", detail.id, detail.name, null, false, "농가명 수정", refresh);
-    });
-    container.querySelectorAll("[data-edit-user]").forEach((btn) => {
-      const member = detail.members.find((m) => m.id === Number(btn.dataset.editUser));
-      btn.addEventListener("click", () => {
-        openEditInfoModal("user", member.id, member.name, member.phone, true, "대표자 정보 수정", refresh);
+        <span><strong>${detail.name}</strong> (농가명) · 가입코드 ${detail.join_code}${householdStatusBadgeHtml(detail.status)}</span>
+        ${isWithdrawn ? "" : '<button class="btn btn-ghost btn-sm" id="editHouseholdNameBtn">정보 수정</button>'}
+      </div>`;
+
+    const actionRow = `
+      <div class="account-info-row">
+        <span>계정 상태: ${HOUSEHOLD_STATUS_LABEL[detail.status] || detail.status}</span>
+        <span>
+          ${
+            isWithdrawn
+              ? ""
+              : isSuspended
+                ? '<button class="btn btn-ghost btn-sm" id="reactivateHouseholdBtn">정지 해제</button>'
+                : '<button class="btn btn-ghost btn-sm" id="suspendHouseholdBtn">계정 정지</button>'
+          }
+          ${isWithdrawn ? "" : '<button class="admin-delete-btn" id="withdrawHouseholdBtn">탈퇴 처리</button>'}
+        </span>
+      </div>`;
+
+    container.innerHTML = isWithdrawn
+      ? statusLine + actionRow + '<p class="panel-note">탈퇴 처리된 농가입니다. 개인식별정보는 익명화되었고, 기존 진단·작업일지 기록은 통계용으로 보존됩니다.</p>'
+      : statusLine + memberRows + actionRow;
+
+    if (!isWithdrawn) {
+      document.getElementById("editHouseholdNameBtn").addEventListener("click", () => {
+        openEditInfoModal("household", detail.id, detail.name, null, false, "농가명 수정", refresh);
       });
-    });
-    container.querySelectorAll("[data-reset-user]").forEach((btn) => {
-      btn.addEventListener("click", () => resetHouseholdUserPasswordFlow(Number(btn.dataset.resetUser)));
-    });
+      container.querySelectorAll("[data-edit-user]").forEach((btn) => {
+        const member = detail.members.find((m) => m.id === Number(btn.dataset.editUser));
+        btn.addEventListener("click", () => {
+          openEditInfoModal("user", member.id, member.name, member.phone, true, "대표자 정보 수정", refresh);
+        });
+      });
+      container.querySelectorAll("[data-reset-user]").forEach((btn) => {
+        btn.addEventListener("click", () => resetHouseholdUserPasswordFlow(Number(btn.dataset.resetUser)));
+      });
+      if (isSuspended) {
+        document.getElementById("reactivateHouseholdBtn").addEventListener("click", () => reactivateHouseholdFlow(householdId, refresh));
+      } else {
+        document.getElementById("suspendHouseholdBtn").addEventListener("click", () => suspendHouseholdFlow(householdId, refresh));
+      }
+      document.getElementById("withdrawHouseholdBtn").addEventListener("click", () => withdrawHouseholdFlow(householdId, detail.name, refresh));
+    }
   } catch (e) {
     container.innerHTML = "계정 정보를 불러오지 못했습니다.";
   }
@@ -648,9 +748,10 @@ function ensureConsultantsLoaded() {
   });
 }
 
-function renderHouseholdConsultants(householdId) {
+function renderHouseholdConsultants(householdId, householdStatus) {
   const container = document.getElementById("householdConsultantChips");
   container.innerHTML = "로딩 중...";
+  const isWithdrawn = householdStatus === "withdrawn";
 
   Promise.all([ensureConsultantsLoaded(), Api.getHouseholdConsultants(householdId)])
     .then(([allConsultants, myConsultants]) => {
@@ -685,7 +786,7 @@ function renderHouseholdConsultants(householdId) {
       });
 
       const remaining = allConsultants.filter((c) => !myIds.has(c.id));
-      if (remaining.length > 0) {
+      if (remaining.length > 0 && !isWithdrawn) {
         const select = document.createElement("select");
         select.style.cssText = "font-size:12px;padding:2px 4px;";
         select.innerHTML = remaining.map((c) => `<option value="${c.id}">${c.name}</option>`).join("");

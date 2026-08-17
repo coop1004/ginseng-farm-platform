@@ -89,6 +89,10 @@ def login(payload: schemas.LoginRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=403, detail="소속된 농가가 없습니다. 관리자에게 문의해주세요.")
 
     household = db.query(models.Household).filter(models.Household.id == membership.household_id).first()
+    if household.status == "suspended":
+        raise HTTPException(status_code=403, detail="정지된 계정입니다. 담당 컨설턴트 또는 관리자에게 문의해주세요.")
+    if household.status == "withdrawn":
+        raise HTTPException(status_code=403, detail="탈퇴 처리된 계정입니다.")
     return _token_response(db, user, household)
 
 

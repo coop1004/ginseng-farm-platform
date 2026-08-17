@@ -250,6 +250,8 @@ body {
 .status-분석완료 { background: #e3f2e3; color: var(--green-600); }
 .status-전문가검토필요 { background: #fdf0d8; color: var(--orange-500); }
 .status-분석실패 { background: #fde3e3; color: var(--red-500); }
+.status-정지 { background: #fdf0d8; color: var(--orange-500); }
+.status-탈퇴 { background: #e6e6e8; color: var(--gray-600); }
 .photo-empty { grid-column: 1 / -1; text-align: center; color: var(--gray-400); font-size: 12.5px; padding: 40px 0; }
 
 /* Map */

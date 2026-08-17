@@ -114,6 +114,10 @@ class Household(Base):
     organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False, default=DEFAULT_ORGANIZATION_ID)
     name = Column(String(100), nullable=False)  # 농가명 (대표자/농가 이름)
     join_code = Column(String(10), unique=True, nullable=False, index=True)
+    # "active"(기본) / "suspended"(로그인만 차단, 데이터 그대로 보존, 되돌릴 수 있음) /
+    # "withdrawn"(탈퇴 처리 완료 - 개인식별정보 익명화됨, 되돌릴 수 없음). 관리자가 농가
+    # 본인의 요청을 받아 대신 처리하는 용도(자가 탈퇴 버튼은 아직 없음).
+    status = Column(String(20), nullable=False, default="active")
     created_at = Column(DateTime, default=dt.datetime.utcnow)
 
     members = relationship("HouseholdMember", back_populates="household", cascade="all, delete-orphan")

@@ -48,6 +48,7 @@ class HouseholdOut(BaseModel):
     id: int
     name: str
     join_code: str
+    status: str = "active"
     crops: List[CropOut] = []  # 이 농가가 등록한(=화면에 노출할) 작물 목록
 
 
@@ -72,6 +73,7 @@ class HouseholdDetailOut(BaseModel):
     id: int
     name: str
     join_code: str
+    status: str = "active"
     members: List[UserOut] = []
 
 
