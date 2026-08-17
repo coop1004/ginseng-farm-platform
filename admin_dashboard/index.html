@@ -69,11 +69,14 @@
       <a href="#community" class="nav-item" data-section="community">🚩 커뮤니티 신고 검수</a>
     </nav>
     <div class="sidebar-footer">
-      <div id="connStatus" class="conn-status conn-pending">서버 연결 확인 중…</div>
-      <div class="api-config">
-        <label for="apiBaseInput">API 서버 주소</label>
-        <input id="apiBaseInput" type="text" value="http://localhost:8000" />
-        <button id="apiBaseSave">적용</button>
+      <div id="apiConfigBlock" class="hidden">
+        <div id="connStatus" class="conn-status conn-pending">서버 연결 확인 중…</div>
+        <div class="api-config">
+          <label for="apiBaseInput">API 서버 주소</label>
+          <input id="apiBaseInput" type="text" value="http://localhost:8000" />
+          <button id="apiBaseSave">적용</button>
+          <button id="apiBaseReset" type="button">기본값으로 되돌리기</button>
+        </div>
       </div>
       <button id="installBtn" class="logout-btn install-btn">🖥 바탕화면에 바로가기 추가</button>
       <button id="accountBtn" class="logout-btn">⚙ 계정 관리</button>
@@ -210,7 +213,10 @@
           <h2>진단 기록 날씨 신뢰도</h2>
           <span class="panel-sub">전체 진단 기록 중 촬영 시점 실측 날씨와 대체/가상 값의 비율입니다</span>
         </div>
-        <div class="cards-grid" style="margin-bottom: 8px;">
+        <div id="weatherReliabilityDemoNotice" class="sample-banner" style="display:none;">
+          🧪 개발 중 — 실제 날씨 데이터가 아직 연동되지 않았습니다(데모 모드). 아래 통계는 실제 관측치가 아닙니다.
+        </div>
+        <div class="cards-grid" id="weatherReliabilityCards" style="margin-bottom: 8px;">
           <div class="stat-card">
             <div class="stat-icon icon-green">✅</div>
             <div>
@@ -1062,8 +1068,8 @@
 
 <div id="toast" class="toast hidden"></div>
 
-<script src="js/api.js?v=13"></script>
-<script src="js/dashboard.js?v=20"></script>
+<script src="js/api.js?v=14"></script>
+<script src="js/dashboard.js?v=21"></script>
 <script src="js/consultant.js?v=6"></script>
 <script>
   if ("serviceWorker" in navigator) {

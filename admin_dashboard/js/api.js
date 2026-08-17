@@ -1,5 +1,6 @@
 const Api = (() => {
-  let baseUrl = localStorage.getItem("apiBaseUrl") || "https://ginseng-farm-platform.onrender.com";
+  const DEFAULT_BASE_URL = "https://ginseng-farm-platform.onrender.com";
+  let baseUrl = localStorage.getItem("apiBaseUrl") || DEFAULT_BASE_URL;
   let adminToken = localStorage.getItem("adminToken") || null;
 
   function setBaseUrl(url) {
@@ -8,6 +9,12 @@ const Api = (() => {
   }
 
   function getBaseUrl() {
+    return baseUrl;
+  }
+
+  function resetBaseUrl() {
+    baseUrl = DEFAULT_BASE_URL;
+    localStorage.removeItem("apiBaseUrl");
     return baseUrl;
   }
 
@@ -47,6 +54,7 @@ const Api = (() => {
   return {
     setBaseUrl,
     getBaseUrl,
+    resetBaseUrl,
     setToken,
     getToken,
     isLoggedIn,

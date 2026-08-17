@@ -117,6 +117,14 @@ function setConnStatus(state, text) {
   el.textContent = text;
 }
 
+// "API 서버 주소" 전환 UI는 로컬/스테이징/프로덕션 백엔드를 화면 재배포 없이 빠르게
+// 바꿔보던 개발용 도구라, 이 값을 잘못 건드리면 대시보드 전체가 먹통이 될 수 있다.
+// 농협·농자재회사 같은 외부 elevated 계정(role="org_scoped")에게는 의미도 없고 위험만
+// 있으므로, 내부 운영 인력(role="platform_super")에게만 노출한다.
+function applyAdminRoleUI(role) {
+  document.getElementById("apiConfigBlock").classList.toggle("hidden", role !== "platform_super");
+}
+
 // ---------- Navigation ----------
 function initNav() {
   const navItems = document.querySelectorAll(".nav-item");
@@ -195,11 +203,25 @@ function renderSummary(summary) {
   document.getElementById("statAccuracy").textContent = acc !== null ? `${acc}%` : "데이터 부족";
 
   const wr = summary.weather_reliability;
-  if (wr) {
+  const weatherDemoNotice = document.getElementById("weatherReliabilityDemoNotice");
+  const weatherCards = document.getElementById("weatherReliabilityCards");
+  const weatherNote = document.getElementById("statWeatherNote");
+  if (wr && wr.demo_mode) {
+    // DEMO_MODE에서는 weather_service가 실제 API를 아예 호출하지 않아 이 통계가 항상
+    // 100% 가상 값으로 고정된다 - 매번 똑같은 의미 없는 수치 대신, 왜 그런지 설명하는
+    // 안내문으로 대체한다. demo_mode가 꺼지면(백엔드 설정만 바뀌면) 코드 변경 없이
+    // 자동으로 원래 통계 카드가 다시 보인다.
+    weatherDemoNotice.style.display = "";
+    weatherCards.style.display = "none";
+    weatherNote.style.display = "none";
+  } else if (wr) {
+    weatherDemoNotice.style.display = "none";
+    weatherCards.style.display = "";
+    weatherNote.style.display = "";
     document.getElementById("statWeatherReal").textContent = wr.real_count;
     document.getElementById("statWeatherFallback").textContent = wr.current_fallback_count;
     document.getElementById("statWeatherDemo").textContent = wr.demo_count + wr.unavailable_count;
-    document.getElementById("statWeatherNote").textContent =
+    weatherNote.textContent =
       wr.total_diagnoses > 0
         ? `전체 진단 ${wr.total_diagnoses}건 중 실측 날씨는 ${wr.real_count}건입니다. (위치 정보 없어 미기록 ${wr.unavailable_count}건 포함)`
         : "아직 진단 기록이 없습니다.";
@@ -2427,6 +2449,14 @@ async function loadAll() {
   }
 
   try {
+    const me = await Api.getMe();
+    applyAdminRoleUI(me.role);
+  } catch (e) {
+    // 조회 실패해도(예: 방금 로그아웃된 상황) 나머지 화면 로딩은 막지 않는다 - 이 경우
+    // apiConfigBlock은 기본값(hidden)으로 남아 안전한 쪽으로 처리된다.
+  }
+
+  try {
     // 5개 화면(종합현황/지역별발생현황/컨설턴트 활동현황/농가 참여도현황/병해충 사진 관리)이
     // 공유하는 품목 선택 기본값을 데이터를 받아오기 전에 먼저 확정해야, 첫 화면부터 바로
     // "인삼" 기준으로 걸러진 숫자가 보인다(나중에 확정하면 전체 데이터가 잠깐 보였다가
@@ -2748,6 +2778,11 @@ function init() {
       Api.setBaseUrl(val);
       loadAll();
     }
+  });
+  document.getElementById("apiBaseReset").addEventListener("click", () => {
+    const restored = Api.resetBaseUrl();
+    document.getElementById("apiBaseInput").value = restored;
+    loadAll();
   });
   document.getElementById("modalCancel").addEventListener("click", closeNotifyModal);
   document.getElementById("modalSend").addEventListener("click", submitNotify);

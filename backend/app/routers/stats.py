@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Query, Session
 
 from app import models, schemas
+from app.config import settings
 from app.database import get_db
 from app.deps import get_current_household_id
 
@@ -62,6 +63,7 @@ def build_summary(farm_query: Query, work_query: Query, diag_query: Query) -> di
         "demo_count": demo_count,
         "unavailable_count": unavailable_count,
         "total_diagnoses": len(diagnoses),
+        "demo_mode": settings.demo_mode,
     }
 
     return {

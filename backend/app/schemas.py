@@ -455,6 +455,9 @@ class WeatherReliabilitySummary(BaseModel):
     demo_count: int  # demo 또는 값 없음(구버전 레코드) - 실제 관측치 아님
     unavailable_count: int  # unavailable (위치 정보 자체가 없어 날씨 미기록)
     total_diagnoses: int
+    demo_mode: bool = False  # settings.demo_mode 그대로 - true면 실제 날씨 API를 아예
+    # 호출하지 않으므로(weather_service.get_weather_at 참고) 위 집계 자체가 항상
+    # 100% 가상 값으로 고정된다. 프런트가 이 값으로 통계 카드 대신 안내문을 보여준다.
 
 
 class StatsSummary(BaseModel):
