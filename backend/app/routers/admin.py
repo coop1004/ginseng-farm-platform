@@ -24,7 +24,12 @@ router = APIRouter(prefix="/api/admin", tags=["admin"])
 # regional-stats에서 이 값 미만인 지역은 정확한 건수 대신 "N건 미만"으로 뭉개서 보여준다.
 # 농가가 한 곳뿐인 지역에서 정확한 소수 건수가 노출되면 사실상 특정 농가를 지목하는
 # 것과 같아지는 걸 막기 위한 최소 표본수 안전장치 - 나중에 조정할 때 이 값만 바꾸면 된다.
-REGIONAL_STATS_MIN_SAMPLE_SIZE = 3
+# 지금은 파일럿 단계라 내부 관리자만 보는 화면이라 1로 낮춰 사실상 꺼둔다(로직 자체는
+# 남겨둔다 - 나중에 외부 기관용 화면을 만들 때는 더 높은 값을 넘겨 재사용할 수 있음).
+REGIONAL_STATS_MIN_SAMPLE_SIZE = 1
+
+# 지역x병해충류 증감 추이 비교 기간(최근 N일 vs 그 이전 N일) - 나중에 바꿀 때 이 값만 수정하면 됨.
+REGIONAL_TREND_WINDOW_DAYS = 7
 
 
 @router.post("/auth/login", response_model=schemas.AdminTokenResponse)
@@ -585,12 +590,15 @@ def admin_diagnoses(
     max_confidence: Optional[float] = None,
     diagnosis_type: Optional[str] = None,
     farm_id: Optional[int] = None,
+    region: Optional[str] = None,
+    pest_name: Optional[str] = None,
     limit: int = 200,
     db: Session = Depends(get_db),
     _admin: models.AdminUser = Depends(get_current_admin),
 ):
     """병해충 사진/진단 결과 관리자 조회. status로 분석완료/분석실패/전문가검토필요를
-    구분해서 필터링할 수 있다."""
+    구분해서 필터링할 수 있다. region/pest_name은 지역별 발생 지도의 지역x병해충류
+    드릴다운(진단 목록 화면)에서 쓴다."""
     query = db.query(models.Diagnosis)
     if status:
         query = query.filter(models.Diagnosis.status == status)
@@ -602,6 +610,10 @@ def admin_diagnoses(
         query = query.filter(models.Diagnosis.diagnosis_type == diagnosis_type)
     if farm_id:
         query = query.filter(models.Diagnosis.farm_id == farm_id)
+    if region:
+        query = query.join(models.Farm).filter(models.Farm.region == region)
+    if pest_name:
+        query = query.filter(models.Diagnosis.ai_disease_name == pest_name)
 
     diagnoses = query.order_by(models.Diagnosis.created_at.desc()).limit(limit).all()
     results = []
@@ -721,6 +733,75 @@ def regional_stats(
                 "by_crop": {} if suppressed else dict(data["by_crop"]),
                 "top_issue": None if suppressed else (data["by_name"].most_common(1)[0][0] if data["by_name"] else None),
                 "suppressed": suppressed,
+            }
+        )
+    output.sort(key=lambda x: x["total"], reverse=True)
+    return output
+
+
+@router.get("/regional-stats/breakdown")
+def regional_stats_breakdown(
+    region: str,
+    crop_id: Optional[int] = None,
+    min_sample_size: Optional[int] = None,
+    db: Session = Depends(get_db),
+    _admin: models.AdminUser = Depends(get_current_admin),
+):
+    """지역 드릴다운 1단계 - 특정 지역 안의 병해충류별 발생건수와 최근 증감 추이(최근
+    REGIONAL_TREND_WINDOW_DAYS일 vs 그 이전 같은 길이 기간)를 반환한다. min_sample_size를
+    생략하면 REGIONAL_STATS_MIN_SAMPLE_SIZE(지금은 1, 사실상 무시)를 쓰고, 나중에 외부
+    기관용 화면에서는 더 높은 값을 넘겨 재사용할 수 있다."""
+    threshold = min_sample_size if min_sample_size is not None else REGIONAL_STATS_MIN_SAMPLE_SIZE
+
+    farm_query = db.query(models.Farm).filter(models.Farm.region == region)
+    if crop_id is not None:
+        farm_query = farm_query.filter(models.Farm.crop_id == crop_id)
+    farm_ids = [f.id for f in farm_query.all()]
+    if not farm_ids:
+        return []
+
+    diagnoses = (
+        db.query(models.Diagnosis)
+        .filter(models.Diagnosis.farm_id.in_(farm_ids), models.Diagnosis.ai_disease_name.isnot(None))
+        .all()
+    )
+
+    today = dt.date.today()
+    recent_cutoff = today - dt.timedelta(days=REGIONAL_TREND_WINDOW_DAYS)
+    previous_cutoff = today - dt.timedelta(days=REGIONAL_TREND_WINDOW_DAYS * 2)
+
+    by_name: dict = {}
+    for d in diagnoses:
+        name = d.ai_disease_name
+        entry = by_name.setdefault(
+            name, {"name": name, "diagnosis_type": d.diagnosis_type, "total": 0, "recent": 0, "previous": 0}
+        )
+        entry["total"] += 1
+        occ = d.occurrence_date
+        if occ is None:
+            continue
+        if recent_cutoff < occ <= today:
+            entry["recent"] += 1
+        elif previous_cutoff < occ <= recent_cutoff:
+            entry["previous"] += 1
+
+    output = []
+    for data in by_name.values():
+        total = data["total"]
+        suppressed = total < threshold
+        change = data["recent"] - data["previous"]
+        direction = "up" if change > 0 else ("down" if change < 0 else "flat")
+        output.append(
+            {
+                "name": data["name"],
+                "diagnosis_type": data["diagnosis_type"],
+                "total": total,
+                "total_display": f"{threshold}건 미만" if suppressed else f"{total}건",
+                "suppressed": suppressed,
+                "recent_count": None if suppressed else data["recent"],
+                "previous_count": None if suppressed else data["previous"],
+                "change": None if suppressed else change,
+                "trend_direction": None if suppressed else direction,
             }
         )
     output.sort(key=lambda x: x["total"], reverse=True)

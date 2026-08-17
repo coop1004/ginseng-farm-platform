@@ -57,6 +57,11 @@ const Api = (() => {
     getFarmsOverview: () => request("/api/admin/farms/overview"),
     getRegionalStats: (cropId) =>
       request(`/api/admin/regional-stats${cropId ? `?crop_id=${cropId}` : ""}`),
+    getRegionalBreakdown: (region, cropId) => {
+      const qs = new URLSearchParams({ region });
+      if (cropId) qs.set("crop_id", cropId);
+      return request(`/api/admin/regional-stats/breakdown?${qs.toString()}`);
+    },
     listReferences: () => request("/api/admin/reference"),
     createReference: (payload) =>
       request("/api/admin/reference", { method: "POST", body: JSON.stringify(payload) }),

@@ -14,7 +14,7 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<link rel="stylesheet" href="css/style.css?v=5" />
+<link rel="stylesheet" href="css/style.css?v=6" />
 </head>
 <body>
 <div id="loginScreen" class="login-screen">
@@ -235,7 +235,10 @@
         <div class="chart-wrap" style="height: 320px;"><canvas id="regionCropChart"></canvas></div>
       </div>
       <div class="panel">
-        <div class="panel-header"><h2>지역별 발생 요약</h2></div>
+        <div class="panel-header">
+          <h2>지역별 발생 요약</h2>
+          <span class="panel-sub">지역을 클릭하면 병해충류별 발생건수·증감 추이를 볼 수 있습니다</span>
+        </div>
         <div class="table-wrap">
           <table class="data-table" id="regionTable">
             <thead>
@@ -711,6 +714,42 @@
   </div>
 </div>
 
+<div id="regionBreakdownModal" class="modal-backdrop hidden">
+  <div class="modal modal-wide">
+    <h3 id="regionBreakdownTitle">지역 발생 현황</h3>
+
+    <div id="regionBreakdownListView">
+      <p class="panel-sub" style="margin-bottom: 8px;">병해충류를 클릭하면 해당 진단 목록을 볼 수 있습니다</p>
+      <div class="table-wrap">
+        <table class="data-table" id="regionBreakdownTable">
+          <thead>
+            <tr><th>병해충류</th><th>유형</th><th>발생건수</th><th>증감 추이(최근 7일)</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="regionBreakdownDiagnosisView" class="hidden">
+      <button id="regionBreakdownBackBtn" class="btn btn-ghost btn-sm">← 병해충류 목록으로</button>
+      <p class="modal-farm" id="regionBreakdownDiagnosisSub"></p>
+      <button id="regionBreakdownNotifyBtn" class="btn btn-primary btn-sm">📢 이 지역·이 병해충 대상 알림 보내기</button>
+      <div class="table-wrap" style="margin-top: 10px;">
+        <table class="data-table" id="regionBreakdownDiagnosisTable">
+          <thead>
+            <tr><th>농가</th><th>농장</th><th>진단일</th><th>유형</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button id="regionBreakdownClose" class="btn btn-ghost">닫기</button>
+    </div>
+  </div>
+</div>
+
 <div id="diagnosisDetailModal" class="modal-backdrop hidden">
   <div class="modal modal-wide">
     <h3>진단 상세</h3>
@@ -803,8 +842,8 @@
 
 <div id="toast" class="toast hidden"></div>
 
-<script src="js/api.js?v=8"></script>
-<script src="js/dashboard.js?v=10"></script>
+<script src="js/api.js?v=9"></script>
+<script src="js/dashboard.js?v=11"></script>
 <script src="js/consultant.js?v=3"></script>
 <script>
   if ("serviceWorker" in navigator) {

@@ -260,8 +260,17 @@ function renderMap(regionalStats) {
       fillOpacity: 0.55,
     }).addTo(map);
     marker.bindPopup(
-      `<b>${r.region}</b><br/>총 발생: ${r.total_display}<br/>주요 병해충: ${r.top_issue || "-"}`
+      `<b>${r.region}</b><br/>총 발생: ${r.total_display}<br/>주요 병해충: ${r.top_issue || "-"}<br/><a href="#" data-region-drilldown="${r.region}">병해충류별 보기 →</a>`
     );
+    marker.on("popupopen", () => {
+      const link = document.querySelector(`[data-region-drilldown="${CSS.escape(r.region)}"]`);
+      if (link) {
+        link.addEventListener("click", (e) => {
+          e.preventDefault();
+          openRegionBreakdownModal(r.region);
+        });
+      }
+    });
     mapMarkers.push(marker);
   });
 }
@@ -277,6 +286,7 @@ function renderRegionTable(regionalStats) {
       .map(([c, n]) => `${c} ${n}`)
       .join(" · ");
     const tr = document.createElement("tr");
+    tr.className = "clickable-row";
     tr.innerHTML = `
       <td><strong>${r.region}</strong></td>
       <td>${r.total_display}</td>
@@ -284,6 +294,7 @@ function renderRegionTable(regionalStats) {
       <td>${typeStr}</td>
       <td>${cropStr || "-"}</td>
     `;
+    tr.addEventListener("click", () => openRegionBreakdownModal(r.region));
     tbody.appendChild(tr);
   });
 }
@@ -331,6 +342,118 @@ function loadRegionalStats(cropId) {
       renderRegionCropChart(regional);
     })
     .catch((e) => showToast(`지역 통계 로드 실패: ${e.message}`, true));
+}
+
+// ---------- 지역 발생 현황 드릴다운: 지역 -> 병해충류별(+증감) -> 진단 목록 -> 상세/알림 ----------
+let regionBreakdownContext = { region: null, pestName: null };
+
+function trendBadgeHtml(item) {
+  if (item.suppressed || item.trend_direction == null) return "-";
+  if (item.trend_direction === "up") return `<span class="trend-badge trend-up">▲ 증가(+${item.change})</span>`;
+  if (item.trend_direction === "down") return `<span class="trend-badge trend-down">▼ 감소(${item.change})</span>`;
+  return `<span class="trend-badge trend-flat">- 변동없음</span>`;
+}
+
+function openRegionBreakdownModal(region) {
+  regionBreakdownContext = { region, pestName: null };
+  document.getElementById("regionBreakdownTitle").textContent = `${region} · 병해충류별 발생 현황`;
+  document.getElementById("regionBreakdownListView").classList.remove("hidden");
+  document.getElementById("regionBreakdownDiagnosisView").classList.add("hidden");
+  document.getElementById("regionBreakdownModal").classList.remove("hidden");
+  loadRegionBreakdownList(region);
+}
+
+function closeRegionBreakdownModal() {
+  document.getElementById("regionBreakdownModal").classList.add("hidden");
+}
+
+function loadRegionBreakdownList(region) {
+  const tbody = document.querySelector("#regionBreakdownTable tbody");
+  tbody.innerHTML = `<tr><td colspan="4">불러오는 중…</td></tr>`;
+  Api.getRegionalBreakdown(region)
+    .then((items) => {
+      if (items.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4">발생 기록이 없습니다.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = "";
+      items.forEach((item) => {
+        const tr = document.createElement("tr");
+        tr.className = "clickable-row";
+        tr.innerHTML = `
+          <td><strong>${item.name}</strong></td>
+          <td><span class="${typeBadgeClass(item.diagnosis_type)}">${item.diagnosis_type}</span></td>
+          <td>${item.total_display}</td>
+          <td>${trendBadgeHtml(item)}</td>
+        `;
+        tr.addEventListener("click", () => openRegionBreakdownDiagnosisList(region, item.name));
+        tbody.appendChild(tr);
+      });
+    })
+    .catch((e) => {
+      if (e.isAuthError) {
+        closeRegionBreakdownModal();
+        showLoginScreen();
+        return;
+      }
+      tbody.innerHTML = `<tr><td colspan="4">불러오지 못했습니다: ${e.message}</td></tr>`;
+    });
+}
+
+function openRegionBreakdownDiagnosisList(region, pestName) {
+  regionBreakdownContext = { region, pestName };
+  document.getElementById("regionBreakdownListView").classList.add("hidden");
+  document.getElementById("regionBreakdownDiagnosisView").classList.remove("hidden");
+  document.getElementById("regionBreakdownDiagnosisSub").textContent = `${region} · ${pestName}`;
+
+  const tbody = document.querySelector("#regionBreakdownDiagnosisTable tbody");
+  tbody.innerHTML = `<tr><td colspan="4">불러오는 중…</td></tr>`;
+  Api.getAdminDiagnoses({ region, pest_name: pestName })
+    .then((list) => {
+      if (list.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4">진단 기록이 없습니다.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = "";
+      list.forEach((d) => {
+        const tr = document.createElement("tr");
+        tr.className = "clickable-row";
+        tr.innerHTML = `
+          <td>${d.household_name || "-"}</td>
+          <td>${d.farm_name || "-"}</td>
+          <td>${fmtDate(d.occurrence_date)}</td>
+          <td><span class="${typeBadgeClass(d.diagnosis_type)}">${d.diagnosis_type}</span></td>
+        `;
+        tr.addEventListener("click", () => openDiagnosisDetailModal(d.id));
+        tbody.appendChild(tr);
+      });
+    })
+    .catch((e) => {
+      if (e.isAuthError) {
+        closeRegionBreakdownModal();
+        showLoginScreen();
+        return;
+      }
+      tbody.innerHTML = `<tr><td colspan="4">불러오지 못했습니다: ${e.message}</td></tr>`;
+    });
+}
+
+function backToRegionBreakdownList() {
+  document.getElementById("regionBreakdownDiagnosisView").classList.add("hidden");
+  document.getElementById("regionBreakdownListView").classList.remove("hidden");
+}
+
+function notifyFromRegionBreakdown() {
+  const { region, pestName } = regionBreakdownContext;
+  if (!region) return;
+  closeRegionBreakdownModal();
+  openBroadcastModal({
+    region,
+    title: pestName ? `${pestName} 예찰·방제 안내` : `${region} 병해충 예찰 안내`,
+    message: pestName
+      ? `[${region}] 최근 ${pestName} 발생이 확인되고 있습니다. 예찰 및 방제에 참고 부탁드립니다.`
+      : `[${region}] 병해충 예찰 정보를 안내드립니다.`,
+  });
 }
 
 function populateRegionalCropFilter() {
@@ -1280,16 +1403,22 @@ async function submitNotify() {
 }
 
 // ---------- Broadcast modal ----------
-async function openBroadcastModal() {
-  document.getElementById("broadcastTitle").value = "";
+// prefill: 지역 발생 현황 드릴다운에서 "이 지역·이 병해충 대상 알림 보내기"로 들어올 때
+// { region, title, message } 형태로 넘어온다. 대상 조직은 여기서 미리 정하지 않는다 -
+// role 기반 조직 필터링(누가 어느 조직을 볼 수 있는지)은 기존 로직 그대로 두고, 관리자가
+// 화면에서 직접 고르게 한다.
+async function openBroadcastModal(prefill = {}) {
+  document.getElementById("broadcastTitle").value = prefill.title || "";
   document.getElementById("broadcastProduct").value = "";
-  document.getElementById("broadcastMessage").value = "";
-  document.querySelector('input[name="broadcastTarget"][value="all"]').checked = true;
+  document.getElementById("broadcastMessage").value = prefill.message || "";
+  const targetValue = prefill.region ? "region" : "all";
+  document.querySelector(`input[name="broadcastTarget"][value="${targetValue}"]`).checked = true;
   updateBroadcastTargetVisibility();
 
   const regions = Array.from(new Set(currentFarms.map((f) => f.region).filter(Boolean))).sort();
   const regionSelect = document.getElementById("broadcastRegionSelect");
   regionSelect.innerHTML = regions.map((r) => `<option value="${r}">${r}</option>`).join("");
+  if (prefill.region) regionSelect.value = prefill.region;
 
   // "전체 농가"/"지역 선택"은 조직 경계를 넘나드는 대상 선정이라, 어느 조직 대상인지
   // 화면에서 명시적으로 고르게 한다("농가 직접 선택"은 이미 특정 농가를 콕 집는 것이라
@@ -2139,7 +2268,7 @@ function init() {
     if (e.target.id === "notifyModal") closeNotifyModal();
   });
 
-  document.getElementById("openBroadcastBtn").addEventListener("click", openBroadcastModal);
+  document.getElementById("openBroadcastBtn").addEventListener("click", () => openBroadcastModal());
   document.getElementById("broadcastCancel").addEventListener("click", closeBroadcastModal);
   document.getElementById("broadcastSend").addEventListener("click", submitBroadcast);
   document.getElementById("broadcastModal").addEventListener("click", (e) => {
@@ -2178,6 +2307,13 @@ function init() {
   document.getElementById("consultantStatsModal").addEventListener("click", (e) => {
     if (e.target.id === "consultantStatsModal") closeConsultantStatsModal();
   });
+
+  document.getElementById("regionBreakdownClose").addEventListener("click", closeRegionBreakdownModal);
+  document.getElementById("regionBreakdownModal").addEventListener("click", (e) => {
+    if (e.target.id === "regionBreakdownModal") closeRegionBreakdownModal();
+  });
+  document.getElementById("regionBreakdownBackBtn").addEventListener("click", backToRegionBreakdownList);
+  document.getElementById("regionBreakdownNotifyBtn").addEventListener("click", notifyFromRegionBreakdown);
 
   document.getElementById("diagnosisDetailClose").addEventListener("click", closeDiagnosisDetailModal);
   document.getElementById("diagnosisDetailModal").addEventListener("click", (e) => {
