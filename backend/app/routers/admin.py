@@ -151,6 +151,7 @@ def admin_consultants_stats_summary(
     period: str = "this_month",
     start_date: Optional[dt.date] = None,
     end_date: Optional[dt.date] = None,
+    crop_id: Optional[int] = None,
     db: Session = Depends(get_db),
     _admin: models.AdminUser = Depends(get_current_admin),
 ):
@@ -158,9 +159,10 @@ def admin_consultants_stats_summary(
     "컨설턴트 활동현황" 전용 화면이 함께 쓰는 엔드포인트. period 기본값을 "this_month"로 둬서
     메인 화면 카드의 기존 동작(이번 달 스냅샷, 상위 5명)을 그대로 보존하고, 전용 화면은
     period/start_date/end_date/top_n을 명시적으로 바꿔가며 같은 엔드포인트를 재사용한다.
+    crop_id를 주면 그 작물 소속 필지에서 일어난 진단/코멘트만으로 좁힌다.
     개별 컨설턴트 상세는 여전히 GET /consultants/{consultant_id}/stats를 그대로 쓴다."""
     start, end = consultant_service.resolve_period_range(period, start_date, end_date)
-    return consultant_service.compute_all_consultants_summary(db, top_n=top_n, start=start, end=end)
+    return consultant_service.compute_all_consultants_summary(db, top_n=top_n, start=start, end=end, crop_id=crop_id)
 
 
 @router.delete("/consultants/{consultant_id}")
@@ -283,18 +285,19 @@ def get_consultant_stats(
     period: str = "all",
     start_date: Optional[dt.date] = None,
     end_date: Optional[dt.date] = None,
+    crop_id: Optional[int] = None,
     db: Session = Depends(get_db),
     _current_admin: models.AdminUser = Depends(get_current_admin),
 ):
     """관리자가 특정 컨설턴트의 활동 실적을 본다. 컨설턴트 본인 화면(/api/consultant/stats/summary)과
     동일한 집계 로직(consultant_service.compute_stats)을 재사용한다. period 기본값을 "all"(무제한)로
     둬서, 파라미터 없이 부르던 기존 호출부(컨설턴트 본인 화면, 계정관리에서 옮기기 전의 상세 모달)의
-    동작을 그대로 보존한다 - "컨설턴트 활동현황" 화면에서는 선택한 기간을 명시적으로 넘긴다."""
+    동작을 그대로 보존한다 - "컨설턴트 활동현황" 화면에서는 선택한 기간/작물을 명시적으로 넘긴다."""
     consultant = db.query(models.ConsultantUser).filter(models.ConsultantUser.id == consultant_id).first()
     if not consultant:
         raise HTTPException(status_code=404, detail="컨설턴트를 찾을 수 없습니다.")
     start, end = consultant_service.resolve_period_range(period, start_date, end_date)
-    return consultant_service.compute_stats(db, consultant, start=start, end=end)
+    return consultant_service.compute_stats(db, consultant, start=start, end=end, crop_id=crop_id)
 
 
 # 농가 참여도 종합점수 = 진단활용도*가중치 + 기록성실도*가중치 + 정보완성도*가중치 (합 100).
@@ -320,13 +323,15 @@ def households_participation(
     start_date: Optional[dt.date] = None,
     end_date: Optional[dt.date] = None,
     organization_id: Optional[int] = None,
+    crop_id: Optional[int] = None,
     db: Session = Depends(get_db),
     current_admin: models.AdminUser = Depends(get_current_admin),
 ):
     """농가별 참여도(진단 활용도/기록 성실도/정보 완성도) 집계 - "농가 참여도 현황" 화면용.
     조직 스코프는 처방알림 브로드캐스트와 동일한 패턴을 재사용한다: org_scoped 관리자는
     자기 조직으로 강제되고, platform_super 관리자는 organization_id를 반드시 명시해야
-    한다(생략 시 400 - 암묵적 전체 조직 노출 방지).
+    한다(생략 시 400 - 암묵적 전체 조직 노출 방지). crop_id를 주면 그 작물 소속 농장이 하나도
+    없는 농가는 결과에서 아예 빠진다(해당 작물과 무관한 농가라 참여도 비교 대상이 아니므로).
 
     - 진단 활용도(diagnosis_count): 선택 기간 내 AI 진단 요청 건수(Diagnosis.created_at 기준 -
       "농가가 이 기능을 실제로 얼마나 쓰는지"를 보는 지표라 병해충이 발생한 날짜(occurrence_date)가
@@ -349,12 +354,14 @@ def households_participation(
 
     start, end = consultant_service.resolve_period_range(period, start_date, end_date)
 
-    farms = (
+    farm_query = (
         db.query(models.Farm)
         .join(models.Household, models.Farm.household_id == models.Household.id)
         .filter(models.Farm.organization_id == target_org_id, models.Household.status != "withdrawn")
-        .all()
     )
+    if crop_id is not None:
+        farm_query = farm_query.filter(models.Farm.crop_id == crop_id)
+    farms = farm_query.all()
     if not farms:
         return []
 
@@ -594,19 +601,27 @@ def admin_stats_summary(
     period: str = "all",
     start_date: Optional[dt.date] = None,
     end_date: Optional[dt.date] = None,
+    crop_id: Optional[int] = None,
     db: Session = Depends(get_db),
     _admin: models.AdminUser = Depends(get_current_admin),
 ):
     """관리자 대시보드용 전사(全社) 통계 - 특정 농가로 필터링하지 않고 전체 집계.
     period/start_date/end_date를 주면 진단·영농일지는 발생일(occurrence_date/work_date) 기준으로
     그 기간 안의 것만 집계한다(컨설턴트 활동현황과 같은 consultant_service.resolve_period_range를
-    재사용). total_farms/total_households는 "지금 등록된 농가 수" 자체가 기간과 무관한 스냅샷
-    개념이라 기간과 상관없이 항상 현재 값을 반환한다. 파라미터를 아무것도 안 주면(기본값 "all")
-    기존과 동일하게 전체 기간을 집계해서 회귀가 없다."""
+    재사용). crop_id를 주면 그 작물 소속 필지로만 좁힌다(인삼/고추/배추가 한 화면에 섞여 보이는
+    문제 대응 - 관리자 대시보드는 기본값을 인삼으로 두고 필요할 때 전체/다른 작물로 바꿔본다).
+    total_farms/total_households는 "지금 등록된 농가 수" 자체가 기간과 무관한 스냅샷 개념이라
+    기간과 상관없이 항상 현재 값을 반환하지만, crop_id는 그 작물 소속 농장/농가만 세도록 적용한다.
+    파라미터를 아무것도 안 주면(기본값 "all"/None) 기존과 동일하게 전체를 집계해서 회귀가 없다."""
     start, end = consultant_service.resolve_period_range(period, start_date, end_date)
 
+    farm_query = db.query(models.Farm)
     work_query = db.query(models.WorkLog)
     diag_query = db.query(models.Diagnosis)
+    if crop_id is not None:
+        farm_query = farm_query.filter(models.Farm.crop_id == crop_id)
+        work_query = work_query.join(models.Farm).filter(models.Farm.crop_id == crop_id)
+        diag_query = diag_query.join(models.Farm).filter(models.Farm.crop_id == crop_id)
     if start is not None:
         work_query = work_query.filter(models.WorkLog.work_date >= start.date())
         diag_query = diag_query.filter(models.Diagnosis.occurrence_date >= start.date())
@@ -614,8 +629,17 @@ def admin_stats_summary(
         work_query = work_query.filter(models.WorkLog.work_date <= end.date())
         diag_query = diag_query.filter(models.Diagnosis.occurrence_date <= end.date())
 
-    summary = build_summary(db.query(models.Farm), work_query, diag_query)
-    summary["total_households"] = db.query(models.Household).count()
+    summary = build_summary(farm_query, work_query, diag_query)
+    if crop_id is not None:
+        summary["total_households"] = (
+            db.query(models.Household.id)
+            .join(models.Farm, models.Farm.household_id == models.Household.id)
+            .filter(models.Farm.crop_id == crop_id)
+            .distinct()
+            .count()
+        )
+    else:
+        summary["total_households"] = db.query(models.Household).count()
     return summary
 
 
@@ -751,13 +775,15 @@ def admin_diagnoses(
     farm_id: Optional[int] = None,
     region: Optional[str] = None,
     pest_name: Optional[str] = None,
+    crop_id: Optional[int] = None,
     limit: int = 200,
     db: Session = Depends(get_db),
     _admin: models.AdminUser = Depends(get_current_admin),
 ):
     """병해충 사진/진단 결과 관리자 조회. status로 분석완료/분석실패/전문가검토필요를
     구분해서 필터링할 수 있다. region/pest_name은 지역별 발생 지도의 지역x병해충류
-    드릴다운(진단 목록 화면)에서 쓴다."""
+    드릴다운(진단 목록 화면)에서 쓴다. crop_id는 그 작물 소속 필지의 진단으로 좁힌다
+    (region/crop_id 둘 다 Farm을 참조하므로 한 번만 join한다)."""
     query = db.query(models.Diagnosis)
     if status:
         query = query.filter(models.Diagnosis.status == status)
@@ -769,8 +795,12 @@ def admin_diagnoses(
         query = query.filter(models.Diagnosis.diagnosis_type == diagnosis_type)
     if farm_id:
         query = query.filter(models.Diagnosis.farm_id == farm_id)
-    if region:
-        query = query.join(models.Farm).filter(models.Farm.region == region)
+    if region or crop_id is not None:
+        query = query.join(models.Farm)
+        if region:
+            query = query.filter(models.Farm.region == region)
+        if crop_id is not None:
+            query = query.filter(models.Farm.crop_id == crop_id)
     if pest_name:
         query = query.filter(models.Diagnosis.ai_disease_name == pest_name)
 

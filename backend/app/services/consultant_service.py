@@ -43,10 +43,12 @@ def compute_stats(
     consultant: models.ConsultantUser,
     start: Optional[dt.datetime] = None,
     end: Optional[dt.datetime] = None,
+    crop_id: Optional[int] = None,
 ) -> dict:
     """담당 농가/농장 수(household_count/farm_count)는 "지금 배정된 범위"라는 개념이라
-    기간과 무관하게 항상 현재 값을 쓴다. 나머지(진단·코멘트·피드백 건수)는 start/end
-    안에서 발생한 것만 센다 - 기본값(None, None)이면 기존과 동일하게 전체 기간이다."""
+    기간과 무관하게 항상 현재 값을 쓴다(다만 crop_id가 있으면 그 작물 소속 농장/그 농장을
+    가진 농가로 좁힌다). 나머지(진단·코멘트·피드백 건수)는 start/end 안에서 발생한 것만
+    센다 - 기본값(None, None)이면 기존과 동일하게 전체 기간이다."""
     household_ids = [
         r[0]
         for r in db.query(models.ConsultantHousehold.household_id)
@@ -54,16 +56,23 @@ def compute_stats(
         .all()
     ]
 
-    household_count = len(household_ids)
     farm_count = 0
+    household_count = len(household_ids)
     scoped_diagnoses: list[models.Diagnosis] = []
     if household_ids:
-        farm_count = db.query(models.Farm).filter(models.Farm.household_id.in_(household_ids)).count()
+        farm_query = db.query(models.Farm).filter(models.Farm.household_id.in_(household_ids))
+        if crop_id is not None:
+            farm_query = farm_query.filter(models.Farm.crop_id == crop_id)
+            household_count = farm_query.with_entities(models.Farm.household_id).distinct().count()
+        farm_count = farm_query.count()
+
         diagnoses_query = (
             db.query(models.Diagnosis)
             .join(models.Farm, models.Diagnosis.farm_id == models.Farm.id)
             .filter(models.Farm.household_id.in_(household_ids))
         )
+        if crop_id is not None:
+            diagnoses_query = diagnoses_query.filter(models.Farm.crop_id == crop_id)
         if start is not None:
             diagnoses_query = diagnoses_query.filter(models.Diagnosis.created_at >= start)
         if end is not None:
@@ -78,6 +87,10 @@ def compute_stats(
     comment_query = db.query(models.DiagnosisComment).filter(
         models.DiagnosisComment.author_consultant_id == consultant.id
     )
+    if crop_id is not None:
+        comment_query = comment_query.join(
+            models.Diagnosis, models.DiagnosisComment.diagnosis_id == models.Diagnosis.id
+        ).join(models.Farm, models.Diagnosis.farm_id == models.Farm.id).filter(models.Farm.crop_id == crop_id)
     if start is not None:
         comment_query = comment_query.filter(models.DiagnosisComment.created_at >= start)
     if end is not None:
@@ -106,21 +119,29 @@ def compute_all_consultants_summary(
     top_n: int = 5,
     start: Optional[dt.datetime] = None,
     end: Optional[dt.datetime] = None,
+    crop_id: Optional[int] = None,
 ) -> dict:
     """관리자 대시보드 메인 화면 "컨설턴트 활동 실적" 요약 카드와 "컨설턴트 활동현황"
     전용 화면이 공유하는 집계 엔드포인트용 함수. top_n으로 상위 몇 명만 자를지
     정하고(메인 카드는 5, 전용 화면 "전체 보기"는 충분히 큰 값을 넘겨 사실상 전체),
-    start/end로 기간을 제한한다(둘 다 None이면 무제한 = 전체 기간)."""
+    start/end로 기간을 제한한다(둘 다 None이면 무제한 = 전체 기간). crop_id를 주면
+    그 작물 소속 필지에서 일어난 진단/코멘트만 센다(누적(전체기간) 컬럼도 동일하게 적용
+    - 작물 필터는 기간과 별개 축이라 "전체기간" 컬럼에도 그대로 적용하는 게 맞다)."""
     consultants = db.query(models.ConsultantUser).order_by(models.ConsultantUser.created_at).all()
 
     diagnosis_count_total = 0
     ranking: List[dict] = []
     for consultant in consultants:
-        total_all_time = (
-            db.query(models.Diagnosis).filter(models.Diagnosis.created_by_consultant_id == consultant.id).count()
+        total_all_time_query = db.query(models.Diagnosis).filter(
+            models.Diagnosis.created_by_consultant_id == consultant.id
         )
+        if crop_id is not None:
+            total_all_time_query = total_all_time_query.join(models.Farm).filter(models.Farm.crop_id == crop_id)
+        total_all_time = total_all_time_query.count()
 
         diag_query = db.query(models.Diagnosis).filter(models.Diagnosis.created_by_consultant_id == consultant.id)
+        if crop_id is not None:
+            diag_query = diag_query.join(models.Farm).filter(models.Farm.crop_id == crop_id)
         if start is not None:
             diag_query = diag_query.filter(models.Diagnosis.created_at >= start)
         if end is not None:
@@ -137,6 +158,10 @@ def compute_all_consultants_summary(
         comment_query = db.query(models.DiagnosisComment).filter(
             models.DiagnosisComment.author_consultant_id == consultant.id
         )
+        if crop_id is not None:
+            comment_query = comment_query.join(
+                models.Diagnosis, models.DiagnosisComment.diagnosis_id == models.Diagnosis.id
+            ).join(models.Farm, models.Diagnosis.farm_id == models.Farm.id).filter(models.Farm.crop_id == crop_id)
         if start is not None:
             comment_query = comment_query.filter(models.DiagnosisComment.created_at >= start)
         if end is not None:

@@ -4,6 +4,53 @@ let mapMarkers = [];
 let currentFarms = [];
 let currentHouseholds = [];
 
+// ---------- 공용 품목(작물) 선택 상태 ----------
+// 종합현황/지역별발생현황/컨설턴트 활동현황/농가 참여도현황/병해충 사진 관리가 전부 이 값
+// 하나를 공유한다 - 화면(탭)을 옮겨도, 새로고침해도 마지막 선택이 유지되도록 localStorage에
+// 저장한다. localStorage에 값이 아예 없는 최초 방문에만 "인삼"을 기본값으로 맞추고,
+// 사용자가 명시적으로 "전체"(빈 문자열)를 고른 뒤에는 그 선택을 그대로 존중한다
+// (getItem이 null이면 "한 번도 고른 적 없음", ""이면 "전체를 명시적으로 골랐음"으로 구분).
+const CROP_STORAGE_KEY = "adminSelectedCropId";
+const _storedCropId = localStorage.getItem(CROP_STORAGE_KEY);
+let globalSelectedCropId = _storedCropId || "";
+let globalCropDefaultResolved = _storedCropId !== null;
+
+function getSelectedCropId() {
+  return globalSelectedCropId;
+}
+
+function setSelectedCropId(value) {
+  globalSelectedCropId = value || "";
+  localStorage.setItem(CROP_STORAGE_KEY, globalSelectedCropId);
+  document.querySelectorAll(".crop-select-global").forEach((sel) => {
+    if (sel.value !== globalSelectedCropId) sel.value = globalSelectedCropId;
+  });
+}
+
+function ensureCropDefault(crops) {
+  if (globalCropDefaultResolved) return;
+  globalCropDefaultResolved = true;
+  const ginseng = crops.find((c) => c.name_kr === "인삼");
+  if (ginseng) {
+    globalSelectedCropId = String(ginseng.id);
+    localStorage.setItem(CROP_STORAGE_KEY, globalSelectedCropId);
+  }
+}
+
+// 화면마다 있는 품목 선택 <select> 하나를 공용 상태로 채운다. 실제 데이터 재조회(reload)는
+// 호출부에서 change 리스너로 직접 트리거한다 - 이 함수는 select의 옵션/선택값만 맞춘다.
+function populateCropSelect(selectEl) {
+  return ensureCropsLoaded().then((crops) => {
+    ensureCropDefault(crops);
+    selectEl.classList.add("crop-select-global");
+    selectEl.innerHTML =
+      `<option value="">전체</option>` +
+      crops.map((c) => `<option value="${c.id}">${c.icon_emoji || ""} ${c.name_kr}</option>`).join("");
+    selectEl.value = globalSelectedCropId;
+    return crops;
+  });
+}
+
 // "바탕화면에 바로가기" — 크롬/엣지/안드로이드는 이 이벤트를 잡아뒀다가 버튼 클릭 시
 // prompt()로 설치창을 띄운다. 이벤트가 오기 전에 버튼을 누르면(iOS Safari처럼 이
 // 이벤트 자체가 없는 브라우저 포함) 수동 설치 방법을 안내한다.
@@ -89,6 +136,17 @@ function initNav() {
       document.querySelectorAll(".section").forEach((s) => s.classList.add("hidden"));
       document.getElementById(section).classList.remove("hidden");
       document.getElementById("pageTitle").textContent = titles[section];
+      // 화면(탭)을 옮겨도 공용 품목 선택이 유지되므로, 다시 들어올 때마다 그 화면의
+      // 데이터를 지금 선택된 품목 기준으로 다시 불러온다 - 그래야 다른 화면에서 품목을
+      // 바꾼 뒤 이 화면으로 돌아왔을 때도(select 표시값만 바뀌고 실제 데이터는 그대로인)
+      // 불일치가 생기지 않는다.
+      if (section === "overview") {
+        reloadStatsSummary();
+        loadConsultantActivitySummary();
+      }
+      if (section === "map") {
+        loadRegionalStats(currentRegionalCropFilterValue());
+      }
       if (section === "map" && map) {
         setTimeout(() => map.invalidateSize(), 100);
       }
@@ -106,6 +164,9 @@ function initNav() {
       }
       if (section === "consultant-activity") {
         loadConsultantActivityPage();
+      }
+      if (section === "photos") {
+        loadPhotosDiagnoses();
       }
     });
   });
@@ -363,7 +424,7 @@ function currentRegionalCropFilterValue() {
 
 function reloadStatsSummary() {
   const { period, startDate, endDate } = statsSummaryPeriodState;
-  return Api.getStatsSummary({ period, startDate, endDate })
+  return Api.getStatsSummary({ period, startDate, endDate, cropId: getSelectedCropId() })
     .then(renderSummary)
     .catch((e) => showToast(`종합 현황 로드 실패: ${e.message}`, true));
 }
@@ -394,7 +455,7 @@ function closeRegionBreakdownModal() {
 function loadRegionBreakdownList(region) {
   const tbody = document.querySelector("#regionBreakdownTable tbody");
   tbody.innerHTML = `<tr><td colspan="4">불러오는 중…</td></tr>`;
-  Api.getRegionalBreakdown(region)
+  Api.getRegionalBreakdown(region, getSelectedCropId())
     .then((items) => {
       if (items.length === 0) {
         tbody.innerHTML = `<tr><td colspan="4">발생 기록이 없습니다.</td></tr>`;
@@ -432,7 +493,7 @@ function openRegionBreakdownDiagnosisList(region, pestName) {
 
   const tbody = document.querySelector("#regionBreakdownDiagnosisTable tbody");
   tbody.innerHTML = `<tr><td colspan="4">불러오는 중…</td></tr>`;
-  Api.getAdminDiagnoses({ region, pest_name: pestName })
+  Api.getAdminDiagnoses({ region, pest_name: pestName, crop_id: getSelectedCropId() })
     .then((list) => {
       if (list.length === 0) {
         tbody.innerHTML = `<tr><td colspan="4">진단 기록이 없습니다.</td></tr>`;
@@ -481,14 +542,7 @@ function notifyFromRegionBreakdown() {
 }
 
 function populateRegionalCropFilter() {
-  ensureCropsLoaded().then((crops) => {
-    const select = document.getElementById("regionalCropFilter");
-    const current = select.value;
-    select.innerHTML =
-      `<option value="">전체 작물</option>` +
-      crops.map((c) => `<option value="${c.id}">${c.icon_emoji || ""} ${c.name_kr}</option>`).join("");
-    select.value = current;
-  });
+  return populateCropSelect(document.getElementById("regionalCropFilter"));
 }
 
 // ---------- Farms / Households ----------
@@ -1800,7 +1854,7 @@ function closeConsultantStatsModal() {
 
 // ---------- 컨설턴트 활동 실적 요약 (종합 현황 메인 화면 카드 - 항상 "이번 달" 스냅샷) ----------
 function loadConsultantActivitySummary() {
-  Api.getConsultantActivitySummary({ topN: 5 })
+  Api.getConsultantActivitySummary({ topN: 5, cropId: getSelectedCropId() })
     .then((summary) => {
       document.getElementById("consultantActivityMonthCount").textContent = summary.diagnosis_count;
       document.getElementById("consultantActivityActiveCount").textContent =
@@ -1845,7 +1899,7 @@ let consultantActivityState = {
 
 function loadConsultantActivityPage() {
   const { period, startDate, endDate } = consultantActivityState;
-  Api.getConsultantActivitySummary({ topN: 1000, period, startDate, endDate })
+  Api.getConsultantActivitySummary({ topN: 1000, period, startDate, endDate, cropId: getSelectedCropId() })
     .then((summary) => {
       document.getElementById("consultantActivityPageDiagnosisCount").textContent = summary.diagnosis_count;
       document.getElementById("consultantActivityPageActiveCount").textContent =
@@ -1899,6 +1953,7 @@ function renderConsultantActivityTable() {
         period: consultantActivityState.period,
         startDate: consultantActivityState.startDate,
         endDate: consultantActivityState.endDate,
+        cropId: getSelectedCropId(),
       });
     });
   });
@@ -2058,6 +2113,21 @@ function closeExpertDiagnosisModal() {
   expertDiagnosisTargetId = null;
 }
 
+function loadPhotosDiagnoses() {
+  return Api.getAdminDiagnoses({ limit: 200, crop_id: getSelectedCropId() })
+    .then((diagnoses) => {
+      currentDiagnoses = diagnoses;
+      renderPhotoGrid();
+    })
+    .catch((e) => {
+      if (e.isAuthError) {
+        showLoginScreen();
+        return;
+      }
+      showToast(`병해충 사진 목록을 불러오지 못했습니다: ${e.message}`, true);
+    });
+}
+
 async function submitExpertDiagnosis() {
   const name = document.getElementById("expertDiagnosisName").value.trim();
   const note = document.getElementById("expertDiagnosisNote").value.trim();
@@ -2069,9 +2139,7 @@ async function submitExpertDiagnosis() {
     await Api.submitAdminFinalDiagnosis(expertDiagnosisTargetId, name, note);
     showToast("전문가 진단이 저장되었습니다.");
     closeExpertDiagnosisModal();
-    const diagnoses = await Api.getAdminDiagnoses({ limit: 200 });
-    currentDiagnoses = diagnoses;
-    renderPhotoGrid();
+    await loadPhotosDiagnoses();
   } catch (e) {
     if (e.isAuthError) {
       closeExpertDiagnosisModal();
@@ -2120,7 +2188,7 @@ function loadParticipationPage() {
   const { period, startDate, endDate } = participationState;
   const tbody = document.querySelector("#participationTable tbody");
   tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color: var(--gray-400);">불러오는 중…</td></tr>`;
-  Api.getHouseholdParticipation({ period, startDate, endDate, organizationId: orgId })
+  Api.getHouseholdParticipation({ period, startDate, endDate, organizationId: orgId, cropId: getSelectedCropId() })
     .then((rows) => {
       participationState.rows = rows;
       renderParticipationTable();
@@ -2224,20 +2292,37 @@ async function loadAll() {
   }
 
   try {
+    // 5개 화면(종합현황/지역별발생현황/컨설턴트 활동현황/농가 참여도현황/병해충 사진 관리)이
+    // 공유하는 품목 선택 기본값을 데이터를 받아오기 전에 먼저 확정해야, 첫 화면부터 바로
+    // "인삼" 기준으로 걸러진 숫자가 보인다(나중에 확정하면 전체 데이터가 잠깐 보였다가
+    // 바뀌는 깜빡임이 생김).
+    const crops = await ensureCropsLoaded();
+    ensureCropDefault(crops);
+    const cropId = getSelectedCropId();
+    [
+      "statsSummaryCropSelect",
+      "regionalCropFilter",
+      "consultantActivityCropSelect",
+      "participationCropSelect",
+      "photosCropSelect",
+    ].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) populateCropSelect(el);
+    });
+
     const [summary, farms, regional, feed, notifications, diagnoses] = await Promise.all([
-      Api.getStatsSummary(),
+      Api.getStatsSummary({ ...statsSummaryPeriodState, cropId }),
       Api.getFarmsOverview(),
-      Api.getRegionalStats(),
+      Api.getRegionalStats(cropId, regionalStatsPeriodState),
       Api.getFeed(30),
       Api.getNotifications(),
-      Api.getAdminDiagnoses({ limit: 200 }),
+      Api.getAdminDiagnoses({ limit: 200, crop_id: cropId }),
     ]);
     renderSummary(summary);
     renderHouseholdsTable(farms);
     renderMap(regional);
     renderRegionTable(regional);
     renderRegionCropChart(regional);
-    populateRegionalCropFilter();
     renderFeed(feed);
     renderNotifications(notifications);
     currentDiagnoses = diagnoses;
@@ -2361,9 +2446,16 @@ function init() {
 
   initNav();
   initPhotoTabs();
+  document.getElementById("photosCropSelect").addEventListener("change", (e) => {
+    setSelectedCropId(e.target.value);
+    loadPhotosDiagnoses();
+  });
   document.getElementById("weatherFarmSelect").addEventListener("change", loadWeather);
   document.getElementById("weatherDaysSelect").addEventListener("change", loadWeather);
-  document.getElementById("regionalCropFilter").addEventListener("change", (e) => loadRegionalStats(e.target.value));
+  document.getElementById("regionalCropFilter").addEventListener("change", (e) => {
+    setSelectedCropId(e.target.value);
+    loadRegionalStats(e.target.value);
+  });
 
   document.getElementById("backToHouseholds").addEventListener("click", backToHouseholdList);
   document.getElementById("statFarmsCard").addEventListener("click", () => {
@@ -2407,6 +2499,10 @@ function init() {
     consultantActivityState.endDate = end || null;
     loadConsultantActivityPage();
   });
+  document.getElementById("consultantActivityCropSelect").addEventListener("change", (e) => {
+    setSelectedCropId(e.target.value);
+    loadConsultantActivityPage();
+  });
 
   document.getElementById("statsSummaryPeriod").addEventListener("change", (e) => {
     const val = e.target.value;
@@ -2428,6 +2524,11 @@ function init() {
     statsSummaryPeriodState.startDate = start || null;
     statsSummaryPeriodState.endDate = end || null;
     reloadStatsSummary();
+  });
+  document.getElementById("statsSummaryCropSelect").addEventListener("change", (e) => {
+    setSelectedCropId(e.target.value);
+    reloadStatsSummary();
+    loadConsultantActivitySummary();
   });
 
   document.getElementById("regionalStatsPeriod").addEventListener("change", (e) => {
@@ -2472,6 +2573,10 @@ function init() {
     }
     participationState.startDate = start || null;
     participationState.endDate = end || null;
+    loadParticipationPage();
+  });
+  document.getElementById("participationCropSelect").addEventListener("change", (e) => {
+    setSelectedCropId(e.target.value);
     loadParticipationPage();
   });
   document.getElementById("participationCsvBtn").addEventListener("click", downloadParticipationCsv);

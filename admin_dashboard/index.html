@@ -113,6 +113,8 @@
             <input id="statsSummaryEndDate" type="date" />
             <button id="statsSummaryCustomApply" class="btn btn-ghost btn-sm">적용</button>
           </span>
+          <label>품목</label>
+          <select id="statsSummaryCropSelect"></select>
         </div>
       </div>
 
@@ -262,6 +264,8 @@
             <input id="regionalStatsEndDate" type="date" />
             <button id="regionalStatsCustomApply" class="btn btn-ghost btn-sm">적용</button>
           </span>
+          <label>품목</label>
+          <select id="regionalCropFilter"></select>
         </div>
       </div>
 
@@ -269,12 +273,6 @@
         <div class="panel-header">
           <h2>지역별 병해충 발생 모니터링</h2>
           <span class="panel-sub">원의 크기는 발생 건수에 비례합니다</span>
-        </div>
-        <div style="margin-bottom: 10px;">
-          <label for="regionalCropFilter" style="font-size: 12px; color: var(--gray-400); margin-right: 6px;">작물</label>
-          <select id="regionalCropFilter" style="font-size: 12.5px; padding: 4px 6px;">
-            <option value="">전체 작물</option>
-          </select>
         </div>
         <div id="koreaMap" class="map-box"></div>
       </div>
@@ -372,6 +370,8 @@
             <input id="participationEndDate" type="date" />
             <button id="participationCustomApply" class="btn btn-ghost btn-sm">적용</button>
           </span>
+          <label>품목</label>
+          <select id="participationCropSelect"></select>
         </div>
       </div>
 
@@ -435,6 +435,10 @@
         <div class="panel-header">
           <h2>병해충 사진 관리</h2>
           <span class="panel-sub">농가가 업로드한 진단 사진과 AI 분석 상태</span>
+        </div>
+        <div class="weather-controls" style="margin-bottom: 10px;">
+          <label>품목</label>
+          <select id="photosCropSelect"></select>
         </div>
         <div class="photo-filter-tabs" id="photoStatusTabs">
           <button class="filter-tab active" data-status="">전체</button>
@@ -504,6 +508,8 @@
             <input id="consultantActivityEndDate" type="date" />
             <button id="consultantActivityCustomApply" class="btn btn-ghost btn-sm">적용</button>
           </span>
+          <label>품목</label>
+          <select id="consultantActivityCropSelect"></select>
         </div>
       </div>
 
@@ -945,8 +951,8 @@
 
 <div id="toast" class="toast hidden"></div>
 
-<script src="js/api.js?v=11"></script>
-<script src="js/dashboard.js?v=13"></script>
+<script src="js/api.js?v=12"></script>
+<script src="js/dashboard.js?v=15"></script>
 <script src="js/consultant.js?v=3"></script>
 <script>
   if ("serviceWorker" in navigator) {
