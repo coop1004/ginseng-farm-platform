@@ -644,9 +644,19 @@ def admin_stats_summary(
 
 
 @router.get("/farms/overview")
-def farms_overview(db: Session = Depends(get_db), _admin: models.AdminUser = Depends(get_current_admin)):
-    """농가별 최근 활동 요약: 관리자 대시보드 메인 테이블용."""
-    farms = db.query(models.Farm).all()
+def farms_overview(
+    crop_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+    _admin: models.AdminUser = Depends(get_current_admin),
+):
+    """농가별 최근 활동 요약: 관리자 대시보드 메인 테이블용. crop_id를 주면 그 작물 소속
+    필지로만 좁힌다 - 농가 참여도현황(households/participation)과 동일한 방식으로, 농가
+    자체를 별도 필드로 감추는 게 아니라 그 작물 농장이 하나도 없는 농가는 결과에 아예 안
+    잡히게 한다(프런트에서 이 응답을 농가 단위로 집계하는 방식이라 자연히 그렇게 된다)."""
+    farm_query = db.query(models.Farm)
+    if crop_id is not None:
+        farm_query = farm_query.filter(models.Farm.crop_id == crop_id)
+    farms = farm_query.all()
     result = []
     for farm in farms:
         last_diag = (
@@ -1012,15 +1022,16 @@ def regional_stats_breakdown(
 
 @router.get("/feed")
 def recent_activity_feed(
-    limit: int = 20, db: Session = Depends(get_db), _admin: models.AdminUser = Depends(get_current_admin)
+    limit: int = 20,
+    crop_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+    _admin: models.AdminUser = Depends(get_current_admin),
 ):
-    """최근 발생 진단 실시간 피드."""
-    diagnoses = (
-        db.query(models.Diagnosis)
-        .order_by(models.Diagnosis.created_at.desc())
-        .limit(limit)
-        .all()
-    )
+    """최근 발생 진단 실시간 피드. crop_id를 주면 그 작물 소속 필지의 진단만 보여준다."""
+    query = db.query(models.Diagnosis)
+    if crop_id is not None:
+        query = query.join(models.Farm).filter(models.Farm.crop_id == crop_id)
+    diagnoses = query.order_by(models.Diagnosis.created_at.desc()).limit(limit).all()
     return [
         {
             "id": d.id,

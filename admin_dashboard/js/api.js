@@ -62,7 +62,12 @@ const Api = (() => {
       const query = qs.toString();
       return request(`/api/admin/stats/summary${query ? `?${query}` : ""}`);
     },
-    getFarmsOverview: () => request("/api/admin/farms/overview"),
+    getFarmsOverview: (cropId) => {
+      const qs = new URLSearchParams();
+      if (cropId) qs.set("crop_id", cropId);
+      const query = qs.toString();
+      return request(`/api/admin/farms/overview${query ? `?${query}` : ""}`);
+    },
     getRegionalStats: (cropId, { period, startDate, endDate } = {}) => {
       const qs = new URLSearchParams();
       if (cropId) qs.set("crop_id", cropId);
@@ -100,7 +105,11 @@ const Api = (() => {
       if (farmId) qs.set("farm_id", farmId);
       return request(`/api/admin/weather/history?${qs.toString()}`);
     },
-    getFeed: (limit = 30) => request(`/api/admin/feed?limit=${limit}`),
+    getFeed: (limit = 30, cropId) => {
+      const qs = new URLSearchParams({ limit });
+      if (cropId) qs.set("crop_id", cropId);
+      return request(`/api/admin/feed?${qs.toString()}`);
+    },
     getAdminDiagnoses: (params = {}) => {
       const qs = new URLSearchParams();
       Object.entries(params).forEach(([k, v]) => {

@@ -1,7 +1,13 @@
 let charts = {};
 let map = null;
 let mapMarkers = [];
+// currentFarms는 기상 데이터 화면의 농장 선택과 처방알림 브로드캐스트의 농장 직접선택
+// 체크리스트가 쓰는 "항상 전체 품목" 목록이다 - 농가 모니터링 화면의 품목 필터와는
+// 의도적으로 분리한다(이번 작업 범위가 농가 모니터링/실시간 피드로 한정되어 있어서,
+// 대시보드에서 고른 품목 필터가 알림 발송 대상 같은 다른 기능에 조용히 영향을 주면 안 됨).
 let currentFarms = [];
+// 농가 모니터링 화면(목록 + 농가 상세 드릴다운) 전용 - 품목 필터가 적용된 농장 목록.
+let currentHouseholdScreenFarms = [];
 let currentHouseholds = [];
 
 // ---------- 공용 품목(작물) 선택 상태 ----------
@@ -167,6 +173,12 @@ function initNav() {
       }
       if (section === "photos") {
         loadPhotosDiagnoses();
+      }
+      if (section === "farms") {
+        loadHouseholdsScreen();
+      }
+      if (section === "feed") {
+        loadFeedScreen();
       }
     });
   });
@@ -592,7 +604,7 @@ function householdStatusBadgeHtml(status) {
 }
 
 function renderHouseholdsTable(farms) {
-  currentFarms = farms;
+  currentHouseholdScreenFarms = farms;
   currentHouseholds = aggregateHouseholds(farms);
   backToHouseholdList();
 
@@ -615,6 +627,18 @@ function renderHouseholdsTable(farms) {
   });
 }
 
+function loadHouseholdsScreen() {
+  return Api.getFarmsOverview(getSelectedCropId())
+    .then(renderHouseholdsTable)
+    .catch((e) => {
+      if (e.isAuthError) {
+        showLoginScreen();
+        return;
+      }
+      showToast(`농가 모니터링을 불러오지 못했습니다: ${e.message}`, true);
+    });
+}
+
 function showHouseholdDetail(householdId) {
   const household = currentHouseholds.find((h) => h.household_id === householdId);
   if (!household) return;
@@ -627,7 +651,7 @@ function showHouseholdDetail(householdId) {
   renderHouseholdCrops(householdId);
   renderHouseholdConsultants(householdId, household.household_status);
 
-  const farms = currentFarms.filter((f) => f.household_id === householdId);
+  const farms = currentHouseholdScreenFarms.filter((f) => f.household_id === householdId);
   const tbody = document.querySelector("#householdFarmsTable tbody");
   tbody.innerHTML = "";
   farms.forEach((f) => {
@@ -1047,6 +1071,18 @@ function renderFeed(feed) {
     div.addEventListener("click", () => openDiagnosisDetailModal(item.id));
     list.appendChild(div);
   });
+}
+
+function loadFeedScreen() {
+  return Api.getFeed(30, getSelectedCropId())
+    .then(renderFeed)
+    .catch((e) => {
+      if (e.isAuthError) {
+        showLoginScreen();
+        return;
+      }
+      showToast(`실시간 진단 피드를 불러오지 못했습니다: ${e.message}`, true);
+    });
 }
 
 // ---------- Weather ----------
@@ -2305,21 +2341,25 @@ async function loadAll() {
       "consultantActivityCropSelect",
       "participationCropSelect",
       "photosCropSelect",
+      "farmsCropSelect",
+      "feedCropSelect",
     ].forEach((id) => {
       const el = document.getElementById(id);
       if (el) populateCropSelect(el);
     });
 
-    const [summary, farms, regional, feed, notifications, diagnoses] = await Promise.all([
+    const [summary, farmsAll, householdFarms, regional, feed, notifications, diagnoses] = await Promise.all([
       Api.getStatsSummary({ ...statsSummaryPeriodState, cropId }),
-      Api.getFarmsOverview(),
+      Api.getFarmsOverview(), // 항상 전체 품목 - 기상/브로드캐스트 화면용 (currentFarms)
+      Api.getFarmsOverview(cropId), // 농가 모니터링 화면 전용, 품목 필터 적용
       Api.getRegionalStats(cropId, regionalStatsPeriodState),
-      Api.getFeed(30),
+      Api.getFeed(30, cropId),
       Api.getNotifications(),
       Api.getAdminDiagnoses({ limit: 200, crop_id: cropId }),
     ]);
+    currentFarms = farmsAll;
     renderSummary(summary);
-    renderHouseholdsTable(farms);
+    renderHouseholdsTable(householdFarms);
     renderMap(regional);
     renderRegionTable(regional);
     renderRegionCropChart(regional);
@@ -2449,6 +2489,14 @@ function init() {
   document.getElementById("photosCropSelect").addEventListener("change", (e) => {
     setSelectedCropId(e.target.value);
     loadPhotosDiagnoses();
+  });
+  document.getElementById("farmsCropSelect").addEventListener("change", (e) => {
+    setSelectedCropId(e.target.value);
+    loadHouseholdsScreen();
+  });
+  document.getElementById("feedCropSelect").addEventListener("change", (e) => {
+    setSelectedCropId(e.target.value);
+    loadFeedScreen();
   });
   document.getElementById("weatherFarmSelect").addEventListener("change", loadWeather);
   document.getElementById("weatherDaysSelect").addEventListener("change", loadWeather);
