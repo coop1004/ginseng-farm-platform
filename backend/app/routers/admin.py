@@ -79,6 +79,14 @@ def admin_list(db: Session = Depends(get_db), _current_admin: models.AdminUser =
     return db.query(models.AdminUser).order_by(models.AdminUser.created_at).all()
 
 
+@router.get("/organizations", response_model=List[schemas.OrganizationOut])
+def list_organizations(db: Session = Depends(get_db), _current_admin: models.AdminUser = Depends(get_current_admin)):
+    """처방알림 브로드캐스트의 "대상 조직" 선택 드롭다운 등에 쓰는 조직 전체 목록.
+    지금은 platform_super 관리자만 존재해 전체 조회로 충분 - org_scoped 관리자가
+    실제로 생기면 자기 조직 하나만 보이도록 좁히는 게 맞다(이번 범위 밖)."""
+    return db.query(models.Organization).order_by(models.Organization.id).all()
+
+
 @router.delete("/auth/{admin_id}")
 def admin_delete(
     admin_id: int,
@@ -568,7 +576,7 @@ def send_notification(
     if not farm:
         raise HTTPException(status_code=404, detail="농장을 찾을 수 없습니다.")
 
-    notification = models.Notification(**payload.model_dump())
+    notification = models.Notification(**payload.model_dump(), organization_id=farm.organization_id)
     db.add(notification)
     db.commit()
     db.refresh(notification)
@@ -581,17 +589,34 @@ def send_notification(
 def broadcast_notification(
     payload: schemas.NotificationBroadcastRequest,
     db: Session = Depends(get_db),
-    _admin: models.AdminUser = Depends(get_current_admin),
+    current_admin: models.AdminUser = Depends(get_current_admin),
 ):
     """전체 농가, 특정 지역, 또는 선택한 여러 농가에 동일한 알림을 한 번에 발송한다.
     농가별 GET /api/notifications 조회 방식(폴링)은 그대로 두고, 여기서는 대상 농가
-    수만큼 Notification 행을 만들어 같은 broadcast_group으로 묶는다."""
+    수만큼 Notification 행을 만들어 같은 broadcast_group으로 묶는다.
+
+    "all"/"region"은 조직 경계를 넘나드는 대상 선정이라 role에 따라 갈린다 - org_scoped
+    관리자는 자기 조직으로 강제되고(요청에 다른 값이 와도 무시), platform_super 관리자는
+    조직을 넘나들 수 있는 대신 어느 조직 대상인지 반드시 화면에서 명시해야 한다(암묵적으로
+    전체 조직 대상이 되는 사고를 막기 위해 생략 시 에러)."""
+    if payload.target_type in ("all", "region"):
+        if current_admin.role == "org_scoped":
+            target_org_id = current_admin.organization_id
+        else:
+            if payload.organization_id is None:
+                raise HTTPException(status_code=400, detail="대상 조직을 선택해주세요.")
+            target_org_id = payload.organization_id
+    else:
+        target_org_id = None
+
     if payload.target_type == "all":
-        farms = db.query(models.Farm).all()
+        farms = db.query(models.Farm).filter(models.Farm.organization_id == target_org_id).all()
     elif payload.target_type == "region":
         if not payload.region:
             raise HTTPException(status_code=400, detail="지역을 선택해주세요.")
-        farms = db.query(models.Farm).filter(models.Farm.region == payload.region).all()
+        farms = db.query(models.Farm).filter(
+            models.Farm.region == payload.region, models.Farm.organization_id == target_org_id
+        ).all()
     elif payload.target_type == "farms":
         if not payload.farm_ids:
             raise HTTPException(status_code=400, detail="대상 농가를 선택해주세요.")
@@ -607,6 +632,7 @@ def broadcast_notification(
         db.add(
             models.Notification(
                 farm_id=farm.id,
+                organization_id=farm.organization_id,
                 title=payload.title,
                 message=payload.message,
                 recommended_product=payload.recommended_product,

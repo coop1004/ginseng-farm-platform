@@ -1049,7 +1049,7 @@ async function submitNotify() {
 }
 
 // ---------- Broadcast modal ----------
-function openBroadcastModal() {
+async function openBroadcastModal() {
   document.getElementById("broadcastTitle").value = "";
   document.getElementById("broadcastProduct").value = "";
   document.getElementById("broadcastMessage").value = "";
@@ -1059,6 +1059,17 @@ function openBroadcastModal() {
   const regions = Array.from(new Set(currentFarms.map((f) => f.region).filter(Boolean))).sort();
   const regionSelect = document.getElementById("broadcastRegionSelect");
   regionSelect.innerHTML = regions.map((r) => `<option value="${r}">${r}</option>`).join("");
+
+  // "전체 농가"/"지역 선택"은 조직 경계를 넘나드는 대상 선정이라, 어느 조직 대상인지
+  // 화면에서 명시적으로 고르게 한다("농가 직접 선택"은 이미 특정 농가를 콕 집는 것이라
+  // 조직 선택이 따로 필요 없음).
+  try {
+    const orgs = await Api.listOrganizations();
+    const orgSelect = document.getElementById("broadcastOrgSelect");
+    orgSelect.innerHTML = orgs.map((o) => `<option value="${o.id}">${o.name}</option>`).join("");
+  } catch (e) {
+    showToast("조직 목록을 불러오지 못했습니다: " + e.message, true);
+  }
 
   const checklist = document.getElementById("broadcastFarmChecklist");
   checklist.innerHTML = currentFarms
@@ -1078,6 +1089,7 @@ function closeBroadcastModal() {
 
 function updateBroadcastTargetVisibility() {
   const target = document.querySelector('input[name="broadcastTarget"]:checked').value;
+  document.getElementById("broadcastOrgWrap").classList.toggle("hidden", target === "farms");
   document.getElementById("broadcastRegionWrap").classList.toggle("hidden", target !== "region");
   document.getElementById("broadcastFarmsWrap").classList.toggle("hidden", target !== "farms");
 }
@@ -1099,6 +1111,14 @@ async function submitBroadcast() {
     recommended_product: product || null,
     sent_by: "관리자",
   };
+  if (target !== "farms") {
+    const orgId = document.getElementById("broadcastOrgSelect").value;
+    if (!orgId) {
+      showToast("대상 조직을 선택해주세요.", true);
+      return;
+    }
+    payload.organization_id = Number(orgId);
+  }
   if (target === "region") {
     payload.region = document.getElementById("broadcastRegionSelect").value;
     if (!payload.region) {

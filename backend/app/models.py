@@ -52,6 +52,10 @@ class AdminUser(Base):
     # 최초(부트스트랩) 관리자 계정 표시. 이 계정은 다른 관리자가 삭제할 수 없다
     # (신규로 추가된 관리자가 실수/악의로 나머지 계정을 전부 지워 아무도 못 들어오는 상황 방지).
     is_protected = Column(Boolean, default=False, nullable=False)
+    # "platform_super"(찬파트너스 내부 운영 인력 - 조직을 넘나들며 전체 관리, organization_id는
+    # 자기 소속을 뜻하지 않음) / "org_scoped"(특정 조직 하나로 접근이 제한되는 계정 - 지금은
+    # 실제로 발급되지 않고, 향후 기관/회사 자체 관리자 계정을 위한 자리만 마련해둔다).
+    role = Column(String(20), nullable=False, default="platform_super")
     created_at = Column(DateTime, default=dt.datetime.utcnow)
 
 

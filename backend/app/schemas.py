@@ -83,6 +83,15 @@ class AdminUserOut(BaseModel):
     username: str
     name: str
     is_protected: bool = False
+    role: str = "platform_super"
+    organization_id: int
+
+
+class OrganizationOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    name: str
+    org_type: Optional[str] = None
 
 
 class AdminTokenResponse(BaseModel):
@@ -370,6 +379,9 @@ class NotificationBroadcastRequest(BaseModel):
     target_type: str  # "all" | "region" | "farms"
     region: Optional[str] = None
     farm_ids: Optional[List[int]] = None
+    # platform_super 관리자가 "all"/"region" 대상으로 보낼 때 반드시 명시해야 하는 대상 조직.
+    # org_scoped 관리자는 이 값을 보내도 무시되고 자기 organization_id로 강제된다.
+    organization_id: Optional[int] = None
     title: str
     message: str
     recommended_product: Optional[str] = None

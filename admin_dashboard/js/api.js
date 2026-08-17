@@ -103,6 +103,7 @@ const Api = (() => {
       }),
     getMe: () => request("/api/admin/auth/me"),
     listAdmins: () => request("/api/admin/auth/list"),
+    listOrganizations: () => request("/api/admin/organizations"),
     changePassword: (currentPassword, newPassword) =>
       request("/api/admin/auth/change-password", {
         method: "POST",

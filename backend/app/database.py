@@ -65,3 +65,7 @@ def run_light_migrations():
     # 사진 EXIF에 GPS/촬영시각이 없을 때 대체값(농장 등록 주소/업로드 시각)을 썼는지 표시.
     _add_column_if_missing(inspector, "diagnoses", "gps_estimated", "BOOLEAN NOT NULL DEFAULT 0")
     _add_column_if_missing(inspector, "diagnoses", "photo_taken_at_estimated", "BOOLEAN NOT NULL DEFAULT 0")
+    # 플랫폼 운영자(찬파트너스, 조직 넘나들며 관리) vs 조직 전용 계정 구분. 기존 관리자는
+    # 전부 platform_super로 취급하는 게 맞다고 조사로 확인됨(무제한 접근·전사 통계·"사내
+    # 담당자 전용" 가입 절차 등 전부 platform_super 성격과 일치) - DEFAULT로 즉시 백필된다.
+    _add_column_if_missing(inspector, "admin_users", "role", "VARCHAR(20) NOT NULL DEFAULT 'platform_super'")
