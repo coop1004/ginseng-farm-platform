@@ -55,7 +55,12 @@ const ConsultantApi = (() => {
       request("/api/consultant/auth/login", { method: "POST", body: JSON.stringify({ username, password }) }),
     getMe: () => request("/api/consultant/auth/me"),
     getHouseholds: () => request("/api/consultant/households"),
+    updateHousehold: (householdId, payload) =>
+      request(`/api/consultant/households/${householdId}`, { method: "PATCH", body: JSON.stringify(payload) }),
+    updateHouseholdUser: (userId, payload) =>
+      request(`/api/consultant/users/${userId}`, { method: "PATCH", body: JSON.stringify(payload) }),
     getDiagnoses: (farmId) => request(`/api/consultant/diagnoses?farm_id=${farmId}`),
+    getDiagnosisDetail: (diagnosisId) => request(`/api/consultant/diagnoses/${diagnosisId}`),
     createDiagnosis: (formData) => requestMultipart("/api/consultant/diagnoses", "POST", formData),
     submitFinalDiagnosis: (diagnosisId, diseaseName, note) =>
       request(`/api/consultant/diagnoses/${diagnosisId}/final-diagnosis`, {
@@ -64,6 +69,18 @@ const ConsultantApi = (() => {
       }),
     getComments: (diagnosisId) => request(`/api/consultant/diagnoses/${diagnosisId}/comments`),
     getStats: () => request("/api/consultant/stats/summary"),
+    getOverviewSummary: (cropId) => {
+      const qs = new URLSearchParams();
+      if (cropId) qs.set("crop_id", cropId);
+      const query = qs.toString();
+      return request(`/api/consultant/overview/summary${query ? `?${query}` : ""}`);
+    },
+    getOverviewRegionalStats: (cropId) => {
+      const qs = new URLSearchParams();
+      if (cropId) qs.set("crop_id", cropId);
+      const query = qs.toString();
+      return request(`/api/consultant/overview/regional-stats${query ? `?${query}` : ""}`);
+    },
     createComment: (diagnosisId, body) =>
       request(`/api/consultant/diagnoses/${diagnosisId}/comments`, {
         method: "POST",
@@ -129,7 +146,12 @@ function handleConsultantLogout() {
 // ---------- 네비게이션 ----------
 function initConsultantNav() {
   const navItems = document.querySelectorAll("#consultantAppShell .nav-item");
-  const titles = { "c-households": "담당 농가", "c-community": "커뮤니티", "c-stats": "내 활동 통계" };
+  const titles = {
+    "c-households": "담당 농가",
+    "c-community": "커뮤니티",
+    "c-region-stats": "지역/현황 통계",
+    "c-stats": "내 활동 통계",
+  };
   navItems.forEach((item) => {
     item.addEventListener("click", (e) => {
       e.preventDefault();
@@ -140,6 +162,7 @@ function initConsultantNav() {
       document.getElementById(section).classList.remove("hidden");
       document.getElementById("consultantPageTitle").textContent = titles[section];
       if (section === "c-stats") loadConsultantStats();
+      if (section === "c-region-stats") loadConsultantRegionStats();
       if (section === "c-community") loadConsultantCommunity();
     });
   });
@@ -188,6 +211,60 @@ function loadConsultantHouseholds() {
     });
 }
 
+// 관리자 대시보드의 renderHouseholdAccountInfo와 동일한 카드/여백 스타일(account-info-row)을
+// 재사용한다. 비밀번호 초기화·정지·탈퇴는 이번 범위 밖이라 이름/전화번호 수정만 둔다.
+function renderConsultantHouseholdAccountInfo(container, household) {
+  const panel = document.createElement("div");
+  panel.className = "panel";
+  const memberRows = household.members
+    .map(
+      (m) => `
+    <div class="account-info-row">
+      <span>${m.name} · ${m.phone}</span>
+      <button class="btn btn-ghost btn-sm" data-c-edit-user="${m.id}">정보 수정</button>
+    </div>`
+    )
+    .join("");
+  panel.innerHTML = `
+    <div class="panel-header">
+      <h2>계정 정보</h2>
+      <span class="panel-sub">농가명·대표자 정보를 직접 수정할 수 있습니다</span>
+    </div>
+    <div class="account-info-row">
+      <span><strong>${household.name}</strong> (농가명) · 가입코드 ${household.join_code}</span>
+      <button class="btn btn-ghost btn-sm" id="cEditHouseholdNameBtn">정보 수정</button>
+    </div>
+    ${memberRows}
+  `;
+  container.appendChild(panel);
+
+  panel.querySelector("#cEditHouseholdNameBtn").addEventListener("click", () => {
+    openEditInfoModal("consultant-household", household.id, household.name, null, false, "농가명 수정", () =>
+      reloadConsultantHouseholdDetail(household.id)
+    );
+  });
+  panel.querySelectorAll("[data-c-edit-user]").forEach((btn) => {
+    const member = household.members.find((m) => m.id === Number(btn.dataset.cEditUser));
+    btn.addEventListener("click", () => {
+      openEditInfoModal("consultant-user", member.id, member.name, member.phone, true, "대표자 정보 수정", () =>
+        reloadConsultantHouseholdDetail(household.id)
+      );
+    });
+  });
+}
+
+// 정보 수정 후 목록(consultantHouseholds 캐시)을 새로 받아와 같은 농가 상세를 다시 그린다.
+function reloadConsultantHouseholdDetail(householdId) {
+  ConsultantApi.getHouseholds()
+    .then((households) => {
+      consultantHouseholds = households;
+      showConsultantHouseholdDetail(householdId);
+    })
+    .catch((e) => {
+      if (e.isAuthError) handleConsultantLogout();
+    });
+}
+
 function showConsultantHouseholdDetail(householdId) {
   const household = consultantHouseholds.find((h) => h.id === householdId);
   if (!household) return;
@@ -198,6 +275,7 @@ function showConsultantHouseholdDetail(householdId) {
 
   const container = document.getElementById("consultantFarmsList");
   container.innerHTML = "";
+  renderConsultantHouseholdAccountInfo(container, household);
   household.farms.forEach((f) => {
     const card = document.createElement("div");
     card.className = "panel";
@@ -216,12 +294,12 @@ function showConsultantHouseholdDetail(householdId) {
         <button class="btn btn-primary btn-sm" data-open-new-diag="${f.id}">+ 새 진단 등록(현장 방문)</button>
       </div>
       <div class="hidden" id="c-new-diag-form-${f.id}" style="margin-top:12px; padding-top:12px; border-top:1px solid var(--gray-100);">
-        <label>진단 유형</label>
-        <select id="c-diag-type-${f.id}">
+        <label class="field-label">진단 유형</label>
+        <select class="field-input" id="c-diag-type-${f.id}">
           ${diagnosisTypeOptions.map((t) => `<option value="${t}">${t}</option>`).join("")}
         </select>
-        <label>피해 부위 사진 (현장 촬영)</label>
-        <input type="file" accept="image/*" capture="environment" id="c-diag-photo-${f.id}" />
+        <label class="field-label">피해 부위 사진 (현장 촬영)</label>
+        <input class="field-input" type="file" accept="image/*" capture="environment" id="c-diag-photo-${f.id}" />
         <div class="modal-actions">
           <button class="btn btn-ghost btn-sm" data-cancel-new-diag="${f.id}">취소</button>
           <button class="btn btn-primary btn-sm" data-submit-new-diag="${f.id}">등록</button>
@@ -258,6 +336,7 @@ function loadConsultantFarmDiagnoses(farmId) {
       }
       diagnoses.forEach((d) => {
         const tr = document.createElement("tr");
+        tr.className = "clickable-row";
         const finalText = d.final_disease_name
           ? `${d.final_disease_name} (${d.final_diagnosis_source === "consultant" ? "본인" : d.final_diagnosis_source})`
           : "-";
@@ -272,6 +351,12 @@ function loadConsultantFarmDiagnoses(farmId) {
             <button class="btn btn-ghost btn-sm" data-comment-diag="${d.id}">💬 코멘트</button>
           </td>
         `;
+        // 행 자체를 클릭하면 상세 모달이 뜨도록 하되, 안의 두 버튼(현장 확인 정정/코멘트)을
+        // 클릭했을 때는 그 버튼 자체의 동작만 실행되고 상세 모달이 같이 뜨지 않게 막는다.
+        tr.addEventListener("click", (e) => {
+          if (e.target.closest("button")) return;
+          openConsultantDiagnosisDetailModal(d.id);
+        });
         tbody.appendChild(tr);
       });
       tbody.querySelectorAll("button[data-edit-diag]").forEach((btn) => {
@@ -283,6 +368,27 @@ function loadConsultantFarmDiagnoses(farmId) {
     })
     .catch((e) => {
       if (e.isAuthError) handleConsultantLogout();
+    });
+}
+
+// 관리자 대시보드와 완전히 같은 모달(#diagnosisDetailModal)/렌더 함수(renderDiagnosisDetailBody,
+// dashboard.js)를 그대로 재사용한다 - 그 모달은 특정 화면(appShell)에 속하지 않고 body
+// 최상위에 있어서 컨설턴트 화면에서도 그대로 열고 닫을 수 있다. 관리자 쪽은 Api(관리자
+// 토큰)로 조회하지만 여기서는 ConsultantApi(컨설턴트 토큰)로 조회한다는 점만 다르다.
+function openConsultantDiagnosisDetailModal(diagnosisId) {
+  if (!diagnosisId) return;
+  document.getElementById("diagnosisDetailModal").classList.remove("hidden");
+  document.getElementById("diagnosisDetailSub").textContent = `진단 #${diagnosisId}`;
+  document.getElementById("diagnosisDetailBody").innerHTML = "불러오는 중…";
+  ConsultantApi.getDiagnosisDetail(diagnosisId)
+    .then(renderDiagnosisDetailBody)
+    .catch((e) => {
+      if (e.isAuthError) {
+        document.getElementById("diagnosisDetailModal").classList.add("hidden");
+        handleConsultantLogout();
+        return;
+      }
+      document.getElementById("diagnosisDetailBody").innerHTML = `불러오기 실패: ${e.message}`;
     });
 }
 
@@ -439,22 +545,24 @@ function renderConsultantCommunityList(posts) {
   const list = document.getElementById("consultantCommunityList");
   list.innerHTML = "";
   if (posts.length === 0) {
-    list.innerHTML = `<p style="color: var(--gray-400);">아직 게시글이 없습니다.</p>`;
+    list.innerHTML = `<p class="panel-sub">아직 게시글이 없습니다.</p>`;
     return;
   }
   posts.forEach((p) => {
     const card = document.createElement("div");
-    card.className = "panel";
-    card.style.marginBottom = "10px";
+    card.className = "community-post-card";
     const kindLabel = p.kind === "channel" ? "📢 공지/팁" : p.kind === "diagnosis_share" ? "🩺 진단 공유" : "게시글";
+    const visBadgeClass = p.visibility === "public" ? "badge-low" : "badge-mid";
     const visLabel = p.visibility === "public" ? "전체 공개" : "담당 농가 공개";
     card.innerHTML = `
-      <div class="panel-header">
-        <h2 style="font-size:15px;">${p.title}</h2>
-        <span class="panel-sub">${kindLabel} · ${visLabel} · ${p.author_name} · 댓글 ${p.comment_count}개</span>
+      <h3 class="community-post-title">${p.title}</h3>
+      <div class="community-post-meta">
+        <span class="badge badge-low">${kindLabel}</span>
+        <span class="badge ${visBadgeClass}">${visLabel}</span>
+        <span>${p.author_name} · 댓글 ${p.comment_count}개</span>
       </div>
-      <div>${(p.body || "").replace(/</g, "&lt;")}</div>
-      <div id="c-community-detail-${p.id}" class="hidden" style="margin-top:10px; padding-top:10px; border-top:1px solid var(--gray-100);"></div>
+      <div class="community-post-body">${(p.body || "").replace(/</g, "&lt;")}</div>
+      <div id="c-community-detail-${p.id}" class="hidden community-post-detail"></div>
       <div class="modal-actions" style="justify-content:flex-start;">
         <button class="btn btn-ghost btn-sm" data-toggle-post="${p.id}">댓글 보기/작성</button>
       </div>
@@ -482,17 +590,17 @@ function loadConsultantCommunityDetail(postId) {
         ? post.comments
             .map((c) => {
               const badge = c.author_type === "consultant" ? "👤 컨설턴트" : "🌾 농가";
-              return `<div style="padding:6px 0; border-bottom:1px solid var(--gray-100); font-size:13px;">
-                <div style="font-size:11px; color: var(--gray-400);">${badge} · ${c.author_name} · ${new Date(c.created_at).toLocaleString("ko-KR")}</div>
+              return `<div class="community-comment-item">
+                <div class="community-comment-meta">${badge} · ${c.author_name} · ${new Date(c.created_at).toLocaleString("ko-KR")}</div>
                 <div>${c.body.replace(/</g, "&lt;")}</div>
               </div>`;
             })
             .join("")
-        : `<p style="color: var(--gray-400); font-size:13px;">아직 댓글이 없습니다.</p>`;
+        : `<p class="panel-sub">아직 댓글이 없습니다.</p>`;
       container.innerHTML = `
         <div>${commentsHtml}</div>
-        <div style="margin-top:8px; display:flex; gap:6px;">
-          <input type="text" id="c-community-comment-input-${postId}" placeholder="댓글을 입력하세요" style="flex:1;" />
+        <div class="community-comment-form">
+          <input class="field-input" type="text" id="c-community-comment-input-${postId}" placeholder="댓글을 입력하세요" />
           <button class="btn btn-primary btn-sm" data-submit-comment="${postId}">등록</button>
         </div>
       `;
@@ -590,6 +698,77 @@ function loadConsultantStats() {
     });
 }
 
+// ---------- 지역/현황 통계 (관리자 대시보드 종합현황·지역별발생현황과 같은 정보) ----------
+let consultantRegionStatsCropOptionsLoaded = false;
+
+function ensureConsultantRegionStatsCropOptions() {
+  if (consultantRegionStatsCropOptionsLoaded) return Promise.resolve();
+  consultantRegionStatsCropOptionsLoaded = true;
+  return Api.listCrops()
+    .then((crops) => {
+      const select = document.getElementById("consultantRegionStatsCropSelect");
+      crops.forEach((c) => {
+        const opt = document.createElement("option");
+        opt.value = c.id;
+        opt.textContent = `${c.icon_emoji || ""} ${c.name_kr}`;
+        select.appendChild(opt);
+      });
+    })
+    .catch(() => {});
+}
+
+function loadConsultantRegionStats() {
+  ensureConsultantRegionStatsCropOptions().then(() => {
+    const cropId = document.getElementById("consultantRegionStatsCropSelect").value;
+    Promise.all([ConsultantApi.getOverviewSummary(cropId), ConsultantApi.getOverviewRegionalStats(cropId)])
+      .then(([summary, regional]) => {
+        renderConsultantOverviewSummary(summary);
+        renderConsultantRegionTable(regional);
+      })
+      .catch((e) => {
+        if (e.isAuthError) {
+          handleConsultantLogout();
+          return;
+        }
+        showToast(`지역/현황 통계를 불러오지 못했습니다: ${e.message}`, true);
+      });
+  });
+}
+
+function renderConsultantOverviewSummary(summary) {
+  document.getElementById("cRegionStatHouseholds").textContent = summary.total_households ?? "-";
+  document.getElementById("cRegionStatWorkLogs").textContent = summary.total_work_logs;
+  document.getElementById("cRegionStatDiagnoses").textContent = summary.total_diagnoses;
+  const acc = summary.ai_vs_actual.accuracy_percent;
+  document.getElementById("cRegionStatAccuracy").textContent = acc !== null ? `${acc}%` : "데이터 부족";
+
+  const byType = summary.diagnoses_by_type || {};
+  const total = Object.values(byType).reduce((a, b) => a + b, 0);
+  const byTypeEl = document.getElementById("cRegionStatByType");
+  byTypeEl.innerHTML = total
+    ? Object.entries(byType)
+        .map(([type, count]) => `<span class="${typeBadgeClass(type)}" style="margin-right:8px;">${type} ${count}건</span>`)
+        .join("")
+    : "데이터가 없습니다.";
+}
+
+function renderConsultantRegionTable(regional) {
+  const tbody = document.querySelector("#cRegionStatsTable tbody");
+  tbody.innerHTML = regional.length
+    ? regional
+        .map(
+          (r) => `<tr>
+        <td><strong>${r.region}</strong></td>
+        <td>${r.total_display}</td>
+        <td>${r.top_issue || "-"}</td>
+        <td>${Object.entries(r.by_type).map(([t, c]) => `${t} ${c}`).join(" · ") || "-"}</td>
+        <td>${Object.entries(r.by_crop).map(([c, n]) => `${c} ${n}`).join(" · ") || "-"}</td>
+      </tr>`
+        )
+        .join("")
+    : `<tr><td colspan="5" style="text-align:center; color: var(--gray-400);">데이터가 없습니다.</td></tr>`;
+}
+
 // ---------- 초기화 ----------
 function initConsultant() {
   document.getElementById("switchToConsultantLogin").addEventListener("click", showConsultantLoginForm);
@@ -600,6 +779,7 @@ function initConsultant() {
   document.getElementById("consultantCommentCancel").addEventListener("click", closeConsultantCommentModal);
   document.getElementById("consultantCommentSubmit").addEventListener("click", submitConsultantComment);
   document.getElementById("consultantPostSubmit").addEventListener("click", submitConsultantChannelPost);
+  document.getElementById("consultantRegionStatsCropSelect").addEventListener("change", loadConsultantRegionStats);
   initConsultantNav();
 
   if (ConsultantApi.isLoggedIn()) {

@@ -415,3 +415,52 @@ body {
   .grid-2 { grid-template-columns: 1fr; }
   .sidebar { width: 200px; }
 }
+
+/* 새 진단 등록 폼처럼 .modal 밖에 있는 폼 필드용 - .modal label/input과 같은 값으로
+   맞춰서 어디서 쓰든 똑같이 보이게 한다. */
+.field-label { display: block; font-size: 11.5px; color: var(--gray-600); margin: 10px 0 4px; font-weight: 600; }
+.field-input { width: 100%; padding: 9px 10px; border-radius: 8px; border: 1px solid var(--gray-200); font-size: 12.5px; }
+
+/* 컨설턴트 커뮤니티 글 목록 - stat-card와 같은 카드 톤(둥근 모서리·그림자)으로 통일한다. */
+.community-post-list { display: flex; flex-direction: column; gap: 12px; }
+.community-post-card { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px 18px; }
+.community-post-title { font-size: 15px; font-weight: 700; margin: 0 0 8px; }
+.community-post-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 11.5px; color: var(--gray-600); margin-bottom: 10px; }
+.community-post-body { font-size: 13px; color: var(--gray-800); line-height: 1.55; white-space: pre-wrap; }
+.community-post-detail { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--gray-100); }
+.community-comment-item { padding: 8px 0; border-bottom: 1px solid var(--gray-100); font-size: 13px; }
+.community-comment-meta { font-size: 11px; color: var(--gray-400); margin-bottom: 2px; }
+.community-comment-form { margin-top: 10px; display: flex; gap: 8px; }
+.community-comment-form .field-input { margin: 0; }
+
+/* 모바일 브라우저(휴대폰 폭) 대응 - 컨설턴트가 현장에서 "새 진단 등록"을 바로 쓸 수 있도록
+   사이드바를 상단의 가로 스크롤 탭으로 접고, 카드/폼을 1열로 쌓는다. */
+@media (max-width: 640px) {
+  .app-shell { flex-direction: column; min-height: 0; }
+  .sidebar {
+    width: 100%; flex-direction: row; align-items: center; gap: 10px;
+    padding: 10px 12px; overflow-x: auto; -webkit-overflow-scrolling: touch;
+  }
+  .brand { margin-bottom: 0; flex-shrink: 0; }
+  .brand-title, .brand-sub { white-space: nowrap; }
+  .nav { flex-direction: row; flex: none; gap: 6px; }
+  .nav-item { white-space: nowrap; padding: 8px 10px; font-size: 12.5px; }
+  .sidebar-footer { margin-top: 0; padding-top: 0; border-top: none; flex-shrink: 0; }
+  .sidebar-footer .conn-status { display: none; }
+  .sidebar-footer .panel-sub { display: none; }
+  .logout-btn { width: auto; margin-top: 0; white-space: nowrap; }
+
+  .main { padding: 14px 14px 40px; }
+  .topbar { flex-wrap: wrap; gap: 8px; }
+  .topbar h1 { font-size: 17px; }
+
+  .cards-grid { grid-template-columns: 1fr; }
+  .form-grid-2, .form-grid-3 { grid-template-columns: 1fr; }
+  .weather-controls { gap: 10px; }
+
+  .panel { padding: 14px; }
+  .panel-header { flex-wrap: wrap; gap: 4px; }
+  .modal { width: 92vw; max-width: 92vw; padding: 16px; }
+
+  .modal-actions { flex-wrap: wrap; }
+}

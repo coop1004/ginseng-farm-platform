@@ -596,23 +596,20 @@ def reset_household_user_password(
     return schemas.TempPasswordOut(temp_password=temp_password)
 
 
-@router.get("/stats/summary", response_model=schemas.StatsSummary)
-def admin_stats_summary(
+def compute_stats_summary(
+    db: Session,
+    crop_id: Optional[int] = None,
     period: str = "all",
     start_date: Optional[dt.date] = None,
     end_date: Optional[dt.date] = None,
-    crop_id: Optional[int] = None,
-    db: Session = Depends(get_db),
-    _admin: models.AdminUser = Depends(get_current_admin),
-):
-    """관리자 대시보드용 전사(全社) 통계 - 특정 농가로 필터링하지 않고 전체 집계.
-    period/start_date/end_date를 주면 진단·영농일지는 발생일(occurrence_date/work_date) 기준으로
-    그 기간 안의 것만 집계한다(컨설턴트 활동현황과 같은 consultant_service.resolve_period_range를
-    재사용). crop_id를 주면 그 작물 소속 필지로만 좁힌다(인삼/고추/배추가 한 화면에 섞여 보이는
-    문제 대응 - 관리자 대시보드는 기본값을 인삼으로 두고 필요할 때 전체/다른 작물로 바꿔본다).
-    total_farms/total_households는 "지금 등록된 농가 수" 자체가 기간과 무관한 스냅샷 개념이라
-    기간과 상관없이 항상 현재 값을 반환하지만, crop_id는 그 작물 소속 농장/농가만 세도록 적용한다.
-    파라미터를 아무것도 안 주면(기본값 "all"/None) 기존과 동일하게 전체를 집계해서 회귀가 없다."""
+) -> dict:
+    """관리자 대시보드용 전사(全社) 통계 집계 로직 - admin_stats_summary(관리자 화면)와
+    consultant.py의 지역/현황 통계 화면(컨설턴트도 같은 정보를 볼 수 있게)이 함께 쓰는
+    공용 함수. period/start_date/end_date를 주면 진단·영농일지는 발생일(occurrence_date/
+    work_date) 기준으로 그 기간 안의 것만 집계한다. crop_id를 주면 그 작물 소속 필지로만
+    좁힌다. total_farms/total_households는 "지금 등록된 농가 수" 자체가 기간과 무관한
+    스냅샷 개념이라 기간과 상관없이 항상 현재 값을 반환하지만, crop_id는 그 작물 소속
+    농장/농가만 세도록 적용한다. 파라미터를 아무것도 안 주면 전체를 집계한다."""
     start, end = consultant_service.resolve_period_range(period, start_date, end_date)
 
     farm_query = db.query(models.Farm)
@@ -641,6 +638,18 @@ def admin_stats_summary(
     else:
         summary["total_households"] = db.query(models.Household).count()
     return summary
+
+
+@router.get("/stats/summary", response_model=schemas.StatsSummary)
+def admin_stats_summary(
+    period: str = "all",
+    start_date: Optional[dt.date] = None,
+    end_date: Optional[dt.date] = None,
+    crop_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+    _admin: models.AdminUser = Depends(get_current_admin),
+):
+    return compute_stats_summary(db, crop_id, period, start_date, end_date)
 
 
 @router.get("/farms/overview")
@@ -871,22 +880,20 @@ def admin_final_diagnosis(
     return out
 
 
-@router.get("/regional-stats")
-def regional_stats(
+def compute_regional_stats(
+    db: Session,
     crop_id: Optional[int] = None,
     period: str = "all",
     start_date: Optional[dt.date] = None,
     end_date: Optional[dt.date] = None,
-    db: Session = Depends(get_db),
-    _admin: models.AdminUser = Depends(get_current_admin),
-):
-    """지역별 병해충 발생 현황: 지도/차트용 집계. 작물별 분포(by_crop)도 함께 내려줘서
-    관리자 대시보드의 지역x작물 비교 차트에 사용한다. crop_id를 주면 그 작물 소속
-    필지의 진단만으로 좁혀서(예: 인삼만/고추만) 지역 통계를 볼 수 있다. period/start_date/
-    end_date를 주면 발생일(occurrence_date) 기준으로 그 기간 안의 진단만 집계한다(기본값
-    "all"이면 기존과 동일하게 전체 기간). 이 기간 필터는 /regional-stats/breakdown의 증감
-    추이(항상 최근 7일 vs 그 이전 7일 고정)와는 완전히 별개 - 그쪽은 이 파라미터의 영향을
-    받지 않는다."""
+) -> list:
+    """지역별 병해충 발생 현황 집계 로직 - regional_stats(관리자 화면)와 consultant.py의
+    지역/현황 통계 화면이 함께 쓰는 공용 함수. 작물별 분포(by_crop)도 함께 내려줘서
+    지역x작물 비교 차트에 사용한다. crop_id를 주면 그 작물 소속 필지의 진단만으로
+    좁혀서(예: 인삼만/고추만) 지역 통계를 볼 수 있다. period/start_date/end_date를 주면
+    발생일(occurrence_date) 기준으로 그 기간 안의 진단만 집계한다(기본값 "all"이면 전체
+    기간). 이 기간 필터는 /regional-stats/breakdown의 증감 추이(항상 최근 7일 vs 그 이전
+    7일 고정)와는 완전히 별개 - 그쪽은 이 파라미터의 영향을 받지 않는다."""
     start, end = consultant_service.resolve_period_range(period, start_date, end_date)
 
     farm_query = db.query(models.Farm)
@@ -949,6 +956,18 @@ def regional_stats(
         )
     output.sort(key=lambda x: x["total"], reverse=True)
     return output
+
+
+@router.get("/regional-stats")
+def regional_stats(
+    crop_id: Optional[int] = None,
+    period: str = "all",
+    start_date: Optional[dt.date] = None,
+    end_date: Optional[dt.date] = None,
+    db: Session = Depends(get_db),
+    _admin: models.AdminUser = Depends(get_current_admin),
+):
+    return compute_regional_stats(db, crop_id, period, start_date, end_date)
 
 
 @router.get("/regional-stats/breakdown")

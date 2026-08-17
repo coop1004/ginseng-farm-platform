@@ -14,7 +14,7 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<link rel="stylesheet" href="css/style.css?v=7" />
+<link rel="stylesheet" href="css/style.css?v=9" />
 </head>
 <body>
 <div id="loginScreen" class="login-screen">
@@ -575,6 +575,7 @@
     <nav class="nav">
       <a href="#c-households" class="nav-item active" data-csection="c-households">🌱 담당 농가</a>
       <a href="#c-community" class="nav-item" data-csection="c-community">📢 커뮤니티</a>
+      <a href="#c-region-stats" class="nav-item" data-csection="c-region-stats">🗺️ 지역/현황 통계</a>
       <a href="#c-stats" class="nav-item" data-csection="c-stats">📊 내 활동 통계</a>
     </nav>
     <div class="sidebar-footer">
@@ -622,18 +623,18 @@
           <h2>담당 농가에 공지/방제 팁 올리기</h2>
           <span class="panel-sub">기본은 담당 농가에게만 보이며, 전체 공개로 바꿀 수 있습니다</span>
         </div>
-        <label>제목 *</label>
-        <input id="consultantPostTitle" type="text" placeholder="예: 장마철 뿌리썩음병 예방 안내" />
-        <label>내용</label>
-        <textarea id="consultantPostBody" rows="3" placeholder="담당 농가에게 전달할 공지나 방제 팁을 입력하세요"></textarea>
+        <label class="field-label">제목 *</label>
+        <input class="field-input" id="consultantPostTitle" type="text" placeholder="예: 장마철 뿌리썩음병 예방 안내" />
+        <label class="field-label">내용</label>
+        <textarea class="field-input" id="consultantPostBody" rows="3" placeholder="담당 농가에게 전달할 공지나 방제 팁을 입력하세요"></textarea>
         <div class="form-grid-2">
           <div>
-            <label>작물(선택)</label>
-            <select id="consultantPostCropId"><option value="">전체 작물</option></select>
+            <label class="field-label">작물(선택)</label>
+            <select class="field-input" id="consultantPostCropId"><option value="">전체 작물</option></select>
           </div>
           <div>
-            <label>공개 범위</label>
-            <select id="consultantPostVisibility">
+            <label class="field-label">공개 범위</label>
+            <select class="field-input" id="consultantPostVisibility">
               <option value="consultant_scope">담당 농가에게만</option>
               <option value="public">전체 농가에게 공개</option>
             </select>
@@ -649,7 +650,73 @@
           <h2>커뮤니티 글 목록</h2>
           <span class="panel-sub">담당 농가의 공유글, 전체 공개글, 본인이 올린 공지/팁이 모두 보입니다</span>
         </div>
-        <div id="consultantCommunityList"></div>
+        <div id="consultantCommunityList" class="community-post-list"></div>
+      </div>
+    </section>
+
+    <section id="c-region-stats" class="section hidden">
+      <div class="panel">
+        <div class="panel-header">
+          <h2>지역/현황 통계</h2>
+          <span class="panel-sub">관리자 대시보드의 종합현황·지역별발생현황과 같은 정보 - 담당 농가로 좁히지 않고 전체 현황을 보여줍니다</span>
+        </div>
+        <div class="weather-controls">
+          <label>품목</label>
+          <select id="consultantRegionStatsCropSelect"><option value="">전체</option></select>
+        </div>
+      </div>
+
+      <div class="cards-grid">
+        <div class="stat-card">
+          <div class="stat-icon icon-green">🌾</div>
+          <div>
+            <div class="stat-value" id="cRegionStatHouseholds">-</div>
+            <div class="stat-label">회원 농가 수</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon icon-blue">📝</div>
+          <div>
+            <div class="stat-value" id="cRegionStatWorkLogs">-</div>
+            <div class="stat-label">누적 영농일지</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon icon-orange">🩺</div>
+          <div>
+            <div class="stat-value" id="cRegionStatDiagnoses">-</div>
+            <div class="stat-label">누적 AI 진단 건수</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon icon-purple">🎯</div>
+          <div>
+            <div class="stat-value" id="cRegionStatAccuracy">-</div>
+            <div class="stat-label">AI 예측 정확도 (농가 확인 기준)</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <h2>병해충 유형별 비율</h2>
+        </div>
+        <div id="cRegionStatByType" class="panel-sub"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <h2>지역별 발생 요약</h2>
+          <span class="panel-sub">전체 농가 기준 지역별 발생 현황입니다</span>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table" id="cRegionStatsTable">
+            <thead>
+              <tr><th>지역</th><th>총 발생건수</th><th>주요 병해충</th><th>유형 분포</th><th>작물별 분포</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
       </div>
     </section>
 
@@ -960,8 +1027,8 @@
 <div id="toast" class="toast hidden"></div>
 
 <script src="js/api.js?v=13"></script>
-<script src="js/dashboard.js?v=16"></script>
-<script src="js/consultant.js?v=3"></script>
+<script src="js/dashboard.js?v=17"></script>
+<script src="js/consultant.js?v=4"></script>
 <script>
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));

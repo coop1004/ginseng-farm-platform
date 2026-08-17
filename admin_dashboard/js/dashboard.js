@@ -705,6 +705,7 @@ function closeEditInfoModal() {
 
 async function submitEditInfo() {
   if (!editInfoContext) return;
+  const kind = editInfoContext.kind;
   const name = document.getElementById("editInfoName").value.trim();
   const phone = document.getElementById("editInfoPhone").value.trim();
   if (!name) {
@@ -712,12 +713,18 @@ async function submitEditInfo() {
     return;
   }
   try {
-    if (editInfoContext.kind === "household") {
+    if (kind === "household") {
       await Api.updateHousehold(editInfoContext.id, { name });
-    } else if (editInfoContext.kind === "user") {
+    } else if (kind === "user") {
       await Api.updateHouseholdUser(editInfoContext.id, { name, phone });
-    } else if (editInfoContext.kind === "consultant") {
+    } else if (kind === "consultant") {
       await Api.updateConsultant(editInfoContext.id, { name, phone });
+    } else if (kind === "consultant-household") {
+      // 컨설턴트 본인이 담당 농가 정보를 직접 수정하는 경로 - ConsultantApi(컨설턴트
+      // 토큰)를 쓴다는 것만 관리자 경로와 다르고 모달/흐름은 그대로 재사용한다.
+      await ConsultantApi.updateHousehold(editInfoContext.id, { name });
+    } else if (kind === "consultant-user") {
+      await ConsultantApi.updateHouseholdUser(editInfoContext.id, { name, phone });
     }
     showToast("정보가 수정되었습니다.");
     const onSuccess = editInfoContext.onSuccess;
@@ -726,7 +733,8 @@ async function submitEditInfo() {
   } catch (e) {
     if (e.isAuthError) {
       closeEditInfoModal();
-      showLoginScreen();
+      if (kind === "consultant-household" || kind === "consultant-user") handleConsultantLogout();
+      else showLoginScreen();
       return;
     }
     showToast(e.message, true);

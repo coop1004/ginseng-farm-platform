@@ -11,6 +11,7 @@ from app.deps import (
     get_consultant_household_ids,
     get_current_consultant,
 )
+from app.routers.admin import compute_regional_stats, compute_stats_summary
 from app.services import community_service, consultant_service
 from app.services.auth_service import create_consultant_access_token, verify_password
 from app.services.diagnosis_service import add_comment, create_diagnosis_record, to_response
@@ -42,18 +43,26 @@ def list_my_households(
     db: Session = Depends(get_db),
 ):
     """담당 농가와 그 소속 농장 목록. 시스템 전체 농가가 아니라 배정받은 농가로만
-    범위가 제한된다(get_consultant_household_ids)."""
+    범위가 제한된다(get_consultant_household_ids). members(대표자 계정 목록)는
+    "담당 농가" 화면에서 농가정보 수정 폼을 채우는 데 쓴다."""
     if not consultant_household_ids:
         return []
     households = db.query(models.Household).filter(models.Household.id.in_(consultant_household_ids)).all()
     result = []
     for h in households:
         farms = db.query(models.Farm).filter(models.Farm.household_id == h.id).all()
+        members = (
+            db.query(models.User)
+            .join(models.HouseholdMember, models.HouseholdMember.user_id == models.User.id)
+            .filter(models.HouseholdMember.household_id == h.id)
+            .all()
+        )
         result.append(
             {
                 "id": h.id,
                 "name": h.name,
                 "join_code": h.join_code,
+                "members": [{"id": m.id, "name": m.name, "phone": m.phone} for m in members],
                 "farms": [
                     {
                         "id": f.id,
@@ -68,6 +77,54 @@ def list_my_households(
             }
         )
     return result
+
+
+@router.patch("/households/{household_id}", response_model=schemas.HouseholdOut)
+def update_my_household(
+    household_id: int,
+    payload: schemas.HouseholdUpdateRequest,
+    consultant_household_ids: List[int] = Depends(get_consultant_household_ids),
+    db: Session = Depends(get_db),
+):
+    """컨설턴트가 담당 농가의 농가명을 직접 수정한다. 관리자용 update_household와
+    동일한 로직이나, 배정받은(ConsultantHousehold) 농가에 대해서만 허용한다."""
+    if household_id not in consultant_household_ids:
+        raise HTTPException(status_code=403, detail="담당 농가가 아닙니다.")
+    household = db.query(models.Household).filter(models.Household.id == household_id).first()
+    if not household:
+        raise HTTPException(status_code=404, detail="농가를 찾을 수 없습니다.")
+    if payload.name is not None:
+        household.name = payload.name
+    db.commit()
+    db.refresh(household)
+    return household
+
+
+@router.patch("/users/{user_id}", response_model=schemas.UserOut)
+def update_my_household_user(
+    user_id: int,
+    payload: schemas.UserUpdateRequest,
+    consultant_household_ids: List[int] = Depends(get_consultant_household_ids),
+    db: Session = Depends(get_db),
+):
+    """컨설턴트가 담당 농가 대표자의 이름/전화번호를 직접 수정한다. 관리자용
+    update_household_user와 동일한 로직이나, 그 계정이 배정받은 농가 소속인지
+    HouseholdMember로 확인한 뒤에만 허용한다."""
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="계정을 찾을 수 없습니다.")
+    membership = db.query(models.HouseholdMember).filter(models.HouseholdMember.user_id == user_id).first()
+    if not membership or membership.household_id not in consultant_household_ids:
+        raise HTTPException(status_code=403, detail="담당 농가의 대표자가 아닙니다.")
+    if payload.phone is not None and payload.phone != user.phone:
+        if db.query(models.User).filter(models.User.phone == payload.phone).first():
+            raise HTTPException(status_code=400, detail="이미 사용 중인 전화번호입니다.")
+        user.phone = payload.phone
+    if payload.name is not None:
+        user.name = payload.name
+    db.commit()
+    db.refresh(user)
+    return user
 
 
 @router.get("/diagnoses", response_model=List[schemas.DiagnosisCreateResponse])
@@ -94,17 +151,24 @@ def list_consultant_diagnoses(
     return [to_response(d) for d in results]
 
 
-@router.get("/diagnoses/{diagnosis_id}", response_model=schemas.DiagnosisCreateResponse)
+@router.get("/diagnoses/{diagnosis_id}")
 def get_consultant_diagnosis(
     diagnosis_id: int,
     consultant_household_ids: List[int] = Depends(get_consultant_household_ids),
     db: Session = Depends(get_db),
 ):
+    """담당 농가 화면에서 진단 행 클릭 시 쓰는 상세 조회. 관리자용 admin_diagnosis_detail과
+    동일하게 diagnosis_service.to_response를 재사용하고 household_name/region만 덧붙인다
+    (response_model을 강제하지 않은 것도 admin_diagnosis_detail과 동일한 이유 - 추가
+    필드가 잘리지 않게)."""
     d = db.query(models.Diagnosis).filter(models.Diagnosis.id == diagnosis_id).first()
     if not d:
         raise HTTPException(status_code=404, detail="진단 기록을 찾을 수 없습니다.")
     ensure_consultant_farm_access(d.farm, consultant_household_ids)
-    return to_response(d)
+    data = to_response(d)
+    data["household_name"] = d.farm.household.name if d.farm and d.farm.household else None
+    data["region"] = d.farm.region if d.farm else None
+    return data
 
 
 @router.post("/diagnoses", response_model=schemas.DiagnosisCreateResponse)
@@ -198,6 +262,30 @@ def create_consultant_diagnosis_comment(
     return add_comment(
         db, d, "consultant", current_consultant.name, payload.body, author_consultant_id=current_consultant.id
     )
+
+
+@router.get("/overview/summary")
+def consultant_overview_summary(
+    crop_id: Optional[int] = None,
+    _current_consultant: models.ConsultantUser = Depends(get_current_consultant),
+    db: Session = Depends(get_db),
+):
+    """"지역/현황 통계" 화면용 - 관리자 대시보드 종합현황과 완전히 동일한 집계 로직
+    (compute_stats_summary)을 재사용한다. 담당 농가로 범위를 좁히지 않고 시스템 전체
+    통계를 그대로 보여준다 - 담당 지역 밖에서 번지는 병해충 추이까지 참고해 현장
+    대응하는 데 도움이 되도록 하기 위함(본인 실적은 기존 /stats/summary를 그대로 쓴다)."""
+    return compute_stats_summary(db, crop_id=crop_id)
+
+
+@router.get("/overview/regional-stats")
+def consultant_overview_regional_stats(
+    crop_id: Optional[int] = None,
+    _current_consultant: models.ConsultantUser = Depends(get_current_consultant),
+    db: Session = Depends(get_db),
+):
+    """"지역/현황 통계" 화면용 - 관리자 대시보드 지역별발생현황과 완전히 동일한 집계
+    로직(compute_regional_stats)을 재사용한다."""
+    return compute_regional_stats(db, crop_id=crop_id)
 
 
 @router.get("/stats/summary", response_model=schemas.ConsultantStatsOut)
