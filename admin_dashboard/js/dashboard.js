@@ -415,6 +415,7 @@ function showHouseholdDetail(householdId) {
   document.getElementById("householdDetailPanel").classList.remove("hidden");
   document.getElementById("householdDetailTitle").textContent = `${household.household_name} · 농장 목록`;
 
+  renderHouseholdAccountInfo(householdId);
   renderHouseholdCrops(householdId);
   renderHouseholdConsultants(householdId);
 
@@ -447,6 +448,135 @@ function showHouseholdDetail(householdId) {
   tbody.querySelectorAll("button[data-farm-id]").forEach((btn) => {
     btn.addEventListener("click", () => openNotifyModal(btn.dataset.farmId, btn.dataset.farmName));
   });
+}
+
+// ---------- 계정 관리(비밀번호 초기화 / 정보 수정) - 농가·컨설턴트 공용 ----------
+// 농가 본인·컨설턴트 본인은 비밀번호를 잊거나 정보가 틀려도 스스로 고칠 화면이 없어,
+// 관리자가 대신 처리해주는 최소 기능. editInfoContext에 지금 어떤 대상(농가명/대표자/
+// 컨설턴트)을 고치는 중인지 저장해두고, 저장 성공 시 그 화면을 새로고침하는 콜백을 같이 둔다.
+let editInfoContext = null;
+
+function openEditInfoModal(kind, id, currentName, currentPhone, showPhone, title, onSuccess) {
+  editInfoContext = { kind, id, onSuccess };
+  document.getElementById("editInfoTitle").textContent = title;
+  document.getElementById("editInfoName").value = currentName || "";
+  document.getElementById("editInfoPhone").value = currentPhone || "";
+  document.getElementById("editInfoPhoneLabel").classList.toggle("hidden", !showPhone);
+  document.getElementById("editInfoPhone").classList.toggle("hidden", !showPhone);
+  document.getElementById("editInfoModal").classList.remove("hidden");
+}
+
+function closeEditInfoModal() {
+  document.getElementById("editInfoModal").classList.add("hidden");
+  editInfoContext = null;
+}
+
+async function submitEditInfo() {
+  if (!editInfoContext) return;
+  const name = document.getElementById("editInfoName").value.trim();
+  const phone = document.getElementById("editInfoPhone").value.trim();
+  if (!name) {
+    showToast("이름을 입력해주세요.", true);
+    return;
+  }
+  try {
+    if (editInfoContext.kind === "household") {
+      await Api.updateHousehold(editInfoContext.id, { name });
+    } else if (editInfoContext.kind === "user") {
+      await Api.updateHouseholdUser(editInfoContext.id, { name, phone });
+    } else if (editInfoContext.kind === "consultant") {
+      await Api.updateConsultant(editInfoContext.id, { name, phone });
+    }
+    showToast("정보가 수정되었습니다.");
+    const onSuccess = editInfoContext.onSuccess;
+    closeEditInfoModal();
+    if (onSuccess) onSuccess();
+  } catch (e) {
+    if (e.isAuthError) {
+      closeEditInfoModal();
+      showLoginScreen();
+      return;
+    }
+    showToast(e.message, true);
+  }
+}
+
+function openTempPasswordModal(password) {
+  document.getElementById("tempPasswordValue").value = password;
+  document.getElementById("tempPasswordModal").classList.remove("hidden");
+}
+
+function closeTempPasswordModal() {
+  document.getElementById("tempPasswordModal").classList.add("hidden");
+  document.getElementById("tempPasswordValue").value = "";
+}
+
+async function resetHouseholdUserPasswordFlow(userId) {
+  if (!confirm("비밀번호를 초기화하시겠습니까? 기존 비밀번호는 더 이상 사용할 수 없습니다.")) return;
+  try {
+    const result = await Api.resetHouseholdUserPassword(userId);
+    openTempPasswordModal(result.temp_password);
+  } catch (e) {
+    if (e.isAuthError) {
+      showLoginScreen();
+      return;
+    }
+    showToast(e.message, true);
+  }
+}
+
+async function resetConsultantPasswordFlow(consultantId) {
+  if (!confirm("비밀번호를 초기화하시겠습니까? 기존 비밀번호는 더 이상 사용할 수 없습니다.")) return;
+  try {
+    const result = await Api.resetConsultantPassword(consultantId);
+    openTempPasswordModal(result.temp_password);
+  } catch (e) {
+    if (e.isAuthError) {
+      showLoginScreen();
+      return;
+    }
+    showToast(e.message, true);
+  }
+}
+
+async function renderHouseholdAccountInfo(householdId) {
+  const container = document.getElementById("householdAccountInfo");
+  container.innerHTML = "불러오는 중…";
+  try {
+    const detail = await Api.getHouseholdDetail(householdId);
+    const refresh = () => renderHouseholdAccountInfo(householdId);
+    const memberRows = detail.members
+      .map(
+        (m) => `
+      <div class="account-info-row">
+        <span>${m.name} · ${m.phone}</span>
+        <button class="btn btn-ghost btn-sm" data-edit-user="${m.id}">정보 수정</button>
+        <button class="btn btn-ghost btn-sm" data-reset-user="${m.id}">비밀번호 초기화</button>
+      </div>`
+      )
+      .join("");
+    container.innerHTML = `
+      <div class="account-info-row">
+        <span><strong>${detail.name}</strong> (농가명) · 가입코드 ${detail.join_code}</span>
+        <button class="btn btn-ghost btn-sm" id="editHouseholdNameBtn">정보 수정</button>
+      </div>
+      ${memberRows}
+    `;
+    document.getElementById("editHouseholdNameBtn").addEventListener("click", () => {
+      openEditInfoModal("household", detail.id, detail.name, null, false, "농가명 수정", refresh);
+    });
+    container.querySelectorAll("[data-edit-user]").forEach((btn) => {
+      const member = detail.members.find((m) => m.id === Number(btn.dataset.editUser));
+      btn.addEventListener("click", () => {
+        openEditInfoModal("user", member.id, member.name, member.phone, true, "대표자 정보 수정", refresh);
+      });
+    });
+    container.querySelectorAll("[data-reset-user]").forEach((btn) => {
+      btn.addEventListener("click", () => resetHouseholdUserPasswordFlow(Number(btn.dataset.resetUser)));
+    });
+  } catch (e) {
+    container.innerHTML = "계정 정보를 불러오지 못했습니다.";
+  }
 }
 
 // 농가가 새 작물을 재배하기 시작했을 때 관리자가 노출 작물을 직접 추가/제거할 수 있게 한다.
@@ -1348,12 +1478,26 @@ function loadConsultantList() {
         li.className = "admin-list-item";
 
         const label = document.createElement("span");
-        label.textContent = `${c.name} (${c.username})`;
+        label.textContent = `${c.name} (${c.username})${c.phone ? " · " + c.phone : ""}`;
         li.appendChild(label);
 
         // 활동 실적통계는 계정관리에서 뺐다 - 대시보드 메인 화면(종합 현황)의
         // "컨설턴트 활동 실적" 카드 -> 상세 모달에서 컨설턴트 이름을 눌러 확인한다.
-        // 여기(계정관리)에는 계정 자체를 다루는 기능(삭제 등)만 남긴다.
+        // 여기(계정관리)에는 계정 자체를 다루는 기능(정보수정/비밀번호초기화/삭제)만 남긴다.
+        const editBtn = document.createElement("button");
+        editBtn.textContent = "정보 수정";
+        editBtn.className = "btn btn-ghost btn-sm";
+        editBtn.addEventListener("click", () =>
+          openEditInfoModal("consultant", c.id, c.name, c.phone, true, "컨설턴트 정보 수정", loadConsultantList)
+        );
+        li.appendChild(editBtn);
+
+        const resetBtn = document.createElement("button");
+        resetBtn.textContent = "비밀번호 초기화";
+        resetBtn.className = "btn btn-ghost btn-sm";
+        resetBtn.addEventListener("click", () => resetConsultantPasswordFlow(c.id));
+        li.appendChild(resetBtn);
+
         const delBtn = document.createElement("button");
         delBtn.textContent = "삭제";
         delBtn.className = "admin-delete-btn";
@@ -1916,6 +2060,19 @@ function init() {
   document.getElementById("pwSubmit").addEventListener("click", submitChangePassword);
   document.getElementById("newAccountRole").addEventListener("change", updateNewAccountRoleUi);
   document.getElementById("newAccountSubmit").addEventListener("click", submitAddAccount);
+
+  document.getElementById("editInfoCancel").addEventListener("click", closeEditInfoModal);
+  document.getElementById("editInfoSubmit").addEventListener("click", submitEditInfo);
+  document.getElementById("editInfoModal").addEventListener("click", (e) => {
+    if (e.target.id === "editInfoModal") closeEditInfoModal();
+  });
+  document.getElementById("tempPasswordClose").addEventListener("click", closeTempPasswordModal);
+  document.getElementById("tempPasswordCopy").addEventListener("click", () => {
+    const input = document.getElementById("tempPasswordValue");
+    input.select();
+    navigator.clipboard?.writeText(input.value).catch(() => {});
+    showToast("복사되었습니다.");
+  });
   document.getElementById("consultantStatsModalClose").addEventListener("click", closeConsultantStatsModal);
   document.getElementById("consultantStatsModal").addEventListener("click", (e) => {
     if (e.target.id === "consultantStatsModal") closeConsultantStatsModal();

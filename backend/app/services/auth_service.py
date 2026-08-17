@@ -61,3 +61,10 @@ def decode_consultant_access_token(token: str) -> int:
 def generate_join_code(length: int = 6) -> str:
     alphabet = string.ascii_uppercase + string.digits
     return "".join(random.choices(alphabet, k=length))
+
+
+def generate_temp_password(length: int = 10) -> str:
+    """관리자가 농가/컨설턴트 비밀번호를 초기화할 때 쓰는 임시 비밀번호. 전화로 불러줘야
+    하므로 헷갈리는 문자(0/O, 1/l/I 등)는 알파벳에서 제외한다."""
+    alphabet = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789"
+    return "".join(random.choices(alphabet, k=length))

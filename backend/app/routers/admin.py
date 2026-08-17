@@ -11,7 +11,12 @@ from app.database import get_db
 from app.deps import get_current_admin
 from app.routers.stats import build_summary
 from app.services import community_service, consultant_service
-from app.services.auth_service import create_admin_access_token, hash_password, verify_password
+from app.services.auth_service import (
+    create_admin_access_token,
+    generate_temp_password,
+    hash_password,
+    verify_password,
+)
 from app.services.diagnosis_service import to_response as diagnosis_to_response
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -167,6 +172,44 @@ def delete_consultant(
     return {"ok": True}
 
 
+@router.patch("/consultants/{consultant_id}", response_model=schemas.ConsultantOut)
+def update_consultant(
+    consultant_id: int,
+    payload: schemas.ConsultantUpdateRequest,
+    db: Session = Depends(get_db),
+    _current_admin: models.AdminUser = Depends(get_current_admin),
+):
+    """컨설턴트 본인은 이름/연락처를 수정할 화면이 없어 관리자가 대신 고쳐주는 용도."""
+    target = db.query(models.ConsultantUser).filter(models.ConsultantUser.id == consultant_id).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="컨설턴트를 찾을 수 없습니다.")
+    if payload.name is not None:
+        target.name = payload.name
+    if payload.phone is not None:
+        target.phone = payload.phone
+    db.commit()
+    db.refresh(target)
+    return target
+
+
+@router.post("/consultants/{consultant_id}/reset-password", response_model=schemas.TempPasswordOut)
+def reset_consultant_password(
+    consultant_id: int,
+    db: Session = Depends(get_db),
+    _current_admin: models.AdminUser = Depends(get_current_admin),
+):
+    """컨설턴트가 비밀번호를 잊었을 때, 자가 재설정 수단이 없어 관리자가 임시 비밀번호를
+    발급해 전화 등으로 알려주는 용도. 임시 비밀번호는 여기서만 한 번 반환되고 서버에는
+    해시로만 저장된다 - 평문은 어디에도 남지 않는다."""
+    target = db.query(models.ConsultantUser).filter(models.ConsultantUser.id == consultant_id).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="컨설턴트를 찾을 수 없습니다.")
+    temp_password = generate_temp_password()
+    target.password_hash = hash_password(temp_password)
+    db.commit()
+    return schemas.TempPasswordOut(temp_password=temp_password)
+
+
 @router.get("/consultants/{consultant_id}/households", response_model=List[schemas.HouseholdOut])
 def get_consultant_households(
     consultant_id: int, db: Session = Depends(get_db), _current_admin: models.AdminUser = Depends(get_current_admin)
@@ -257,6 +300,79 @@ def get_household_consultants(
     if not household:
         raise HTTPException(status_code=404, detail="농가를 찾을 수 없습니다.")
     return household.consultants
+
+
+@router.get("/households/{household_id}", response_model=schemas.HouseholdDetailOut)
+def get_household_detail(
+    household_id: int, db: Session = Depends(get_db), _admin: models.AdminUser = Depends(get_current_admin)
+):
+    """농가 상세 화면의 "정보 수정" 폼용 - 농가명과 소속 계정(대표자 등) 목록을 함께 내려준다."""
+    household = db.query(models.Household).filter(models.Household.id == household_id).first()
+    if not household:
+        raise HTTPException(status_code=404, detail="농가를 찾을 수 없습니다.")
+    members = (
+        db.query(models.User)
+        .join(models.HouseholdMember, models.HouseholdMember.user_id == models.User.id)
+        .filter(models.HouseholdMember.household_id == household_id)
+        .all()
+    )
+    return schemas.HouseholdDetailOut(id=household.id, name=household.name, join_code=household.join_code, members=members)
+
+
+@router.patch("/households/{household_id}", response_model=schemas.HouseholdOut)
+def update_household(
+    household_id: int,
+    payload: schemas.HouseholdUpdateRequest,
+    db: Session = Depends(get_db),
+    _admin: models.AdminUser = Depends(get_current_admin),
+):
+    """농가명은 농가 본인이 고칠 화면이 없어 관리자가 대신 고쳐주는 용도."""
+    household = db.query(models.Household).filter(models.Household.id == household_id).first()
+    if not household:
+        raise HTTPException(status_code=404, detail="농가를 찾을 수 없습니다.")
+    if payload.name is not None:
+        household.name = payload.name
+    db.commit()
+    db.refresh(household)
+    return household
+
+
+@router.patch("/users/{user_id}", response_model=schemas.UserOut)
+def update_household_user(
+    user_id: int,
+    payload: schemas.UserUpdateRequest,
+    db: Session = Depends(get_db),
+    _admin: models.AdminUser = Depends(get_current_admin),
+):
+    """농가 대표자(User)의 이름/전화번호를 관리자가 대신 수정한다. phone은 로그인 아이디로도
+    쓰이는 값이라 다른 계정과 중복되지 않는지 확인한다."""
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="계정을 찾을 수 없습니다.")
+    if payload.phone is not None and payload.phone != user.phone:
+        if db.query(models.User).filter(models.User.phone == payload.phone).first():
+            raise HTTPException(status_code=400, detail="이미 사용 중인 전화번호입니다.")
+        user.phone = payload.phone
+    if payload.name is not None:
+        user.name = payload.name
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@router.post("/users/{user_id}/reset-password", response_model=schemas.TempPasswordOut)
+def reset_household_user_password(
+    user_id: int, db: Session = Depends(get_db), _admin: models.AdminUser = Depends(get_current_admin)
+):
+    """농가가 비밀번호를 잊었을 때, 자가 재설정 수단이 없어 관리자가 임시 비밀번호를
+    발급해 전화 등으로 알려주는 용도(컨설턴트 쪽과 동일한 패턴)."""
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="계정을 찾을 수 없습니다.")
+    temp_password = generate_temp_password()
+    user.password_hash = hash_password(temp_password)
+    db.commit()
+    return schemas.TempPasswordOut(temp_password=temp_password)
 
 
 @router.get("/stats/summary", response_model=schemas.StatsSummary)

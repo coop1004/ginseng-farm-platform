@@ -120,6 +120,17 @@ const Api = (() => {
     registerConsultant: (username, password, name) =>
       request("/api/admin/consultants", { method: "POST", body: JSON.stringify({ username, password, name }) }),
     deleteConsultant: (consultantId) => request(`/api/admin/consultants/${consultantId}`, { method: "DELETE" }),
+    updateConsultant: (consultantId, payload) =>
+      request(`/api/admin/consultants/${consultantId}`, { method: "PATCH", body: JSON.stringify(payload) }),
+    resetConsultantPassword: (consultantId) =>
+      request(`/api/admin/consultants/${consultantId}/reset-password`, { method: "POST" }),
+    getHouseholdDetail: (householdId) => request(`/api/admin/households/${householdId}`),
+    updateHousehold: (householdId, payload) =>
+      request(`/api/admin/households/${householdId}`, { method: "PATCH", body: JSON.stringify(payload) }),
+    updateHouseholdUser: (userId, payload) =>
+      request(`/api/admin/users/${userId}`, { method: "PATCH", body: JSON.stringify(payload) }),
+    resetHouseholdUserPassword: (userId) =>
+      request(`/api/admin/users/${userId}/reset-password`, { method: "POST" }),
     getHouseholdConsultants: (householdId) => request(`/api/admin/households/${householdId}/consultants`),
     assignConsultantHousehold: (consultantId, householdId) =>
       request(`/api/admin/consultants/${consultantId}/households/${householdId}`, { method: "POST" }),

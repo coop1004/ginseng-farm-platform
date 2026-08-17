@@ -70,6 +70,7 @@ class ConsultantUser(Base):
     organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False, default=DEFAULT_ORGANIZATION_ID)
     username = Column(String(50), unique=True, nullable=False, index=True)
     name = Column(String(50), nullable=False)
+    phone = Column(String(30), nullable=True)
     password_hash = Column(String(255), nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=dt.datetime.utcnow)

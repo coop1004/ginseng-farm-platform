@@ -69,3 +69,6 @@ def run_light_migrations():
     # 전부 platform_super로 취급하는 게 맞다고 조사로 확인됨(무제한 접근·전사 통계·"사내
     # 담당자 전용" 가입 절차 등 전부 platform_super 성격과 일치) - DEFAULT로 즉시 백필된다.
     _add_column_if_missing(inspector, "admin_users", "role", "VARCHAR(20) NOT NULL DEFAULT 'platform_super'")
+    # 관리자가 컨설턴트 정보를 대신 수정할 수 있게 하는 작업의 일부 - 기존엔 연락처를
+    # 저장할 컬럼 자체가 없었다.
+    _add_column_if_missing(inspector, "consultant_users", "phone", "VARCHAR(30)")

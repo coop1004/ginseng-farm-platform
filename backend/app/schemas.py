@@ -64,6 +64,26 @@ class MeResponse(BaseModel):
     members: List[UserOut] = []
 
 
+class HouseholdDetailOut(BaseModel):
+    """관리자 대시보드 농가 상세 패널의 "정보 수정" 폼용 - 농가명과 소속 계정(대표자 등)
+    목록을 함께 내려준다."""
+
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    name: str
+    join_code: str
+    members: List[UserOut] = []
+
+
+class HouseholdUpdateRequest(BaseModel):
+    name: Optional[str] = None
+
+
+class UserUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    phone: Optional[str] = None
+
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
@@ -122,7 +142,20 @@ class ConsultantOut(BaseModel):
     id: int
     username: str
     name: str
+    phone: Optional[str] = None
     is_active: bool = True
+
+
+class ConsultantUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    phone: Optional[str] = None
+
+
+class TempPasswordOut(BaseModel):
+    """관리자가 비밀번호를 초기화했을 때, 화면에 한 번만 보여주고 저장하지 않는 임시
+    비밀번호. 관리자가 전화로 농가/컨설턴트에 불러주는 용도."""
+
+    temp_password: str
 
 
 class ConsultantTokenResponse(BaseModel):
