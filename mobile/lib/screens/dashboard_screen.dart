@@ -26,6 +26,7 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   final _api = ApiService();
   List<AppNotification> _notifications = [];
+  String? _riskLevel;
   int? _lastLoadedCropId;
 
   @override
@@ -40,6 +41,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
       setState(() => _notifications = notifications.take(5).toList());
     } catch (_) {
       // 홈 화면은 오프라인이어도 조용히 실패 (개별 탭에서 재시도 가능)
+    }
+    await _loadRiskSignal();
+  }
+
+  Future<void> _loadRiskSignal() async {
+    if (!mounted) return;
+    final activeCropId = context.read<CropProvider>().activeCrop?.id;
+    final farms = context.read<FarmProvider>().forCrop(activeCropId);
+    if (farms.isEmpty) {
+      if (mounted) setState(() => _riskLevel = null);
+      return;
+    }
+    try {
+      final level = await _api.getRegionalRiskSignal(farms.first.id);
+      if (mounted) setState(() => _riskLevel = level);
+    } catch (_) {
+      // 신호등은 부가 정보라 실패해도 조용히 무시 (홈 화면 다른 기능에 영향 없음)
     }
   }
 
@@ -95,6 +113,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Text('수신된 알림이 없습니다.', style: TextStyle(color: Colors.grey.shade500, fontSize: 12.5))
             else
               ..._notifications.map((n) => _NotificationTile(notification: n)),
+            if (_riskLevel != null) ...[
+              const SizedBox(height: 4),
+              _RegionalRiskBadge(level: _riskLevel!),
+            ],
             const SectionTitle('병해충 정보', subtitle: '카테고리별로 참고자료를 확인하세요'),
             const _PestCategoryRow(),
           ],
@@ -183,6 +205,75 @@ class _CommunityEntryCard extends StatelessWidget {
                         style: TextStyle(fontSize: 11.5, color: Colors.grey.shade500)),
                   ],
                 ),
+              ),
+              Icon(Icons.chevron_right, color: Colors.grey.shade400),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 지역 위험 신호등 배지 - "주의"/"경계" 등급만 표시하고, 병해충명·건수 같은 구체 정보는
+/// 절대 노출하지 않는다(이웃 농가 식별 방지, 서버 응답 자체에도 등급 외 정보가 없음).
+class _RegionalRiskBadge extends StatelessWidget {
+  final String level;
+  const _RegionalRiskBadge({required this.level});
+
+  Color get _color => level == '경계' ? AppColors.red : AppColors.orange;
+
+  // 병해충명·정확한 건수는 절대 노출하지 않되, 등급을 가르는 기준(일반 정책) 자체는
+  // 특정 농가를 특정하지 않는 정보라 안내해도 안전하다 - 사용자가 "왜 이 등급인지"
+  // 판단할 수 있도록 최소한의 근거를 제공한다.
+  String get _criteriaText => level == '경계'
+      ? '최근 7일간 같은 병해충이 우리 지역에서 6건 이상 확인되면 "경계" 단계로 안내돼요.'
+      : '최근 7일간 같은 병해충이 우리 지역에서 3건 이상 확인되면 "주의" 단계로 안내돼요.';
+
+  void _showInfo(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text('우리 지역 병해충 신호: $level'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('이번 주 우리 지역에서 병해충 신고가 평소보다 늘었어요. 예방 관리를 확인해보세요.'),
+            const SizedBox(height: 10),
+            Text(_criteriaText, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('닫기')),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PestReferenceScreen()));
+            },
+            child: const Text('예방 관리 확인'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () => _showInfo(context),
+      borderRadius: BorderRadius.circular(14),
+      child: Card(
+        color: _color.withOpacity(0.08),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: _color, size: 22),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text('우리 지역 병해충 신호: $level',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _color)),
               ),
               Icon(Icons.chevron_right, color: Colors.grey.shade400),
             ],

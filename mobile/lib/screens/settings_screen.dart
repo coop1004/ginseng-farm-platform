@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -146,21 +147,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const SizedBox(height: 20),
                 ],
-                const Text('API 서버 주소', style: TextStyle(fontWeight: FontWeight.w700)),
-                const SizedBox(height: 6),
-                Text(
-                  '안드로이드 에뮬레이터는 10.0.2.2, iOS 시뮬레이터/실기기는 PC의 IP 주소를 사용하세요.',
-                  style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _ctrl,
-                  decoration: const InputDecoration(hintText: 'http://10.0.2.2:8000'),
-                  keyboardType: TextInputType.url,
-                ),
-                const SizedBox(height: 12),
-                ElevatedButton(onPressed: _saveServerUrl, child: const Text('서버 주소 저장')),
-                const SizedBox(height: 28),
+                // 로컬 에뮬레이터/시뮬레이터로 개발·디버깅할 때만 필요한 도구라, 실사용자에게
+                // 배포되는 릴리스 빌드에서는 kDebugMode가 false가 되어 이 블록 자체가
+                // 트리 셰이킹으로 바이너리에서 빠진다(런타임 숨김이 아니라 컴파일 시 제외).
+                if (kDebugMode) ...[
+                  const Text('API 서버 주소', style: TextStyle(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 6),
+                  Text(
+                    '안드로이드 에뮬레이터는 10.0.2.2, iOS 시뮬레이터/실기기는 PC의 IP 주소를 사용하세요.',
+                    style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _ctrl,
+                    decoration: const InputDecoration(hintText: 'http://10.0.2.2:8000'),
+                    keyboardType: TextInputType.url,
+                  ),
+                  const SizedBox(height: 12),
+                  ElevatedButton(onPressed: _saveServerUrl, child: const Text('서버 주소 저장')),
+                  const SizedBox(height: 28),
+                ],
                 const Text('내 데이터', style: TextStyle(fontWeight: FontWeight.w700)),
                 const SizedBox(height: 6),
                 Text(

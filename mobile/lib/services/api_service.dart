@@ -184,6 +184,15 @@ class ApiService {
     _checkResponse(res);
   }
 
+  /// 지역 위험 신호등 등급("주의"/"경계") 또는 null(신호 없음). 병해충명·건수는 서버에서부터
+  /// 응답에 포함되지 않는다(프라이버시 - 이웃 농가를 식별할 수 있는 정보이기 때문).
+  Future<String?> getRegionalRiskSignal(int farmId) async {
+    final res = await http.get(await _uri('/api/farms/$farmId/regional-risk-signal'), headers: await _authHeaders());
+    _checkResponse(res);
+    final data = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+    return data['level'] as String?;
+  }
+
   // ---------- Crops ----------
   Future<List<Crop>> getCrops() async {
     final res = await http.get(await _uri('/api/crops'), headers: await _authHeaders());

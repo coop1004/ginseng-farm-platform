@@ -60,6 +60,9 @@ class _DiagnosisResultScreenState extends State<DiagnosisResultScreen> {
       await ApiService().createDiagnosisComment(diagnosisId: diagnosis.id, body: body);
       _commentCtrl.clear();
       await _loadComments();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('댓글이 등록되었습니다.')));
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('코멘트 등록 실패: $e')));

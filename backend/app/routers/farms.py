@@ -1,6 +1,8 @@
-from typing import List
+import datetime as dt
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app import models, schemas
@@ -9,6 +11,18 @@ from app.deps import ensure_farm_access, get_current_household_id, get_household
 from app.seed import get_ginseng_crop_id
 
 router = APIRouter(prefix="/api/farms", tags=["farms"])
+
+# 지역 위험 신호등(농가앱 노출용) 집계 기간 - admin.py의 REGIONAL_TREND_WINDOW_DAYS와 같은
+# 7일 관례를 따르되, 이웃 농가를 최종 사용자로 노출하는 화면이라 admin 라우터에 결합하지
+# 않고 이 파일에서 독립적으로 관리한다.
+REGIONAL_RISK_SIGNAL_WINDOW_DAYS = 7
+
+# 농가앱에 노출되는 신호등은 관리자/컨설턴트가 보는 REGIONAL_STATS_MIN_SAMPLE_SIZE(admin.py,
+# 내부 관리자 전용이라 1로 사실상 비활성화됨)와 절대 같은 값을 쓰면 안 된다 - 신호등을 보는
+# 사람이 접근권 없는 이웃 농가(최종사용자)이기 때문에, 특정 이웃의 발생 사실이 간접적으로도
+# 드러나지 않도록 훨씬 보수적인 별도 임계값을 둔다. 동일 병해충명 최다 발생 건수 기준.
+FARMER_RISK_CAUTION_MIN_COUNT = 3  # 이 값 이상이면 "주의"
+FARMER_RISK_ALERT_MIN_COUNT = 6  # 이 값 이상이면 "경계" (주의보다 우선)
 
 
 def _to_out(f: models.Farm) -> dict:
@@ -95,3 +109,56 @@ def delete_farm(farm_id: int, household_id: int = Depends(get_current_household_
     db.delete(farm)
     db.commit()
     return {"ok": True}
+
+
+@router.get("/{farm_id}/regional-risk-signal")
+def get_regional_risk_signal(
+    farm_id: int, household_id: int = Depends(get_current_household_id), db: Session = Depends(get_db)
+):
+    """농가앱 홈 화면용 지역 위험 신호등. admin.py의 regional_stats_breakdown()과 같은
+    effective name(final_disease_name 우선, 없으면 ai_disease_name) 집계 방식을 재사용하되,
+    이 화면을 보는 사람은 접근권 없는 이웃 농가(최종사용자)이므로 병해충명·정확한 건수·
+    농가 수 등은 절대 응답에 포함하지 않고 등급 문자열만 반환한다."""
+    farm = db.query(models.Farm).filter(models.Farm.id == farm_id).first()
+    if not farm:
+        raise HTTPException(status_code=404, detail="농장을 찾을 수 없습니다.")
+    ensure_farm_access(farm, household_id)
+
+    if not farm.region:
+        return {"level": None}
+
+    # 같은 지역이라도 작물이 다르면 병해충명이 겹쳐도 무관한 정보라, 신호가 이 농가의 작물과
+    # 무관한 이웃 작물 발생으로 오염되지 않도록 crop_id까지 함께 좁힌다.
+    region_farm_ids = [
+        f.id
+        for f in db.query(models.Farm)
+        .filter(models.Farm.region == farm.region, models.Farm.crop_id == farm.crop_id)
+        .all()
+    ]
+    if not region_farm_ids:
+        return {"level": None}
+
+    cutoff = dt.date.today() - dt.timedelta(days=REGIONAL_RISK_SIGNAL_WINDOW_DAYS)
+    diagnoses = (
+        db.query(models.Diagnosis)
+        .filter(
+            models.Diagnosis.farm_id.in_(region_farm_ids),
+            models.Diagnosis.occurrence_date > cutoff,
+            or_(models.Diagnosis.final_disease_name.isnot(None), models.Diagnosis.ai_disease_name.isnot(None)),
+        )
+        .all()
+    )
+
+    counts: dict = {}
+    for d in diagnoses:
+        name = d.final_disease_name or d.ai_disease_name
+        counts[name] = counts.get(name, 0) + 1
+
+    max_count = max(counts.values(), default=0)
+    level: Optional[str] = None
+    if max_count >= FARMER_RISK_ALERT_MIN_COUNT:
+        level = "경계"
+    elif max_count >= FARMER_RISK_CAUTION_MIN_COUNT:
+        level = "주의"
+
+    return {"level": level}
