@@ -90,6 +90,31 @@
     </header>
 
     <section id="overview" class="section">
+      <div class="panel">
+        <div class="panel-header">
+          <h2>선택 기간 내 통계</h2>
+          <span class="panel-sub">아래 숫자·그래프가 모두 선택한 기간을 기준으로 계산됩니다 (기본값: 전체 기간)</span>
+        </div>
+        <div class="weather-controls">
+          <label>기간</label>
+          <select id="statsSummaryPeriod">
+            <option value="all" selected>전체 기간</option>
+            <option value="this_month">이번 달</option>
+            <option value="last_month">지난 달</option>
+            <option value="last_3_months">최근 3개월</option>
+            <option value="this_year">올해</option>
+            <option value="custom">사용자 지정</option>
+          </select>
+          <span id="statsSummaryCustomRange" class="hidden">
+            <label>시작일</label>
+            <input id="statsSummaryStartDate" type="date" />
+            <label>종료일</label>
+            <input id="statsSummaryEndDate" type="date" />
+            <button id="statsSummaryCustomApply" class="btn btn-ghost btn-sm">적용</button>
+          </span>
+        </div>
+      </div>
+
       <div class="cards-grid">
         <div class="stat-card stat-card-clickable" id="statFarmsCard" title="농가 모니터링으로 이동">
           <div class="stat-icon icon-green">🌾</div>
@@ -216,6 +241,31 @@
       </div>
       <div class="panel">
         <div class="panel-header">
+          <h2>선택 기간 내 통계</h2>
+          <span class="panel-sub">지도·표의 발생건수가 선택한 기간을 기준으로 계산됩니다 (기본값: 전체 기간)</span>
+        </div>
+        <div class="weather-controls">
+          <label>기간</label>
+          <select id="regionalStatsPeriod">
+            <option value="all" selected>전체 기간</option>
+            <option value="this_month">이번 달</option>
+            <option value="last_month">지난 달</option>
+            <option value="last_3_months">최근 3개월</option>
+            <option value="this_year">올해</option>
+            <option value="custom">사용자 지정</option>
+          </select>
+          <span id="regionalStatsCustomRange" class="hidden">
+            <label>시작일</label>
+            <input id="regionalStatsStartDate" type="date" />
+            <label>종료일</label>
+            <input id="regionalStatsEndDate" type="date" />
+            <button id="regionalStatsCustomApply" class="btn btn-ghost btn-sm">적용</button>
+          </span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
           <h2>지역별 병해충 발생 모니터링</h2>
           <span class="panel-sub">원의 크기는 발생 건수에 비례합니다</span>
         </div>
@@ -236,8 +286,8 @@
       </div>
       <div class="panel">
         <div class="panel-header">
-          <h2>지역별 발생 요약</h2>
-          <span class="panel-sub">지역을 클릭하면 병해충류별 발생건수·증감 추이를 볼 수 있습니다</span>
+          <h2>지역별 발생 요약 <span class="panel-sub" style="font-weight:400;">(선택 기간 내 통계)</span></h2>
+          <span class="panel-sub">지역을 클릭하면 병해충류별 발생건수·증감 추이(항상 최근 7일 기준, 아래 기간 필터와 무관)를 볼 수 있습니다</span>
         </div>
         <div class="table-wrap">
           <table class="data-table" id="regionTable">
@@ -720,6 +770,7 @@
 
     <div id="regionBreakdownListView">
       <p class="panel-sub" style="margin-bottom: 8px;">병해충류를 클릭하면 해당 진단 목록을 볼 수 있습니다</p>
+      <p class="panel-sub" style="margin-bottom: 8px;">아래 발생건수는 누적 전체 기간 기준이며, 증감 추이는 지역별발생현황의 기간 필터와 무관하게 항상 최근 7일 기준입니다</p>
       <div class="table-wrap">
         <table class="data-table" id="regionBreakdownTable">
           <thead>
@@ -842,8 +893,8 @@
 
 <div id="toast" class="toast hidden"></div>
 
-<script src="js/api.js?v=9"></script>
-<script src="js/dashboard.js?v=11"></script>
+<script src="js/api.js?v=10"></script>
+<script src="js/dashboard.js?v=12"></script>
 <script src="js/consultant.js?v=3"></script>
 <script>
   if ("serviceWorker" in navigator) {

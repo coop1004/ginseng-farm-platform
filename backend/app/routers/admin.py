@@ -453,9 +453,31 @@ def reset_household_user_password(
 
 
 @router.get("/stats/summary", response_model=schemas.StatsSummary)
-def admin_stats_summary(db: Session = Depends(get_db), _admin: models.AdminUser = Depends(get_current_admin)):
-    """관리자 대시보드용 전사(全社) 통계 - 특정 농가로 필터링하지 않고 전체 집계."""
-    summary = build_summary(db.query(models.Farm), db.query(models.WorkLog), db.query(models.Diagnosis))
+def admin_stats_summary(
+    period: str = "all",
+    start_date: Optional[dt.date] = None,
+    end_date: Optional[dt.date] = None,
+    db: Session = Depends(get_db),
+    _admin: models.AdminUser = Depends(get_current_admin),
+):
+    """관리자 대시보드용 전사(全社) 통계 - 특정 농가로 필터링하지 않고 전체 집계.
+    period/start_date/end_date를 주면 진단·영농일지는 발생일(occurrence_date/work_date) 기준으로
+    그 기간 안의 것만 집계한다(컨설턴트 활동현황과 같은 consultant_service.resolve_period_range를
+    재사용). total_farms/total_households는 "지금 등록된 농가 수" 자체가 기간과 무관한 스냅샷
+    개념이라 기간과 상관없이 항상 현재 값을 반환한다. 파라미터를 아무것도 안 주면(기본값 "all")
+    기존과 동일하게 전체 기간을 집계해서 회귀가 없다."""
+    start, end = consultant_service.resolve_period_range(period, start_date, end_date)
+
+    work_query = db.query(models.WorkLog)
+    diag_query = db.query(models.Diagnosis)
+    if start is not None:
+        work_query = work_query.filter(models.WorkLog.work_date >= start.date())
+        diag_query = diag_query.filter(models.Diagnosis.occurrence_date >= start.date())
+    if end is not None:
+        work_query = work_query.filter(models.WorkLog.work_date <= end.date())
+        diag_query = diag_query.filter(models.Diagnosis.occurrence_date <= end.date())
+
+    summary = build_summary(db.query(models.Farm), work_query, diag_query)
     summary["total_households"] = db.query(models.Household).count()
     return summary
 
@@ -675,12 +697,21 @@ def admin_final_diagnosis(
 @router.get("/regional-stats")
 def regional_stats(
     crop_id: Optional[int] = None,
+    period: str = "all",
+    start_date: Optional[dt.date] = None,
+    end_date: Optional[dt.date] = None,
     db: Session = Depends(get_db),
     _admin: models.AdminUser = Depends(get_current_admin),
 ):
     """지역별 병해충 발생 현황: 지도/차트용 집계. 작물별 분포(by_crop)도 함께 내려줘서
     관리자 대시보드의 지역x작물 비교 차트에 사용한다. crop_id를 주면 그 작물 소속
-    필지의 진단만으로 좁혀서(예: 인삼만/고추만) 지역 통계를 볼 수 있다."""
+    필지의 진단만으로 좁혀서(예: 인삼만/고추만) 지역 통계를 볼 수 있다. period/start_date/
+    end_date를 주면 발생일(occurrence_date) 기준으로 그 기간 안의 진단만 집계한다(기본값
+    "all"이면 기존과 동일하게 전체 기간). 이 기간 필터는 /regional-stats/breakdown의 증감
+    추이(항상 최근 7일 vs 그 이전 7일 고정)와는 완전히 별개 - 그쪽은 이 파라미터의 영향을
+    받지 않는다."""
+    start, end = consultant_service.resolve_period_range(period, start_date, end_date)
+
     farm_query = db.query(models.Farm)
     if crop_id is not None:
         farm_query = farm_query.filter(models.Farm.crop_id == crop_id)
@@ -689,6 +720,10 @@ def regional_stats(
     diag_query = db.query(models.Diagnosis)
     if crop_id is not None:
         diag_query = diag_query.join(models.Farm).filter(models.Farm.crop_id == crop_id)
+    if start is not None:
+        diag_query = diag_query.filter(models.Diagnosis.occurrence_date >= start.date())
+    if end is not None:
+        diag_query = diag_query.filter(models.Diagnosis.occurrence_date <= end.date())
     diagnoses = diag_query.all()
 
     region_data: dict = {}

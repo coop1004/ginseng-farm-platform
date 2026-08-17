@@ -53,10 +53,24 @@ const Api = (() => {
     health: () => request("/api/health", {}, false),
     login: (username, password) =>
       request("/api/admin/auth/login", { method: "POST", body: JSON.stringify({ username, password }) }, false),
-    getStatsSummary: () => request("/api/admin/stats/summary"),
+    getStatsSummary: ({ period, startDate, endDate } = {}) => {
+      const qs = new URLSearchParams();
+      if (period) qs.set("period", period);
+      if (startDate) qs.set("start_date", startDate);
+      if (endDate) qs.set("end_date", endDate);
+      const query = qs.toString();
+      return request(`/api/admin/stats/summary${query ? `?${query}` : ""}`);
+    },
     getFarmsOverview: () => request("/api/admin/farms/overview"),
-    getRegionalStats: (cropId) =>
-      request(`/api/admin/regional-stats${cropId ? `?crop_id=${cropId}` : ""}`),
+    getRegionalStats: (cropId, { period, startDate, endDate } = {}) => {
+      const qs = new URLSearchParams();
+      if (cropId) qs.set("crop_id", cropId);
+      if (period) qs.set("period", period);
+      if (startDate) qs.set("start_date", startDate);
+      if (endDate) qs.set("end_date", endDate);
+      const query = qs.toString();
+      return request(`/api/admin/regional-stats${query ? `?${query}` : ""}`);
+    },
     getRegionalBreakdown: (region, cropId) => {
       const qs = new URLSearchParams({ region });
       if (cropId) qs.set("crop_id", cropId);

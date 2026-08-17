@@ -334,14 +334,34 @@ function renderRegionCropChart(regionalStats) {
 
 // 지역별 발생 지도/차트/표를 특정 작물로 좁혀서 다시 불러온다. cropId가 falsy면(전체 작물
 // 선택) 필터 없이 전체를 보여준다 - 기존 동작과 동일.
+// 종합현황/지역별발생현황 화면 전용 기간 필터 상태. 컨설턴트 활동현황(consultantActivityState)과
+// 같은 패턴이지만, 기본값이 "all"(전체 기간)이라 필터를 건드리지 않으면 이번 작업 이전과
+// 동일한 화면이 나온다(회귀 없음). 지역x병해충류 증감 추이(regional-stats/breakdown)는 이
+// 상태와 무관하게 항상 최근 7일 고정으로 별도 동작한다.
+let statsSummaryPeriodState = { period: "all", startDate: null, endDate: null };
+let regionalStatsPeriodState = { period: "all", startDate: null, endDate: null };
+
 function loadRegionalStats(cropId) {
-  return Api.getRegionalStats(cropId || undefined)
+  const { period, startDate, endDate } = regionalStatsPeriodState;
+  return Api.getRegionalStats(cropId || undefined, { period, startDate, endDate })
     .then((regional) => {
       renderMap(regional);
       renderRegionTable(regional);
       renderRegionCropChart(regional);
     })
     .catch((e) => showToast(`지역 통계 로드 실패: ${e.message}`, true));
+}
+
+function currentRegionalCropFilterValue() {
+  const select = document.getElementById("regionalCropFilter");
+  return select ? select.value : "";
+}
+
+function reloadStatsSummary() {
+  const { period, startDate, endDate } = statsSummaryPeriodState;
+  return Api.getStatsSummary({ period, startDate, endDate })
+    .then(renderSummary)
+    .catch((e) => showToast(`종합 현황 로드 실패: ${e.message}`, true));
 }
 
 // ---------- 지역 발생 현황 드릴다운: 지역 -> 병해충류별(+증감) -> 진단 목록 -> 상세/알림 ----------
@@ -2252,6 +2272,50 @@ function init() {
     consultantActivityState.startDate = start || null;
     consultantActivityState.endDate = end || null;
     loadConsultantActivityPage();
+  });
+
+  document.getElementById("statsSummaryPeriod").addEventListener("change", (e) => {
+    const val = e.target.value;
+    statsSummaryPeriodState.period = val;
+    document.getElementById("statsSummaryCustomRange").classList.toggle("hidden", val !== "custom");
+    if (val !== "custom") {
+      statsSummaryPeriodState.startDate = null;
+      statsSummaryPeriodState.endDate = null;
+      reloadStatsSummary();
+    }
+  });
+  document.getElementById("statsSummaryCustomApply").addEventListener("click", () => {
+    const start = document.getElementById("statsSummaryStartDate").value;
+    const end = document.getElementById("statsSummaryEndDate").value;
+    if (!start && !end) {
+      showToast("시작일 또는 종료일을 선택해주세요.", true);
+      return;
+    }
+    statsSummaryPeriodState.startDate = start || null;
+    statsSummaryPeriodState.endDate = end || null;
+    reloadStatsSummary();
+  });
+
+  document.getElementById("regionalStatsPeriod").addEventListener("change", (e) => {
+    const val = e.target.value;
+    regionalStatsPeriodState.period = val;
+    document.getElementById("regionalStatsCustomRange").classList.toggle("hidden", val !== "custom");
+    if (val !== "custom") {
+      regionalStatsPeriodState.startDate = null;
+      regionalStatsPeriodState.endDate = null;
+      loadRegionalStats(currentRegionalCropFilterValue());
+    }
+  });
+  document.getElementById("regionalStatsCustomApply").addEventListener("click", () => {
+    const start = document.getElementById("regionalStatsStartDate").value;
+    const end = document.getElementById("regionalStatsEndDate").value;
+    if (!start && !end) {
+      showToast("시작일 또는 종료일을 선택해주세요.", true);
+      return;
+    }
+    regionalStatsPeriodState.startDate = start || null;
+    regionalStatsPeriodState.endDate = end || null;
+    loadRegionalStats(currentRegionalCropFilterValue());
   });
 
   document.getElementById("refreshBtn").addEventListener("click", loadAll);
