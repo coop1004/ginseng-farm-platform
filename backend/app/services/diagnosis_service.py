@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from app import models
 from app.config import settings
-from app.services import exif_service, gemini_service, weather_service
+from app.services import exif_service, gemini_service, reference_service, weather_service
 
 LOW_CONFIDENCE_THRESHOLD = 0.6
 
@@ -82,6 +82,23 @@ def to_response(d: models.Diagnosis) -> dict:
         "created_by_consultant_name": d.created_by_consultant.name if d.created_by_consultant else None,
         "created_at": d.created_at,
     }
+
+
+def build_corrected_reference(db: Session, d: models.Diagnosis) -> Optional[dict]:
+    """정정된 진단명(final_disease_name)이 있는 진단에 한해, 마스터 참고자료
+    (TreatmentReference)에서 같은 이름의 항목을 찾아 정정된 병명 기준 방제정보를
+    별도로 제공한다. ai_disease_name 기준 eco_treatments/chemical_treatments는
+    등록 시점 스냅샷이라 정정 후에도 그대로 남아있으므로, 이 함수는 그 값을
+    덮어쓰지 않고 화면에 별도 섹션으로 얹을 추가 정보만 반환한다. 매칭되는 항목이
+    없으면 None - 호출부(화면)가 폴백 문구로 안내한다."""
+    if not d.final_disease_name:
+        return None
+    crop_id = d.farm.crop_id if d.farm else None
+    organization_id = d.farm.organization_id if d.farm else None
+    ref = reference_service.find_reference_by_name(db, d.final_disease_name, crop_id)
+    if not ref:
+        return None
+    return reference_service.to_reference_out(ref, organization_id)
 
 
 async def create_diagnosis_record(

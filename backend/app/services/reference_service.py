@@ -123,6 +123,27 @@ def to_reference_out(r: models.TreatmentReference, organization_id: Optional[int
     }
 
 
+def find_reference_by_name(db: Session, name_kr: str, crop_id: Optional[int]) -> Optional[models.TreatmentReference]:
+    """정정된 진단명(자유 텍스트)으로 참고자료를 찾는다. 컨설턴트/전문가가 직접 입력하는
+    final_disease_name은 TreatmentReference.name_kr과 정확히 일치하지 않을 수 있어(오타,
+    동의어, 애초에 미등록 병명) 매칭 실패 시 None을 반환하고 호출부가 폴백을 처리한다.
+    crop_id가 있으면 같은 작물 항목을 우선하고, 없으면 작물 무관하게 이름만 맞는 항목으로
+    폴백한다(동명이인 병해충이 다른 작물에 등록돼 있는 경우 방지)."""
+    name_kr = (name_kr or "").strip()
+    if not name_kr:
+        return None
+    query = (
+        db.query(models.TreatmentReference)
+        .options(selectinload(models.TreatmentReference.materials).selectinload(models.PestDiseaseMaterial.agri_material))
+        .filter(models.TreatmentReference.is_active.is_(True), models.TreatmentReference.name_kr == name_kr)
+    )
+    if crop_id is not None:
+        match = query.filter(models.TreatmentReference.crop_id == crop_id).first()
+        if match:
+            return match
+    return query.first()
+
+
 def load_references_for_crop(db: Session, crop_id: Optional[int]) -> List[models.TreatmentReference]:
     """crop_id로 활성 참고자료를 조회한다. crop_id가 없거나 매칭되는 항목이 없으면
     (예: 아직 크롭 데이터가 없는 신규 작물) 안전장치로 전체 활성 참고자료를

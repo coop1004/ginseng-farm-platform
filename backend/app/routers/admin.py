@@ -17,7 +17,7 @@ from app.services.auth_service import (
     hash_password,
     verify_password,
 )
-from app.services.diagnosis_service import to_response as diagnosis_to_response
+from app.services.diagnosis_service import build_corrected_reference, to_response as diagnosis_to_response
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -849,6 +849,7 @@ def admin_diagnosis_detail(
     data = diagnosis_to_response(d)
     data["household_name"] = d.farm.household.name if d.farm and d.farm.household else None
     data["region"] = d.farm.region if d.farm else None
+    data["corrected_reference"] = build_corrected_reference(db, d)
     return data
 
 

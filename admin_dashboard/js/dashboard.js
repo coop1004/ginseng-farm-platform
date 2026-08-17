@@ -2090,6 +2090,13 @@ function renderDiagnosisDetailBody(d) {
     `
     : "";
 
+  // 정정 후 병명이 AI 원본과 달라지면, 아래 증상/방제 정보가 여전히 원본 기준
+  // 고정값이라는 걸 화면에서 바로 알 수 있도록 두 섹션 앞에 각각 안내문을 붙인다.
+  const correctionNotice =
+    d.final_disease_name && d.ai_disease_name && d.final_disease_name !== d.ai_disease_name
+      ? `<p style="font-size:11px; color: var(--gray-500); background: var(--gray-100, #f2f3f5); border-radius:6px; padding:6px 10px; margin: 8px 0;">ℹ️ 이 정보는 AI 원본 진단(${d.ai_disease_name}) 기준이며, 정정된 최종 진단명과 다를 수 있습니다.</p>`
+      : "";
+
   document.getElementById("diagnosisDetailBody").innerHTML = `
     ${photosHtml}
     <div style="margin-top:14px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
@@ -2099,7 +2106,7 @@ function renderDiagnosisDetailBody(d) {
       <span class="status-badge status-${d.status}">${d.status}</span>
       <span style="font-size:11.5px; color: var(--gray-500); margin-left:auto;">${registrant}</span>
     </div>
-    ${d.ai_symptoms ? `<div class="panel-sub" style="margin-top:14px;">특징 및 증상</div><p style="font-size:13px;">${d.ai_symptoms}</p>` : ""}
+    ${d.ai_symptoms ? `${correctionNotice}<div class="panel-sub" style="margin-top:14px;">특징 및 증상</div><p style="font-size:13px;">${d.ai_symptoms}</p>` : ""}
     <div class="panel-sub" style="margin-top:14px;">촬영 당시 기상 정보</div>
     ${
       d.weather_temp_c == null
@@ -2134,10 +2141,29 @@ function renderDiagnosisDetailBody(d) {
         : ""
     }
     ${finalBlock}
+    ${correctionNotice}
     <div class="panel-sub" style="margin-top:14px;">친환경 방제 자재 (우선 추천)</div>
     ${treatmentList(d.eco_treatments)}
     <div class="panel-sub" style="margin-top:10px;">화학적 관리법 (보조 정보)</div>
     ${treatmentList(d.chemical_treatments)}
+    ${
+      d.final_disease_name
+        ? `
+    <div class="panel-sub" style="margin-top:14px;">정정 후 참고 정보 (${d.final_disease_name} 기준)</div>
+    ${
+      d.corrected_reference
+        ? `
+      ${d.corrected_reference.symptoms ? `<p style="font-size:12px; color: var(--gray-600); margin-bottom:8px;">${d.corrected_reference.symptoms}</p>` : ""}
+      <div class="panel-sub" style="margin-top:8px; font-size:11.5px;">친환경 방제 자재</div>
+      ${treatmentList(d.corrected_reference.eco_treatments)}
+      <div class="panel-sub" style="margin-top:8px; font-size:11.5px;">화학적 관리법</div>
+      ${treatmentList(d.corrected_reference.chemical_treatments)}
+      `
+        : `<p class="panel-sub">정정된 진단명에 대한 참고 방제자료가 등록돼 있지 않습니다 — 소견을 참고하세요.</p>`
+    }
+    `
+        : ""
+    }
   `;
 }
 

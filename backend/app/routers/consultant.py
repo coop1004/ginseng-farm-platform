@@ -14,7 +14,7 @@ from app.deps import (
 from app.routers.admin import compute_regional_stats, compute_stats_summary
 from app.services import community_service, consultant_service
 from app.services.auth_service import create_consultant_access_token, verify_password
-from app.services.diagnosis_service import add_comment, create_diagnosis_record, to_response
+from app.services.diagnosis_service import add_comment, build_corrected_reference, create_diagnosis_record, to_response
 
 router = APIRouter(prefix="/api/consultant", tags=["consultant"])
 
@@ -168,6 +168,7 @@ def get_consultant_diagnosis(
     data = to_response(d)
     data["household_name"] = d.farm.household.name if d.farm and d.farm.household else None
     data["region"] = d.farm.region if d.farm else None
+    data["corrected_reference"] = build_corrected_reference(db, d)
     return data
 
 
