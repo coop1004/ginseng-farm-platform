@@ -237,7 +237,7 @@ class _DiagnosisCard extends StatelessWidget {
                     const SizedBox(height: 3),
                     Text(
                       '${item.farmName ?? ''} · ${item.cropName} · ${DateFormat('yyyy.MM.dd').format(item.occurrenceDate)}',
-                      style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600),
+                      style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
                     ),
                   ],
                 ),

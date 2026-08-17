@@ -83,8 +83,8 @@ class _DiagnosisResultScreenState extends State<DiagnosisResultScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('현장을 직접 확인하신 결과를 입력해주세요. AI 판단보다 우선 반영됩니다.',
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+            const Text('현장을 직접 확인하신 결과를 입력해주세요. AI 판단보다 우선 반영됩니다.',
+                style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
             const SizedBox(height: 14),
             TextField(
               controller: nameCtrl,
@@ -173,8 +173,8 @@ class _DiagnosisResultScreenState extends State<DiagnosisResultScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('이 진단 기록(사진 포함)이 커뮤니티에 공개됩니다. 정확한 위치 정보는 포함되지 않습니다.',
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+              const Text('이 진단 기록(사진 포함)이 커뮤니티에 공개됩니다. 정확한 위치 정보는 포함되지 않습니다.',
+                  style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
               const SizedBox(height: 14),
               TextField(controller: titleCtrl, decoration: const InputDecoration(labelText: '제목 *'), autofocus: true),
               const SizedBox(height: 10),
@@ -295,10 +295,10 @@ class _DiagnosisResultScreenState extends State<DiagnosisResultScreen> {
             children: [
               _chip(diagnosis.diagnosisType, typeColor),
               const SizedBox(width: 6),
-              _chip(diagnosis.cropName, Colors.grey.shade600),
+              _chip(diagnosis.cropName, AppColors.textSecondary),
               const Spacer(),
               Text(DateFormat('yyyy.MM.dd').format(diagnosis.occurrenceDate),
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                  style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
             ],
           ),
           const SizedBox(height: 10),
@@ -316,18 +316,18 @@ class _DiagnosisResultScreenState extends State<DiagnosisResultScreen> {
           if (diagnosis.finalDiseaseName != null && diagnosis.aiDiseaseName != null && diagnosis.aiDiseaseName != diagnosis.finalDiseaseName)
             Padding(
               padding: const EdgeInsets.only(top: 2),
-              child: Text('AI 판단: ${diagnosis.aiDiseaseName}', style: TextStyle(fontSize: 11.5, color: Colors.grey.shade500)),
+              child: Text('AI 판단: ${diagnosis.aiDiseaseName}', style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary)),
             ),
           if (diagnosis.finalDiseaseName == null && diagnosis.aiDiseaseNameEn != null)
-            Text(diagnosis.aiDiseaseNameEn!, style: TextStyle(fontSize: 12.5, color: Colors.grey.shade500)),
+            Text(diagnosis.aiDiseaseNameEn!, style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
           const SizedBox(height: 6),
           if (diagnosis.aiConfidence != null)
             Row(
               children: [
-                Icon(Icons.insights, size: 15, color: Colors.grey.shade600),
+                const Icon(Icons.insights, size: 15, color: AppColors.textSecondary),
                 const SizedBox(width: 4),
                 Text('AI 확신도 ${(diagnosis.aiConfidence! * 100).toStringAsFixed(0)}%',
-                    style: TextStyle(fontSize: 12.5, color: Colors.grey.shade600, fontWeight: FontWeight.w600)),
+                    style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
               ],
             ),
           const SizedBox(height: 10),
@@ -355,14 +355,14 @@ class _DiagnosisResultScreenState extends State<DiagnosisResultScreen> {
           const _SectionHeader(icon: Icons.eco, title: '친환경/유기농 방제 자재 (최우선 추천)', color: AppColors.green),
           const SizedBox(height: 8),
           if (diagnosis.ecoTreatments.isEmpty)
-            Text('추천 자재가 없습니다.', style: TextStyle(color: Colors.grey.shade500))
+            const Text('추천 자재가 없습니다.', style: TextStyle(color: AppColors.textSecondary))
           else
             ...diagnosis.ecoTreatments.map((t) => _TreatmentCard(item: t, highlight: true)),
           const SizedBox(height: 18),
           const _SectionHeader(icon: Icons.science_outlined, title: '화학적 관리법 (보조 정보)', color: Colors.grey),
           const SizedBox(height: 8),
           if (diagnosis.chemicalTreatments.isEmpty)
-            Text('해당 없음', style: TextStyle(color: Colors.grey.shade500))
+            const Text('해당 없음', style: TextStyle(color: AppColors.textSecondary))
           else
             ...diagnosis.chemicalTreatments.map((t) => _TreatmentCard(item: t, highlight: false)),
           const SizedBox(height: 20),
@@ -389,8 +389,8 @@ class _DiagnosisResultScreenState extends State<DiagnosisResultScreen> {
               ],
             ),
             const SizedBox(height: 4),
-            Text('컨설턴트의 방제 안내나 공지, 농가님의 추가 설명을 남길 수 있습니다.',
-                style: TextStyle(fontSize: 11.5, color: Colors.grey.shade500)),
+            const Text('컨설턴트의 방제 안내나 공지, 농가님의 추가 설명을 남길 수 있습니다.',
+                style: TextStyle(fontSize: 11.5, color: AppColors.textSecondary)),
             const SizedBox(height: 10),
             if (_loadingComments)
               const Padding(
@@ -398,9 +398,9 @@ class _DiagnosisResultScreenState extends State<DiagnosisResultScreen> {
                 child: Center(child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))),
               )
             else if (_comments == null || _comments!.isEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Text('아직 코멘트가 없습니다.', style: TextStyle(fontSize: 12.5, color: Colors.grey.shade500)),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 4),
+                child: Text('아직 코멘트가 없습니다.', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
               )
             else
               ..._comments!.map((c) => Padding(
@@ -479,7 +479,7 @@ class _DiagnosisResultScreenState extends State<DiagnosisResultScreen> {
               ],
               if (diagnosis.finalDiagnosisBy != null) ...[
                 const SizedBox(height: 4),
-                Text('입력: ${diagnosis.finalDiagnosisBy}', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                Text('입력: ${diagnosis.finalDiagnosisBy}', style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
               ],
             ],
           ),
@@ -503,7 +503,7 @@ class _DiagnosisResultScreenState extends State<DiagnosisResultScreen> {
           child: Row(
             children: [
               Icon(confirmed ? Icons.check_circle : Icons.info_outline,
-                  size: 18, color: confirmed ? AppColors.green : Colors.grey.shade600),
+                  size: 18, color: confirmed ? AppColors.green : AppColors.textSecondary),
               const SizedBox(width: 8),
               Text(
                 confirmed ? '실제와 일치한다고 확인해주셨습니다.' : '실제와 달랐다고 확인해주셨습니다.',
@@ -523,8 +523,8 @@ class _DiagnosisResultScreenState extends State<DiagnosisResultScreen> {
             const Text('AI 진단이 실제와 맞았나요?',
                 style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
             const SizedBox(height: 4),
-            Text('농가님의 확인은 AI 진단 정확도 통계에 반영됩니다.',
-                style: TextStyle(fontSize: 11.5, color: Colors.grey.shade500)),
+            const Text('농가님의 확인은 AI 진단 정확도 통계에 반영됩니다.',
+                style: TextStyle(fontSize: 11.5, color: AppColors.textSecondary)),
             const SizedBox(height: 12),
             Row(
               children: [
@@ -570,14 +570,14 @@ class _SavedConfirmationBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return const Row(
       children: [
-        const Icon(Icons.check_circle, color: AppColors.green, size: 15),
-        const SizedBox(width: 5),
+        Icon(Icons.check_circle, color: AppColors.green, size: 15),
+        SizedBox(width: 5),
         Expanded(
           child: Text(
             '진단이 저장되었습니다 — 화면을 나가셔도 안전합니다.',
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade600, fontWeight: FontWeight.w600),
+            style: TextStyle(fontSize: 12, color: AppColors.textSecondary, fontWeight: FontWeight.w600),
           ),
         ),
       ],
@@ -608,7 +608,7 @@ class _WeatherRow extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
           child: Row(
             children: [
-              Icon(Icons.location_off_outlined, size: 18, color: Colors.grey.shade600),
+              const Icon(Icons.location_off_outlined, size: 18, color: AppColors.textSecondary),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -676,7 +676,7 @@ class _WeatherRow extends StatelessWidget {
                   if (diagnosis.gpsEstimated) '정확한 촬영 위치 대신 농장 등록 주소 기준으로 조회됨',
                   if (diagnosis.photoTakenAtEstimated) '촬영시각 확인 불가로 업로드 시각 기준으로 조회됨',
                 ].join(' · '),
-                style: TextStyle(fontSize: 10.5, color: Colors.grey.shade500),
+                style: const TextStyle(fontSize: 10.5, color: AppColors.textSecondary),
                 textAlign: TextAlign.center,
               ),
             ],
@@ -692,7 +692,7 @@ class _WeatherRow extends StatelessWidget {
         Icon(icon, size: 18, color: Colors.grey.shade700),
         const SizedBox(height: 4),
         Text(value, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5)),
-        Text(label, style: TextStyle(fontSize: 10.5, color: Colors.grey.shade500)),
+        Text(label, style: const TextStyle(fontSize: 10.5, color: AppColors.textSecondary)),
       ],
     );
   }
@@ -750,7 +750,7 @@ class _TreatmentCard extends StatelessWidget {
             Text('사용법: ${item.usage}', style: const TextStyle(fontSize: 12.5, height: 1.4)),
             if (item.note != null && item.note!.isNotEmpty) ...[
               const SizedBox(height: 4),
-              Text('※ ${item.note}', style: TextStyle(fontSize: 11.5, color: Colors.grey.shade500)),
+              Text('※ ${item.note}', style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary)),
             ],
           ],
         ),

@@ -53,11 +53,11 @@ class _CommunityScreenState extends State<CommunityScreen> {
                 ? ErrorView(message: _error!, onRetry: _load)
                 : (_posts == null || _posts!.isEmpty)
                     ? ListView(
-                        children: [
-                          const SizedBox(height: 80),
+                        children: const [
+                          SizedBox(height: 80),
                           Center(
                             child: Text('아직 게시글이 없습니다.\n담당 컨설턴트의 공지를 기다려주세요.',
-                                textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade500)),
+                                textAlign: TextAlign.center, style: TextStyle(color: AppColors.textSecondary)),
                           ),
                         ],
                       )
@@ -120,11 +120,11 @@ class _PostCard extends StatelessWidget {
               const SizedBox(height: 8),
               Row(
                 children: [
-                  Text(post.authorName, style: TextStyle(fontSize: 11.5, color: Colors.grey.shade500, fontWeight: FontWeight.w600)),
+                  Text(post.authorName, style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
                   const SizedBox(width: 8),
                   Icon(Icons.mode_comment_outlined, size: 13, color: Colors.grey.shade400),
                   const SizedBox(width: 2),
-                  Text('${post.commentCount}', style: TextStyle(fontSize: 11.5, color: Colors.grey.shade500)),
+                  Text('${post.commentCount}', style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary)),
                 ],
               ),
             ],

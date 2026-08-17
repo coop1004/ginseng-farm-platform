@@ -192,7 +192,7 @@ class _StatsScreenState extends State<StatsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-                  Text(label, style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                  Text(label, style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
                 ],
               ),
             ),
@@ -239,7 +239,7 @@ class _StatsScreenState extends State<StatsScreen> {
                   const SizedBox(width: 6),
                   Text(k, style: const TextStyle(fontSize: 12)),
                   const SizedBox(width: 6),
-                  Text('${byType[k]}건', style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                  Text('${byType[k]}건', style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
                 ],
               ),
             );
@@ -328,10 +328,10 @@ class _StatsScreenState extends State<StatsScreen> {
   Widget _aiAccuracyCard(Map<String, dynamic> ai) {
     final total = ai['total_feedback'] ?? 0;
     if (total == 0) {
-      return Card(
+      return const Card(
         child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Text('아직 농가 확인 피드백 데이터가 없습니다.', style: TextStyle(color: Colors.grey.shade600, fontSize: 12.5)),
+          padding: EdgeInsets.all(14),
+          child: Text('아직 농가 확인 피드백 데이터가 없습니다.', style: TextStyle(color: AppColors.textSecondary, fontSize: 12.5)),
         ),
       );
     }
@@ -344,7 +344,7 @@ class _StatsScreenState extends State<StatsScreen> {
             Text('정확도 ${ai['accuracy_percent']}%', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
             const SizedBox(height: 6),
             Text('일치 ${ai['correct']}건 · 불일치 ${ai['incorrect']}건 (총 $total건 피드백)',
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
             const SizedBox(height: 10),
             ClipRRect(
               borderRadius: BorderRadius.circular(6),
@@ -384,8 +384,8 @@ class _StatsScreenState extends State<StatsScreen> {
               ],
             ),
             const SizedBox(height: 4),
-            Text('농장 위치 기준 일별 기온·습도 추이 (병해충 예찰 참고용)',
-                style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600)),
+            const Text('농장 위치 기준 일별 기온·습도 추이 (병해충 예찰 참고용)',
+                style: TextStyle(fontSize: 11.5, color: AppColors.textSecondary)),
             const SizedBox(height: 14),
             if (sorted.isEmpty)
               const EmptyView(message: '아직 축적된 기상 데이터가 없습니다.')
@@ -394,7 +394,7 @@ class _StatsScreenState extends State<StatsScreen> {
               const SizedBox(height: 10),
               Row(
                 children: [
-                  Icon(Icons.water_drop_outlined, size: 15, color: Colors.grey.shade600),
+                  const Icon(Icons.water_drop_outlined, size: 15, color: AppColors.textSecondary),
                   const SizedBox(width: 4),
                   Text('누적 강수량 ${totalRainfall.toStringAsFixed(1)}mm (최근 $_weatherDays일)',
                       style: TextStyle(fontSize: 12, color: Colors.grey.shade700, fontWeight: FontWeight.w600)),
@@ -481,7 +481,7 @@ class _StatsScreenState extends State<StatsScreen> {
           children: [
             const Text('농장별 영농일지 · 진단 리포트 출력', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
             const SizedBox(height: 4),
-            Text('선택한 농장의 기간별 기록을 PDF로 출력합니다.', style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600)),
+            const Text('선택한 농장의 기간별 기록을 PDF로 출력합니다.', style: TextStyle(fontSize: 11.5, color: AppColors.textSecondary)),
             const SizedBox(height: 12),
             InkWell(
               onTap: _pickRange,

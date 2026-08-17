@@ -114,7 +114,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               _isNewHousehold
                   ? '새로운 농가를 등록합니다. 가입 후 발급되는 농가 코드를 가족·공동경영자에게 알려주면 같은 농가로 함께 관리할 수 있습니다.'
                   : '이미 등록된 농가의 코드를 입력하면, 그 농가의 필지와 기록을 함께 보고 관리할 수 있습니다.',
-              style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600),
+              style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 20),
             TextFormField(
@@ -146,9 +146,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
               const SizedBox(height: 20),
               Text('재배 작물 *', style: TextStyle(fontSize: 12.5, color: Colors.grey.shade700)),
               const SizedBox(height: 4),
-              Text(
+              const Text(
                 '하나 이상 선택해주세요. 선택한 작물만 앱 화면에 표시됩니다.',
-                style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
               ),
               const SizedBox(height: 8),
               _loadingCrops

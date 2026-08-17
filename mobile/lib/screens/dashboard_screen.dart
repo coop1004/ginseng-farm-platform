@@ -94,7 +94,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
           children: [
-            Text(today, style: TextStyle(fontSize: 12.5, color: Colors.grey.shade600)),
+            Text(today, style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
             const SizedBox(height: 6),
             // 이름 길이와 무관하게 항상 이름 뒤(쉼표)에서 줄이 바뀌도록 두 줄을 별도 Text로 분리한다
             // (자동 줄바꿈에 맡기면 "건강한 농/사되세요"처럼 단어 중간이 잘리는 문제가 있었음).
@@ -110,7 +110,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             _quickActions(context),
             const SectionTitle('회사 공지·처방알림', subtitle: '관리자가 보낸 최신 알림'),
             if (_notifications.isEmpty)
-              Text('수신된 알림이 없습니다.', style: TextStyle(color: Colors.grey.shade500, fontSize: 12.5))
+              const Text('수신된 알림이 없습니다.', style: TextStyle(color: AppColors.textSecondary, fontSize: 12.5))
             else
               ..._notifications.map((n) => _NotificationTile(notification: n)),
             if (_riskLevel != null) ...[
@@ -196,13 +196,13 @@ class _CommunityEntryCard extends StatelessWidget {
             children: [
               const Icon(Icons.groups_outlined, color: AppColors.blue, size: 24),
               const SizedBox(width: 12),
-              Expanded(
+              const Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('컨설턴트 공지', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800)),
+                    Text('컨설턴트 공지', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800)),
                     Text('컨설턴트 공지·팁, 농가끼리 정보 공유',
-                        style: TextStyle(fontSize: 11.5, color: Colors.grey.shade500)),
+                        style: TextStyle(fontSize: 11.5, color: AppColors.textSecondary)),
                   ],
                 ),
               ),
@@ -241,7 +241,7 @@ class _RegionalRiskBadge extends StatelessWidget {
           children: [
             const Text('이번 주 우리 지역에서 병해충 신고가 평소보다 늘었어요. 예방 관리를 확인해보세요.'),
             const SizedBox(height: 10),
-            Text(_criteriaText, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+            Text(_criteriaText, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
           ],
         ),
         actions: [
@@ -375,11 +375,11 @@ class _NotificationTile extends StatelessWidget {
         title: Text(notification.title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
         subtitle: Text(
           '${notification.farmName ?? ''} · ${notification.recommendedProduct ?? ''}',
-          style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600),
+          style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        trailing: Text(DateFormat('MM.dd').format(notification.createdAt), style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+        trailing: Text(DateFormat('MM.dd').format(notification.createdAt), style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
         onTap: () => showDialog(
           context: context,
           builder: (_) => AlertDialog(

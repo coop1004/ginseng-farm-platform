@@ -8,6 +8,15 @@ class AppColors {
   static const blue = Color(0xFF1565C0);
   static const red = Color(0xFFC62828);
   static const bg = Color(0xFFF7F8F7);
+
+  // 회색 보조 텍스트/아이콘 공용 색상. 기존 Colors.grey.shade500(#9E9E9E)는 흰 배경
+  // 대비 2.7:1로 WCAG AA 본문 텍스트 기준(4.5:1)에 크게 못 미쳐 618161로 교체했다
+  // (흰 카드 대비 6.19:1, 페이지 배경 대비 5.82:1 - 어느 쪽 위에 있어도 AA를 만족).
+  static const textSecondary = Color(0xFF616161);
+
+  // 카드 테두리 / 하단 네비게이션 상단 구분선에 공용으로 쓰는 옅은 회색 - 기존
+  // 인풋 테두리 색(#DDE2DD)과 같은 톤이라 새 색을 늘리지 않고 그대로 재사용한다.
+  static const border = Color(0xFFDDE2DD);
 }
 
 const Map<String, Color> diagnosisTypeColors = {
@@ -42,11 +51,11 @@ ThemeData buildAppTheme() {
       fillColor: Colors.white,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: Color(0xFFDDE2DD)),
+        borderSide: const BorderSide(color: AppColors.border),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: Color(0xFFDDE2DD)),
+        borderSide: const BorderSide(color: AppColors.border),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
@@ -54,16 +63,26 @@ ThemeData buildAppTheme() {
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
     ),
+    // elevation 0(그림자 없음)이라 카드가 페이지 배경(#F7F8F7)과 거의 같은 흰색 위에
+    // 놓이면 경계가 거의 안 보였다(명암비 1.06:1). 배경을 더 어둡게 하는 대신, 이미
+    // 인풋에 쓰던 테두리 톤(AppColors.border)을 카드에도 그대로 둘러 구분되게 한다.
     cardTheme: CardTheme(
       elevation: 0,
       color: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: const BorderSide(color: AppColors.border, width: 1),
+      ),
       margin: EdgeInsets.zero,
     ),
+    // 비활성 탭 색(Colors.grey, #9E9E9E)이 흰 배경 대비 2.7:1로 텍스트 AA 기준
+    // (4.5:1)은 물론 아이콘 기준(3:1)에도 못 미쳤다. AppColors.textSecondary로
+    // 교체하고, 배경은 브랜드 그린을 옅게 tint한 AppColors.greenLight로 바꿔
+    // 콘텐츠 영역과 색 자체로도 구분되게 한다(상단 구분선은 home_shell.dart에서 추가).
     bottomNavigationBarTheme: const BottomNavigationBarThemeData(
       selectedItemColor: AppColors.green,
-      unselectedItemColor: Colors.grey,
-      backgroundColor: Colors.white,
+      unselectedItemColor: AppColors.textSecondary,
+      backgroundColor: AppColors.greenLight,
       type: BottomNavigationBarType.fixed,
     ),
   );

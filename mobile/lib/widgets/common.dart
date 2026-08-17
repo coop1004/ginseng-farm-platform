@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_theme.dart';
+
 class LoadingView extends StatelessWidget {
   const LoadingView({super.key});
   @override
@@ -46,7 +48,7 @@ class EmptyView extends StatelessWidget {
         children: [
           Icon(icon, size: 40, color: Colors.grey.shade400),
           const SizedBox(height: 10),
-          Text(message, style: TextStyle(color: Colors.grey.shade600)),
+          Text(message, style: const TextStyle(color: AppColors.textSecondary)),
         ],
       ),
     );
@@ -71,7 +73,7 @@ class SectionTitle extends StatelessWidget {
             Flexible(
               child: Text(
                 subtitle!,
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                 overflow: TextOverflow.ellipsis,
               ),
             ),

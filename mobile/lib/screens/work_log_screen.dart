@@ -7,6 +7,7 @@ import '../models/farm.dart';
 import '../models/work_log.dart';
 import '../providers/farm_provider.dart';
 import '../services/api_service.dart';
+import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 import 'work_log_form_screen.dart';
 
@@ -182,14 +183,14 @@ class _WorkLogCard extends StatelessWidget {
                       Text(dateStr, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5)),
                       const Spacer(),
                       if (log.farmName != null)
-                        Text(log.farmName!, style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600)),
+                        Text(log.farmName!, style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary)),
                     ],
                   ),
                   const SizedBox(height: 6),
                   Text(log.content, style: const TextStyle(fontSize: 13.5)),
                   const SizedBox(height: 4),
                   Text('작업면적 ${log.workAreaM2.toStringAsFixed(0)}㎡',
-                      style: TextStyle(fontSize: 11.5, color: Colors.grey.shade500)),
+                      style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary)),
                 ],
               ),
             ),

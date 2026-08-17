@@ -134,7 +134,7 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
                         const SizedBox(height: 6),
                         Row(
                           children: [
-                            Text(_post!.authorName, style: TextStyle(fontSize: 12.5, color: Colors.grey.shade600, fontWeight: FontWeight.w700)),
+                            Text(_post!.authorName, style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary, fontWeight: FontWeight.w700)),
                             const SizedBox(width: 8),
                             Text(DateFormat('yyyy.MM.dd HH:mm').format(_post!.createdAt), style: TextStyle(fontSize: 11.5, color: Colors.grey.shade400)),
                           ],
@@ -147,7 +147,7 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
                         Text('댓글 ${_post!.comments.length}개', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
                         const SizedBox(height: 10),
                         if (_post!.comments.isEmpty)
-                          Text('아직 댓글이 없습니다.', style: TextStyle(color: Colors.grey.shade500, fontSize: 12.5))
+                          const Text('아직 댓글이 없습니다.', style: TextStyle(color: AppColors.textSecondary, fontSize: 12.5))
                         else
                           ..._post!.comments.map((c) => _CommentTile(comment: c, onReport: () => _reportComment(c.id))),
                         const SizedBox(height: 16),

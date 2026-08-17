@@ -57,10 +57,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 4),
-                  Text(
+                  const Text(
                     '농가 계정으로 로그인하세요',
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 12.5, color: Colors.grey.shade600),
+                    style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
                   ),
                   const SizedBox(height: 36),
                   TextFormField(

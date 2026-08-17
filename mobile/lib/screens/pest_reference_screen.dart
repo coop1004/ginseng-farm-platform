@@ -207,7 +207,7 @@ class _PestReferenceCard extends StatelessWidget {
             const SizedBox(height: 8),
             Text(reference.nameKr, style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w800)),
             if (reference.nameEn != null)
-              Text(reference.nameEn!, style: TextStyle(fontSize: 11.5, color: Colors.grey.shade500)),
+              Text(reference.nameEn!, style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary)),
             if (reference.symptoms != null) ...[
               const SizedBox(height: 8),
               Text(reference.symptoms!, style: const TextStyle(fontSize: 12.5, height: 1.5)),
@@ -227,7 +227,7 @@ class _PestReferenceCard extends StatelessWidget {
               const SizedBox(height: 8),
               Row(
                 children: [
-                  Icon(Icons.science_outlined, size: 14, color: Colors.grey.shade600),
+                  const Icon(Icons.science_outlined, size: 14, color: AppColors.textSecondary),
                   const SizedBox(width: 4),
                   Text('화학적 관리법', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: Colors.grey.shade700)),
                 ],

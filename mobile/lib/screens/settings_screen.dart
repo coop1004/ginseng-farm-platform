@@ -105,7 +105,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           const SizedBox(height: 4),
                           Row(
                             children: [
-                              Text('농가 코드', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                              const Text('농가 코드', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                               const SizedBox(width: 6),
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -121,9 +121,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             ],
                           ),
                           const SizedBox(height: 4),
-                          Text(
+                          const Text(
                             '가족·공동경영자에게 이 코드를 알려주면 같은 농가로 함께 관리할 수 있습니다.',
-                            style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                            style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
                           ),
                           const Divider(height: 20),
                           Text('함께 관리 중인 사람 (${_me!.members.length}명)',
@@ -153,9 +153,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 if (kDebugMode) ...[
                   const Text('API 서버 주소', style: TextStyle(fontWeight: FontWeight.w700)),
                   const SizedBox(height: 6),
-                  Text(
+                  const Text(
                     '안드로이드 에뮬레이터는 10.0.2.2, iOS 시뮬레이터/실기기는 PC의 IP 주소를 사용하세요.',
-                    style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600),
+                    style: TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
                   ),
                   const SizedBox(height: 12),
                   TextField(
@@ -169,9 +169,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ],
                 const Text('내 데이터', style: TextStyle(fontWeight: FontWeight.w700)),
                 const SizedBox(height: 6),
-                Text(
+                const Text(
                   '내가 등록한 농장·영농일지·AI진단 기록과 첨부 사진 전체를 CSV·ZIP 파일로 내려받습니다.',
-                  style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600),
+                  style: TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
                 ),
                 const SizedBox(height: 12),
                 OutlinedButton.icon(

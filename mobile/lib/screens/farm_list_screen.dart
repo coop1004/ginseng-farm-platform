@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/farm.dart';
 import '../providers/crop_provider.dart';
 import '../providers/farm_provider.dart';
+import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 import 'farm_form_screen.dart';
 
@@ -83,10 +84,10 @@ class _FarmCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 6),
-              Text(farm.address, style: TextStyle(fontSize: 12.5, color: Colors.grey.shade600)),
+              Text(farm.address, style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
               const SizedBox(height: 4),
               Text('면적 ${farm.areaPyeong.toStringAsFixed(0)}평 (${farm.areaM2.toStringAsFixed(0)}㎡)',
-                  style: TextStyle(fontSize: 12.5, color: Colors.grey.shade600)),
+                  style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
             ],
           ),
         ),

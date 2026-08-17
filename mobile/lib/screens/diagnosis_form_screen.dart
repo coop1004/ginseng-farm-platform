@@ -10,6 +10,7 @@ import '../models/farm.dart';
 import '../providers/crop_provider.dart';
 import '../providers/farm_provider.dart';
 import '../services/api_service.dart';
+import '../theme/app_theme.dart';
 import '../services/gallery_saver.dart';
 import '../widgets/farm_selector.dart';
 import 'diagnosis_result_screen.dart';
@@ -151,18 +152,18 @@ class _DiagnosisFormScreenState extends State<DiagnosisFormScreen> {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text(
+                    const Text(
                       '기본값은 사진 촬영일 또는 오늘 날짜입니다. 앨범에서 고른 사진이나 전달받은 사진이라면 날짜를 눌러 직접 확인해주세요.',
-                      style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                      style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
                     ),
                     const SizedBox(height: 16),
                     Text('피해 부위 사진 * (여러 장 첨부 가능)', style: TextStyle(fontSize: 12.5, color: Colors.grey.shade700)),
                     const SizedBox(height: 6),
                     _PhotoBox(photos: _photos, onPick: _pickPhoto, onRemove: _removePhoto),
                     const SizedBox(height: 6),
-                    Text(
+                    const Text(
                       '※ 사진에 GPS 위치정보가 포함되어 있으면 촬영 당시 기상 조건을 자동으로 분석에 반영합니다.',
-                      style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                      style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
                     ),
                     const SizedBox(height: 24),
                     ElevatedButton.icon(
