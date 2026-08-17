@@ -68,6 +68,7 @@ const ConsultantApi = (() => {
         body: JSON.stringify({ disease_name: diseaseName, note: note || null }),
       }),
     getComments: (diagnosisId) => request(`/api/consultant/diagnoses/${diagnosisId}/comments`),
+    getReference: () => request("/api/consultant/reference"),
     getStats: () => request("/api/consultant/stats/summary"),
     getOverviewSummary: (cropId) => {
       const qs = new URLSearchParams();
@@ -402,6 +403,23 @@ function openConsultantDiagnosisDetailModal(diagnosisId) {
 let consultantFinalDiagnosisTargetId = null;
 let consultantFinalDiagnosisFarmId = null;
 
+let consultantFinalDiagnosisNameOptionsLoaded = false;
+
+function ensureConsultantFinalDiagnosisNameOptions() {
+  if (consultantFinalDiagnosisNameOptionsLoaded) return;
+  consultantFinalDiagnosisNameOptionsLoaded = true;
+  ConsultantApi.getReference()
+    .then((refs) => {
+      const names = [...new Set(refs.map((r) => r.name_kr))];
+      document.getElementById("consultantFinalDiagnosisNameList").innerHTML = names
+        .map((n) => `<option value="${n.replace(/"/g, "&quot;")}"></option>`)
+        .join("");
+    })
+    .catch(() => {
+      consultantFinalDiagnosisNameOptionsLoaded = false;
+    });
+}
+
 function openConsultantFinalDiagnosisModal(diagnosisId, farmId, currentName, currentNote) {
   consultantFinalDiagnosisTargetId = diagnosisId;
   consultantFinalDiagnosisFarmId = farmId;
@@ -409,6 +427,7 @@ function openConsultantFinalDiagnosisModal(diagnosisId, farmId, currentName, cur
   document.getElementById("consultantFinalDiagnosisName").value = currentName || "";
   document.getElementById("consultantFinalDiagnosisNote").value = currentNote || "";
   document.getElementById("consultantFinalDiagnosisModal").classList.remove("hidden");
+  ensureConsultantFinalDiagnosisNameOptions();
 }
 
 function closeConsultantFinalDiagnosisModal() {

@@ -4,6 +4,7 @@ from collections import Counter
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
 from app import models, schemas
@@ -705,7 +706,7 @@ def farms_overview(
                 "last_diagnosis": {
                     "id": last_diag.id,
                     "type": last_diag.diagnosis_type,
-                    "name": last_diag.ai_disease_name,
+                    "name": last_diag.final_disease_name or last_diag.ai_disease_name,
                     "date": last_diag.occurrence_date,
                     "confidence": last_diag.ai_confidence,
                 }
@@ -821,7 +822,16 @@ def admin_diagnoses(
         if crop_id is not None:
             query = query.filter(models.Farm.crop_id == crop_id)
     if pest_name:
-        query = query.filter(models.Diagnosis.ai_disease_name == pest_name)
+        # 지역x병해충 드릴다운의 top_issue/breakdown이 final_disease_name(있으면)을
+        # ai_disease_name보다 우선하는 effective name 기준으로 집계되므로, 여기서도
+        # 같은 기준으로 걸러야 드릴다운에서 본 묶음과 클릭해서 들어온 목록이 서로
+        # 다른 진단 집합을 보여주는 불일치가 생기지 않는다.
+        query = query.filter(
+            or_(
+                models.Diagnosis.final_disease_name == pest_name,
+                and_(models.Diagnosis.final_disease_name.is_(None), models.Diagnosis.ai_disease_name == pest_name),
+            )
+        )
 
     diagnoses = query.order_by(models.Diagnosis.created_at.desc()).limit(limit).all()
     results = []
@@ -929,8 +939,9 @@ def compute_regional_stats(
             }
         region_data[region]["total"] += 1
         region_data[region]["by_type"][d.diagnosis_type] += 1
-        if d.ai_disease_name:
-            region_data[region]["by_name"][d.ai_disease_name] += 1
+        effective_name = d.final_disease_name or d.ai_disease_name
+        if effective_name:
+            region_data[region]["by_name"][effective_name] += 1
         crop_name = farm.crop.name_kr if farm.crop else d.crop_name
         if crop_name:
             region_data[region]["by_crop"][crop_name] += 1
@@ -994,7 +1005,10 @@ def regional_stats_breakdown(
 
     diagnoses = (
         db.query(models.Diagnosis)
-        .filter(models.Diagnosis.farm_id.in_(farm_ids), models.Diagnosis.ai_disease_name.isnot(None))
+        .filter(
+            models.Diagnosis.farm_id.in_(farm_ids),
+            or_(models.Diagnosis.final_disease_name.isnot(None), models.Diagnosis.ai_disease_name.isnot(None)),
+        )
         .all()
     )
 
@@ -1004,7 +1018,7 @@ def regional_stats_breakdown(
 
     by_name: dict = {}
     for d in diagnoses:
-        name = d.ai_disease_name
+        name = d.final_disease_name or d.ai_disease_name
         entry = by_name.setdefault(
             name, {"name": name, "diagnosis_type": d.diagnosis_type, "total": 0, "recent": 0, "previous": 0}
         )
@@ -1060,6 +1074,7 @@ def recent_activity_feed(
             "region": d.farm.region if d.farm else None,
             "diagnosis_type": d.diagnosis_type,
             "ai_disease_name": d.ai_disease_name,
+            "final_disease_name": d.final_disease_name,
             "confidence": d.ai_confidence,
             "occurrence_date": d.occurrence_date,
             "created_at": d.created_at,

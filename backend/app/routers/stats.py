@@ -17,7 +17,9 @@ def build_summary(farm_query: Query, work_query: Query, diag_query: Query) -> di
     diagnoses = diag_query.all()
 
     diagnoses_by_type = Counter(d.diagnosis_type for d in diagnoses)
-    pest_counter = Counter(d.ai_disease_name for d in diagnoses if d.ai_disease_name)
+    pest_counter = Counter(
+        (d.final_disease_name or d.ai_disease_name) for d in diagnoses if (d.final_disease_name or d.ai_disease_name)
+    )
     top_pests = [{"name": name, "count": count} for name, count in pest_counter.most_common(5)]
 
     monthly_counter: Counter = Counter()

@@ -12,7 +12,7 @@ from app.deps import (
     get_current_consultant,
 )
 from app.routers.admin import compute_regional_stats, compute_stats_summary
-from app.services import community_service, consultant_service
+from app.services import community_service, consultant_service, reference_service
 from app.services.auth_service import create_consultant_access_token, verify_password
 from app.services.diagnosis_service import add_comment, build_corrected_reference, create_diagnosis_record, to_response
 
@@ -231,6 +231,19 @@ def submit_consultant_final_diagnosis(
     db.commit()
     db.refresh(d)
     return to_response(d)
+
+
+@router.get("/reference", response_model=List[schemas.TreatmentReferenceOut])
+def list_consultant_reference(
+    crop_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+    _consultant: models.ConsultantUser = Depends(get_current_consultant),
+):
+    """현장 확인 정정 폼에서 진단명을 마스터 참고자료 목록 중에서 고를 수 있도록 하는
+    읽기 전용 조회. 관리자용 /api/admin/reference와 같은 reference_service를 재사용하되,
+    컨설턴트에게는 활성 항목만 노출한다(비활성 자료를 정정 후보로 보여줄 이유가 없음)."""
+    rows = reference_service.load_references_for_crop(db, crop_id)
+    return [reference_service.to_reference_out(r) for r in rows]
 
 
 @router.get("/diagnoses/{diagnosis_id}/comments", response_model=List[schemas.DiagnosisCommentOut])

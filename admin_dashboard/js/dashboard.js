@@ -1070,7 +1070,7 @@ function renderFeed(feed) {
     div.innerHTML = `
       <div class="feed-dot" style="background:${typeColors[item.diagnosis_type] || "#999"}"></div>
       <div class="feed-main">
-        <div class="feed-title">${item.farm_name || "농가"} · ${item.ai_disease_name || "진단 결과 없음"}</div>
+        <div class="feed-title">${item.farm_name || "농가"} · ${item.final_disease_name || item.ai_disease_name || "진단 결과 없음"}</div>
         <div class="feed-sub">${item.region || "-"} · ${item.diagnosis_type} · 발생일 ${fmtDate(item.occurrence_date)}</div>
       </div>
       <div class="feed-confidence">${item.confidence != null ? Math.round(item.confidence * 100) + "%" : ""}</div>
@@ -2170,12 +2170,30 @@ function renderDiagnosisDetailBody(d) {
 // ---------- Expert diagnosis override ----------
 let expertDiagnosisTargetId = null;
 
+let expertDiagnosisNameOptionsLoaded = false;
+
+function ensureExpertDiagnosisNameOptions() {
+  if (expertDiagnosisNameOptionsLoaded) return;
+  expertDiagnosisNameOptionsLoaded = true;
+  Api.listReferences()
+    .then((refs) => {
+      const names = [...new Set(refs.map((r) => r.name_kr))];
+      document.getElementById("expertDiagnosisNameList").innerHTML = names
+        .map((n) => `<option value="${n.replace(/"/g, "&quot;")}"></option>`)
+        .join("");
+    })
+    .catch(() => {
+      expertDiagnosisNameOptionsLoaded = false;
+    });
+}
+
 function openExpertDiagnosisModal(diagnosisId, currentName, currentNote) {
   expertDiagnosisTargetId = diagnosisId;
   document.getElementById("expertDiagnosisSub").textContent = `진단 #${diagnosisId}`;
   document.getElementById("expertDiagnosisName").value = currentName || "";
   document.getElementById("expertDiagnosisNote").value = currentNote || "";
   document.getElementById("expertDiagnosisModal").classList.remove("hidden");
+  ensureExpertDiagnosisNameOptions();
 }
 
 function closeExpertDiagnosisModal() {

@@ -768,7 +768,8 @@
       저장하면 전문가 최종확인으로 기록되며 컨설턴트 활동 통계에 반영됩니다.
     </p>
     <label class="field-label">진단명(병해충명) *</label>
-    <input class="field-input" id="consultantFinalDiagnosisName" type="text" placeholder="AI 판단과 다르면 실제 진단명을 입력하세요" />
+    <input class="field-input" id="consultantFinalDiagnosisName" type="text" list="consultantFinalDiagnosisNameList" placeholder="목록에서 선택하거나 직접 입력하세요" autocomplete="off" />
+    <datalist id="consultantFinalDiagnosisNameList"></datalist>
     <label class="field-label">메모(선택)</label>
     <textarea class="field-input" id="consultantFinalDiagnosisNote" rows="3" placeholder="현장 확인 소견 등"></textarea>
     <div class="modal-actions">
@@ -980,7 +981,8 @@
     <h3>전문가 진단 확정</h3>
     <p class="modal-farm" id="expertDiagnosisSub"></p>
     <label>진단명(병해충명) *</label>
-    <input id="expertDiagnosisName" type="text" placeholder="AI 판단과 다르면 실제 진단명을 입력하세요" />
+    <input id="expertDiagnosisName" type="text" list="expertDiagnosisNameList" placeholder="목록에서 선택하거나 직접 입력하세요" autocomplete="off" />
+    <datalist id="expertDiagnosisNameList"></datalist>
     <label>메모(선택)</label>
     <textarea id="expertDiagnosisNote" rows="3" placeholder="현장 확인 소견 등"></textarea>
     <div class="modal-actions">
@@ -1057,8 +1059,8 @@
 <div id="toast" class="toast hidden"></div>
 
 <script src="js/api.js?v=13"></script>
-<script src="js/dashboard.js?v=18"></script>
-<script src="js/consultant.js?v=5"></script>
+<script src="js/dashboard.js?v=19"></script>
+<script src="js/consultant.js?v=6"></script>
 <script>
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
