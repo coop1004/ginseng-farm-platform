@@ -24,16 +24,19 @@ def _get_client():
     return _client
 
 
-def _load_active_references(db: Session, crop_id: Optional[int]) -> list:
+def _load_active_references(db: Session, crop_id: Optional[int], organization_id: Optional[int] = None) -> list:
     """관리자 CMS(TreatmentReference)에서 활성화된 참고자료를 crop_id 기준으로
     불러온다. 파일이 아니라 DB에서 매 요청 시 조회하므로, 관리자가 수정하면 서버
     재시작 없이 다음 진단부터 즉시 반영된다. crop_id가 없거나 매칭이 없으면
-    load_references_for_crop이 전체 참고자료로 폴백한다(기존 안전장치와 동일)."""
+    load_references_for_crop이 전체 참고자료로 폴백한다(기존 안전장치와 동일).
+
+    organization_id는 진단을 요청한 농가가 속한 조직 - 이 값으로 자재 목록을 좁혀서
+    AI 프롬프트에도, 최종 추천 결과에도 다른 조직 자재가 섞여 들어가지 않게 한다."""
     rows = load_references_for_crop(db, crop_id)
 
     result = []
     for r in rows:
-        eco, chemical = build_treatment_lists(r)
+        eco, chemical = build_treatment_lists(r, organization_id)
         result.append(
             {
                 "id": r.id,
@@ -151,11 +154,18 @@ def _demo_diagnose(diagnosis_type: str, weather: dict, reference_db: list) -> di
 
 
 def diagnose(
-    image_path: str, diagnosis_type: str, crop_name: str, weather: dict, db: Session, crop_id: Optional[int] = None
+    image_path: str,
+    diagnosis_type: str,
+    crop_name: str,
+    weather: dict,
+    db: Session,
+    crop_id: Optional[int] = None,
+    organization_id: Optional[int] = None,
 ) -> dict:
     """사진 + 기상데이터 + 참고자료(DB, 관리자 CMS로 관리) 기반 AI 진단. 실패/데모모드 시 폴백.
-    crop_id는 참고자료 필터링(FK 매칭)에, crop_name은 프롬프트 표시 문구에 각각 쓰인다."""
-    reference_db = _load_active_references(db, crop_id)
+    crop_id는 참고자료 필터링(FK 매칭)에, crop_name은 프롬프트 표시 문구에 각각 쓰인다.
+    organization_id는 농가 소속 조직 - 다른 조직 자재가 추천에 섞이지 않도록 한다."""
+    reference_db = _load_active_references(db, crop_id, organization_id)
 
     if settings.demo_mode or not settings.gemini_api_key:
         return _demo_diagnose(diagnosis_type, weather, reference_db)

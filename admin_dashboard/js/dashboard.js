@@ -260,7 +260,7 @@ function renderMap(regionalStats) {
       fillOpacity: 0.55,
     }).addTo(map);
     marker.bindPopup(
-      `<b>${r.region}</b><br/>총 발생: ${r.total}건<br/>주요 병해충: ${r.top_issue || "-"}`
+      `<b>${r.region}</b><br/>총 발생: ${r.total_display}<br/>주요 병해충: ${r.top_issue || "-"}`
     );
     mapMarkers.push(marker);
   });
@@ -279,7 +279,7 @@ function renderRegionTable(regionalStats) {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td><strong>${r.region}</strong></td>
-      <td>${r.total}건</td>
+      <td>${r.total_display}</td>
       <td>${r.top_issue || "-"}</td>
       <td>${typeStr}</td>
       <td>${cropStr || "-"}</td>

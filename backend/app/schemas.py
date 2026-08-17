@@ -15,6 +15,13 @@ class CropOut(BaseModel):
     sort_order: int
 
 
+class AdministrativeRegionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    sido: str
+    sigungu: str
+
+
 # ---------- Auth / Household ----------
 class RegisterNewHousehold(BaseModel):
     phone: str

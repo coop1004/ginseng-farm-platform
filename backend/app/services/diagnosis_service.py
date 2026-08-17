@@ -135,7 +135,9 @@ async def create_diagnosis_record(
         # 것을 방지). weather_* 필드는 비워두고 화면에서 안내 문구로 보여준다.
         weather = None
 
-    ai_result = gemini_service.diagnose(full_path, diagnosis_type, resolved_crop_name, weather or {}, db, crop_id)
+    ai_result = gemini_service.diagnose(
+        full_path, diagnosis_type, resolved_crop_name, weather or {}, db, crop_id, farm.organization_id
+    )
 
     diagnosis = models.Diagnosis(
         farm_id=farm.id,

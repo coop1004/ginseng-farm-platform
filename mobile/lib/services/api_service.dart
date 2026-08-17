@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
+import '../models/administrative_region.dart';
 import '../models/app_notification.dart';
 import '../models/auth.dart';
 import '../models/community.dart';
@@ -196,6 +197,14 @@ class ApiService {
     _checkResponse(res);
     final list = jsonDecode(utf8.decode(res.bodyBytes)) as List<dynamic>;
     return list.map((e) => GrowthStage.fromJson(e)).toList();
+  }
+
+  // ---------- Regions ----------
+  Future<List<AdministrativeRegion>> getRegions() async {
+    final res = await http.get(await _uri('/api/regions'), headers: await _authHeaders());
+    _checkResponse(res);
+    final list = jsonDecode(utf8.decode(res.bodyBytes)) as List<dynamic>;
+    return list.map((e) => AdministrativeRegion.fromJson(e)).toList();
   }
 
   Future<List<PestReference>> getPestReferences({int? cropId}) async {

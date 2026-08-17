@@ -68,11 +68,19 @@ def _build_link(pest_disease_id: int, material: models.AgriMaterial, item: dict,
     )
 
 
-def build_treatment_lists(pest_disease: models.TreatmentReference) -> tuple[List[dict], List[dict]]:
+def build_treatment_lists(
+    pest_disease: models.TreatmentReference, organization_id: Optional[int] = None
+) -> tuple[List[dict], List[dict]]:
     """저장된 조인 데이터를 CMS/AI 프롬프트가 기대하는
-    [{product_name, active_ingredient, usage, note}] 배열 모양으로 복원한다."""
+    [{product_name, active_ingredient, usage, note}] 배열 모양으로 복원한다.
+
+    organization_id를 주면 그 조직의 자재만 포함한다 - 농가/진단 등 "추천"이 실제로
+    노출되는 경로에서 다른 회사 자재가 섞이지 않도록 하는 안전장치. None이면(관리자 CMS
+    등 기존 호출부) 지금까지처럼 전체를 그대로 반환한다 - 기존 동작을 바꾸지 않기 위함."""
     eco, chemical = [], []
     for link in sorted(pest_disease.materials, key=lambda link: link.sort_order):
+        if organization_id is not None and link.organization_id != organization_id:
+            continue
         material = link.agri_material
         entry = {
             "product_name": material.name,
@@ -87,9 +95,10 @@ def build_treatment_lists(pest_disease: models.TreatmentReference) -> tuple[List
     return eco, chemical
 
 
-def to_reference_out(r: models.TreatmentReference) -> dict:
-    """관리자 CMS와 농가 앱의 병해충 참고자료 조회 화면이 공유하는 응답 형태."""
-    eco, chemical = build_treatment_lists(r)
+def to_reference_out(r: models.TreatmentReference, organization_id: Optional[int] = None) -> dict:
+    """관리자 CMS와 농가 앱의 병해충 참고자료 조회 화면이 공유하는 응답 형태.
+    organization_id는 농가 앱 쪽에서만 넘겨준다(관리자 CMS는 지금까지처럼 전체 조회)."""
+    eco, chemical = build_treatment_lists(r, organization_id)
     return {
         "id": r.id,
         "crop_id": r.crop_id,

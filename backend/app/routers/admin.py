@@ -16,6 +16,11 @@ from app.services.diagnosis_service import to_response as diagnosis_to_response
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
+# regional-stats에서 이 값 미만인 지역은 정확한 건수 대신 "N건 미만"으로 뭉개서 보여준다.
+# 농가가 한 곳뿐인 지역에서 정확한 소수 건수가 노출되면 사실상 특정 농가를 지목하는
+# 것과 같아지는 걸 막기 위한 최소 표본수 안전장치 - 나중에 조정할 때 이 값만 바꾸면 된다.
+REGIONAL_STATS_MIN_SAMPLE_SIZE = 3
+
 
 @router.post("/auth/login", response_model=schemas.AdminTokenResponse)
 def admin_login(payload: schemas.AdminLoginRequest, db: Session = Depends(get_db)):
@@ -503,15 +508,22 @@ def regional_stats(
 
     output = []
     for region, data in region_data.items():
+        total = data["total"]
+        # 표본수가 너무 적으면(기본 3건 미만) 정확한 건수·유형별/작물별 분포·주요 병해충명을
+        # 전부 뭉개서 반환한다 - 세부 항목 중 하나라도 그대로 노출되면 역산으로 전체 건수를
+        # 유추할 수 있으므로 total만 감추고 나머지는 그대로 두는 방식은 쓰지 않는다.
+        suppressed = total < REGIONAL_STATS_MIN_SAMPLE_SIZE
         output.append(
             {
                 "region": region,
                 "latitude": data["latitude"],
                 "longitude": data["longitude"],
-                "total": data["total"],
-                "by_type": dict(data["by_type"]),
-                "by_crop": dict(data["by_crop"]),
-                "top_issue": data["by_name"].most_common(1)[0][0] if data["by_name"] else None,
+                "total": total,
+                "total_display": f"{REGIONAL_STATS_MIN_SAMPLE_SIZE}건 미만" if suppressed else f"{total}건",
+                "by_type": {} if suppressed else dict(data["by_type"]),
+                "by_crop": {} if suppressed else dict(data["by_crop"]),
+                "top_issue": None if suppressed else (data["by_name"].most_common(1)[0][0] if data["by_name"] else None),
+                "suppressed": suppressed,
             }
         )
     output.sort(key=lambda x: x["total"], reverse=True)

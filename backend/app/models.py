@@ -549,3 +549,24 @@ class CommunityReport(Base):
 
     post = relationship("CommunityPost")
     comment = relationship("CommunityComment")
+
+
+class AdministrativeRegion(Base):
+    """전국 시/군/구 표준 목록(통계청/행정안전부 행정구역 기준). farm.region의 자유
+    텍스트 입력값을 검증/정규화하기 위한 참고 테이블 - farms 테이블과 FK로 묶지는
+    않는다. region은 계속 자유 문자열 컬럼으로 두고 "이 목록 중에서만 고르게" 만드는
+    정도로 충분해서, farms 마이그레이션 없이 안전하게 추가할 수 있다.
+
+    sigungu만으로는 전국 유일하지 않다(예: "중구"가 서울/부산/대구/인천/대전/울산에
+    모두 있음) - 그래서 (sido, sigungu) 조합으로 유니크 제약을 건다. 시/도 자체가
+    기초자치단체를 두지 않는 세종특별자치시는 sigungu에 시도명과 동일한 값을 넣어
+    단일 행으로 표현한다."""
+
+    __tablename__ = "administrative_regions"
+    __table_args__ = (UniqueConstraint("sido", "sigungu", name="uq_sido_sigungu"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    sido = Column(String(20), nullable=False)
+    sigungu = Column(String(30), nullable=False)
+    sort_order = Column(Integer, default=0)
+    created_at = Column(DateTime, default=dt.datetime.utcnow)

@@ -395,6 +395,49 @@ def backfill_household_crops_if_missing(db: Session):
     db.commit()
 
 
+# region 자유 텍스트 중 "군/시"만 붙이면 바로 표준 시/군/구명이 되는 단순 케이스.
+# "풍기"처럼 애초에 시/군 단위가 아닌 값(영주시 산하 읍 이름)은 여기 넣지 않고
+# backfill_farm_region_if_needed가 address 문자열에서 실제 시/군을 다시 찾는다.
+_REGION_SUFFIX_BACKFILL_MAP = {
+    "금산": "금산군",
+    "강화": "강화군",
+    "진안": "진안군",
+    "장수": "장수군",
+    "음성": "음성군",
+}
+
+
+def backfill_farm_region_if_needed(db: Session):
+    """seed_administrative_regions_if_empty 이후에 실행되어야 한다. farm.region이
+    표준 시/군/구 목록에 없는 예전 자유 텍스트 값으로 남아있으면 정정한다 - 접미사만
+    붙이면 되는 단순 케이스는 매핑표로, 그 외(예: "풍기")는 address 문자열에서 표준
+    목록에 있는 시/군/구명을 다시 찾아 대체한다(가장 길게 일치하는 이름을 채택해
+    짧은 이름끼리의 우연한 부분일치를 피한다)."""
+    valid_sigungu = {row[0] for row in db.query(models.AdministrativeRegion.sigungu).all()}
+    if not valid_sigungu:
+        return
+
+    farms = db.query(models.Farm).filter(models.Farm.region.isnot(None)).all()
+    updated = 0
+    for farm in farms:
+        region = farm.region
+        if not region or region in valid_sigungu:
+            continue
+
+        if region in _REGION_SUFFIX_BACKFILL_MAP:
+            farm.region = _REGION_SUFFIX_BACKFILL_MAP[region]
+            updated += 1
+            continue
+
+        matches = [sigungu for sigungu in valid_sigungu if sigungu in (farm.address or "")]
+        if matches:
+            farm.region = max(matches, key=len)
+            updated += 1
+
+    if updated:
+        db.commit()
+
+
 def seed_admin_if_empty(db: Session):
     """운영 DB에 이미 농가 데이터가 있어도(= seed_if_empty가 건너뛰어도) 관리자 계정이
     하나도 없으면 부트스트랩 계정을 만든다. 최초 배포 시 1회만 실행됨."""

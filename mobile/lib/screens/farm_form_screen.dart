@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../models/administrative_region.dart';
 import '../models/crop.dart';
 import '../models/farm.dart';
 import '../providers/crop_provider.dart';
@@ -20,7 +21,6 @@ class _FarmFormScreenState extends State<FarmFormScreen> {
 
   late final TextEditingController _farmName;
   late final TextEditingController _address;
-  late final TextEditingController _region;
   late final TextEditingController _areaPyeong;
   late final TextEditingController _areaM2;
   late final TextEditingController _phone;
@@ -36,6 +36,10 @@ class _FarmFormScreenState extends State<FarmFormScreen> {
   int? _selectedGrowthStageId;
   bool _loadingCrops = true;
 
+  List<AdministrativeRegion> _regions = [];
+  int? _selectedRegionId;
+  bool _loadingRegions = true;
+
   bool get _isEdit => widget.farm != null;
   bool get _isGinseng => _selectedCrop?.nameKr == '인삼';
 
@@ -47,13 +51,20 @@ class _FarmFormScreenState extends State<FarmFormScreen> {
     return null;
   }
 
+  AdministrativeRegion? _findRegion(int? id) {
+    if (id == null) return null;
+    for (final r in _regions) {
+      if (r.id == id) return r;
+    }
+    return null;
+  }
+
   @override
   void initState() {
     super.initState();
     final f = widget.farm;
     _farmName = TextEditingController(text: f?.farmName ?? '');
     _address = TextEditingController(text: f?.address ?? '');
-    _region = TextEditingController(text: f?.region ?? '');
     _areaPyeong = TextEditingController(text: f != null ? f.areaPyeong.toStringAsFixed(0) : '');
     _areaM2 = TextEditingController(text: f != null ? f.areaM2.toStringAsFixed(0) : '');
     _phone = TextEditingController(text: f?.phone ?? '');
@@ -64,6 +75,32 @@ class _FarmFormScreenState extends State<FarmFormScreen> {
 
     _areaPyeong.addListener(_syncAreaFromPyeong);
     _loadCrops();
+    _loadRegions();
+  }
+
+  Future<void> _loadRegions() async {
+    try {
+      final regions = await _api.getRegions();
+      final existingRegion = widget.farm?.region;
+      int? initialId;
+      if (existingRegion != null && existingRegion.isNotEmpty) {
+        for (final r in regions) {
+          if (r.sigungu == existingRegion) {
+            initialId = r.id;
+            break;
+          }
+        }
+      }
+      if (mounted) {
+        setState(() {
+          _regions = regions;
+          _selectedRegionId = initialId;
+          _loadingRegions = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingRegions = false);
+    }
   }
 
   Future<void> _loadCrops() async {
@@ -121,7 +158,6 @@ class _FarmFormScreenState extends State<FarmFormScreen> {
   void dispose() {
     _farmName.dispose();
     _address.dispose();
-    _region.dispose();
     _areaPyeong.dispose();
     _areaM2.dispose();
     _phone.dispose();
@@ -140,7 +176,7 @@ class _FarmFormScreenState extends State<FarmFormScreen> {
         growthStageId: _isGinseng ? null : _selectedGrowthStageId,
         farmName: _farmName.text.trim(),
         address: _address.text.trim(),
-        region: _region.text.trim().isEmpty ? null : _region.text.trim(),
+        region: _findRegion(_selectedRegionId)?.sigungu,
         latitude: widget.farm?.latitude,
         longitude: widget.farm?.longitude,
         areaPyeong: double.tryParse(_areaPyeong.text) ?? 0,
@@ -208,11 +244,24 @@ class _FarmFormScreenState extends State<FarmFormScreen> {
               validator: (v) => (v == null || v.trim().isEmpty) ? '지번을 입력해주세요.' : null,
             ),
             const SizedBox(height: 12),
-            TextFormField(
-              controller: _region,
-              decoration:
-                  const InputDecoration(labelText: '지역(시/군)', hintText: '예: 금산, 풍기', prefixIcon: Icon(Icons.map_outlined)),
-            ),
+            if (_loadingRegions)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: LinearProgressIndicator(),
+              )
+            else
+              DropdownButtonFormField<int>(
+                value: _selectedRegionId,
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: '지역(시/군/구)', prefixIcon: Icon(Icons.map_outlined)),
+                items: _regions
+                    .map((r) => DropdownMenuItem(
+                          value: r.id,
+                          child: Text('${r.sido} ${r.sigungu}', overflow: TextOverflow.ellipsis),
+                        ))
+                    .toList(),
+                onChanged: (id) => setState(() => _selectedRegionId = id),
+              ),
             const SizedBox(height: 12),
             Row(
               children: [

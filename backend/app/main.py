@@ -15,6 +15,7 @@ from app.routers import (
     notifications,
     pest_reference,
     reference,
+    regions,
     reports,
     stats,
     weather,
@@ -22,6 +23,7 @@ from app.routers import (
 )
 from app.seed import (
     backfill_crop_ids_if_missing,
+    backfill_farm_region_if_needed,
     backfill_household_crops_if_missing,
     backfill_pest_disease_materials_if_missing,
     ensure_protected_admin,
@@ -33,6 +35,7 @@ from app.seed import (
     seed_if_empty,
     seed_treatment_references_if_empty,
 )
+from app.seed_administrative_regions import seed_administrative_regions_if_empty
 from app.seed_pilot_crops import seed_pilot_crop_pest_diseases_if_empty
 from app.seed_regional_demo import seed_regional_pilot_crop_demo_if_empty
 
@@ -70,6 +73,7 @@ app.include_router(crops.router)
 app.include_router(pest_reference.router)
 app.include_router(consultant.router)
 app.include_router(community.router)
+app.include_router(regions.router)
 
 
 @app.on_event("startup")
@@ -78,6 +82,7 @@ def on_startup():
     try:
         seed_default_organization_if_empty(db)
         seed_crops_if_empty(db)
+        seed_administrative_regions_if_empty(db)
         backfill_crop_ids_if_missing(db)
         seed_if_empty(db)
         seed_admin_if_empty(db)
@@ -87,6 +92,7 @@ def on_startup():
         seed_pilot_crop_pest_diseases_if_empty(db)
         seed_regional_pilot_crop_demo_if_empty(db)
         backfill_household_crops_if_missing(db)
+        backfill_farm_region_if_needed(db)
         seed_demo_consultant_if_empty(db)
         seed_community_channel_posts_if_empty(db)
     finally:
