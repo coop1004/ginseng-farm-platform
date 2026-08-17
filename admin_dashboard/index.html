@@ -14,7 +14,7 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<link rel="stylesheet" href="css/style.css?v=9" />
+<link rel="stylesheet" href="css/style.css?v=10" />
 </head>
 <body>
 <div id="loginScreen" class="login-screen">
@@ -443,6 +443,10 @@
         <div class="panel-header">
           <h2>병해충 사진 관리</h2>
           <span class="panel-sub">농가가 업로드한 진단 사진과 AI 분석 상태</span>
+        </div>
+        <div id="photoFarmFilterBanner" class="filter-banner hidden">
+          <span id="photoFarmFilterText"></span>
+          <button id="photoFarmFilterClear" class="btn btn-ghost btn-sm">전체 보기</button>
         </div>
         <div class="weather-controls" style="margin-bottom: 10px;">
           <label>품목</label>
@@ -1059,7 +1063,7 @@
 <div id="toast" class="toast hidden"></div>
 
 <script src="js/api.js?v=13"></script>
-<script src="js/dashboard.js?v=19"></script>
+<script src="js/dashboard.js?v=20"></script>
 <script src="js/consultant.js?v=6"></script>
 <script>
   if ("serviceWorker" in navigator) {

@@ -170,6 +170,22 @@ body {
   margin-bottom: 16px;
 }
 
+.filter-banner:not(.hidden) {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #e3f2e3;
+  color: #1b5e20;
+  border: 1px solid #b8ddb8;
+  border-radius: var(--radius);
+  padding: 8px 14px;
+  font-size: 12.5px;
+  margin-bottom: 12px;
+}
+.filter-banner button {
+  margin-left: auto;
+}
+
 /* Table */
 .table-wrap { overflow-x: auto; }
 .data-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }

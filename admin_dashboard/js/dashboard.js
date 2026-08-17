@@ -657,12 +657,15 @@ function showHouseholdDetail(householdId) {
   farms.forEach((f) => {
     const tr = document.createElement("tr");
     if (f.last_diagnosis) tr.className = "household-farm-row-clickable";
+    const historyBtn = f.last_diagnosis
+      ? `<button class="btn btn-ghost btn-sm" data-view-farm-history="${f.farm_id}" data-farm-name="${(f.farm_name || "").replace(/"/g, "&quot;")}">전체 이력 보기</button>`
+      : "";
     tr.innerHTML = `
       <td><strong>${f.farm_name}</strong></td>
       <td>${f.region || "-"}</td>
       <td>${f.facility_type}</td>
       <td>${f.cultivation_year}년근</td>
-      <td>${f.last_diagnosis ? `${f.last_diagnosis.name} <span class="${typeBadgeClass(f.last_diagnosis.type)}">${f.last_diagnosis.type}</span>` : "-"}</td>
+      <td>${f.last_diagnosis ? `${f.last_diagnosis.name} <span class="${typeBadgeClass(f.last_diagnosis.type)}">${f.last_diagnosis.type}</span>` : "-"} ${historyBtn}</td>
       <td>${fmtDate(f.last_work_log_date)}</td>
       <td>${f.diagnosis_count_30d}건</td>
       <td><span class="${riskBadgeClass(f.risk_level)}">${f.risk_level}</span></td>
@@ -679,6 +682,9 @@ function showHouseholdDetail(householdId) {
 
   tbody.querySelectorAll("button[data-farm-id]").forEach((btn) => {
     btn.addEventListener("click", () => openNotifyModal(btn.dataset.farmId, btn.dataset.farmName));
+  });
+  tbody.querySelectorAll("button[data-view-farm-history]").forEach((btn) => {
+    btn.addEventListener("click", () => viewFarmHistory(Number(btn.dataset.viewFarmHistory), btn.dataset.farmName));
   });
 }
 
@@ -1393,6 +1399,9 @@ async function deleteReferenceHandler() {
 // ---------- Photos / Diagnoses ----------
 let currentDiagnoses = [];
 let currentPhotoStatus = "";
+// "농가 모니터링"에서 "전체 이력 보기"로 넘어왔을 때만 채워지는 농장 단위 필터.
+// {farmId, farmName} 또는 null(일반 진입 - 공용 품목 필터 기준 전체 농가 대상).
+let photoFarmFilter = null;
 
 function renderPhotoGrid() {
   const grid = document.getElementById("photoGrid");
@@ -2201,8 +2210,46 @@ function closeExpertDiagnosisModal() {
   expertDiagnosisTargetId = null;
 }
 
+function renderPhotoFarmFilterBanner() {
+  const banner = document.getElementById("photoFarmFilterBanner");
+  const cropSelect = document.getElementById("photosCropSelect");
+  if (photoFarmFilter) {
+    document.getElementById("photoFarmFilterText").textContent = `🔎 ${photoFarmFilter.farmName} 농장으로 필터링됨`;
+    banner.classList.remove("hidden");
+    // 공용 품목 필터(다른 화면과 상태 공유)는 건드리지 않고, 이 화면의 select
+    // 표시값만 "전체"로 바꿔서 농장의 실제 품목과 달라도 목록이 비어 보이지 않게 한다.
+    if (cropSelect) cropSelect.value = "";
+  } else {
+    banner.classList.add("hidden");
+    if (cropSelect) cropSelect.value = getSelectedCropId();
+  }
+}
+
+function clearPhotoFarmFilter() {
+  photoFarmFilter = null;
+  loadPhotosDiagnoses();
+}
+
+function viewFarmHistory(farmId, farmName) {
+  photoFarmFilter = { farmId, farmName };
+  currentPhotoStatus = "";
+  document.querySelectorAll("#photoStatusTabs .filter-tab").forEach((t) => t.classList.remove("active"));
+  const allTab = document.querySelector('#photoStatusTabs .filter-tab[data-status=""]');
+  if (allTab) allTab.classList.add("active");
+  document.querySelector('.nav-item[data-section="photos"]').click();
+}
+
 function loadPhotosDiagnoses() {
-  return Api.getAdminDiagnoses({ limit: 200, crop_id: getSelectedCropId() })
+  const params = { limit: 200 };
+  if (photoFarmFilter) {
+    params.farm_id = photoFarmFilter.farmId;
+    // crop_id는 일부러 넘기지 않는다 - 농장 단위로 들어왔을 때는 그 농장의 진단이
+    // 품목과 무관하게 전부 보여야 한다(위 렌더 함수가 표시값만 "전체"로 바꾼 것과 짝).
+  } else {
+    params.crop_id = getSelectedCropId();
+  }
+  renderPhotoFarmFilterBanner();
+  return Api.getAdminDiagnoses(params)
     .then((diagnoses) => {
       currentDiagnoses = diagnoses;
       renderPhotoGrid();
@@ -2558,6 +2605,7 @@ function init() {
   });
 
   document.getElementById("backToHouseholds").addEventListener("click", backToHouseholdList);
+  document.getElementById("photoFarmFilterClear").addEventListener("click", clearPhotoFarmFilter);
   document.getElementById("statFarmsCard").addEventListener("click", () => {
     document.querySelector('.nav-item[data-section="farms"]').click();
   });
