@@ -99,6 +99,7 @@ def root():
         "service": settings.app_name,
         "demo_mode": settings.demo_mode,
         "docs": "/docs",
+        "persistent_disk_check": True,
     }
 
 
