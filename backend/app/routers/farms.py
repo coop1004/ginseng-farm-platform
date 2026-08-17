@@ -150,9 +150,11 @@ def get_regional_risk_signal(
     )
 
     counts: dict = {}
+    type_by_name: dict = {}
     for d in diagnoses:
         name = d.final_disease_name or d.ai_disease_name
         counts[name] = counts.get(name, 0) + 1
+        type_by_name[name] = d.diagnosis_type
 
     max_count = max(counts.values(), default=0)
     level: Optional[str] = None
@@ -161,4 +163,9 @@ def get_regional_risk_signal(
     elif max_count >= FARMER_RISK_CAUTION_MIN_COUNT:
         level = "주의"
 
-    return {"level": level}
+    # 등급을 만든 병해충의 카테고리(병해/해충/생리장애)만 넘긴다 - 병명 자체나
+    # TreatmentReference의 증상·방제자재 문구는 절대 포함하지 않는다. 프런트는 이
+    # 값으로 코드에 고정해둔 범용 안내문 중 하나만 골라 보여준다.
+    category = type_by_name[max(counts, key=counts.get)] if level is not None else None
+
+    return {"level": level, "category": category}

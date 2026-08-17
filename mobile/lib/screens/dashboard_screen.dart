@@ -27,6 +27,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final _api = ApiService();
   List<AppNotification> _notifications = [];
   String? _riskLevel;
+  String? _riskCategory;
   int? _lastLoadedCropId;
 
   @override
@@ -54,8 +55,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return;
     }
     try {
-      final level = await _api.getRegionalRiskSignal(farms.first.id);
-      if (mounted) setState(() => _riskLevel = level);
+      final signal = await _api.getRegionalRiskSignal(farms.first.id);
+      if (mounted) {
+        setState(() {
+          _riskLevel = signal.level;
+          _riskCategory = signal.category;
+        });
+      }
     } catch (_) {
       // 신호등은 부가 정보라 실패해도 조용히 무시 (홈 화면 다른 기능에 영향 없음)
     }
@@ -115,7 +121,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ..._notifications.map((n) => _NotificationTile(notification: n)),
             if (_riskLevel != null) ...[
               const SizedBox(height: 4),
-              _RegionalRiskBadge(level: _riskLevel!),
+              _RegionalRiskBadge(level: _riskLevel!, category: _riskCategory),
             ],
             const SectionTitle('병해충 정보', subtitle: '카테고리별로 참고자료를 확인하세요'),
             const _PestCategoryRow(),
@@ -219,7 +225,8 @@ class _CommunityEntryCard extends StatelessWidget {
 /// 절대 노출하지 않는다(이웃 농가 식별 방지, 서버 응답 자체에도 등급 외 정보가 없음).
 class _RegionalRiskBadge extends StatelessWidget {
   final String level;
-  const _RegionalRiskBadge({required this.level});
+  final String? category;
+  const _RegionalRiskBadge({required this.level, required this.category});
 
   Color get _color => level == '경계' ? AppColors.red : AppColors.orange;
 
@@ -230,6 +237,12 @@ class _RegionalRiskBadge extends StatelessWidget {
       ? '최근 7일간 같은 병해충이 우리 지역에서 6건 이상 확인되면 "경계" 단계로 안내돼요.'
       : '최근 7일간 같은 병해충이 우리 지역에서 3건 이상 확인되면 "주의" 단계로 안내돼요.';
 
+  // 서버는 카테고리(병해/해충/생리장애)만 내려주므로, 특정 병해충을 짚어 말하지 않는
+  // 수준에서 카테고리에 맞는 고정 안내문을 코드에서 골라 보여준다(regionalRiskCategoryAdvice,
+  // app_theme.dart). 카테고리를 못 받은 경우에만 기존 범용 문구로 대체한다.
+  String get _adviceText =>
+      regionalRiskCategoryAdvice[category] ?? '이번 주 우리 지역에서 병해충 신고가 평소보다 늘었어요. 예방 관리를 확인해보세요.';
+
   void _showInfo(BuildContext context) {
     showDialog(
       context: context,
@@ -239,7 +252,7 @@ class _RegionalRiskBadge extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('이번 주 우리 지역에서 병해충 신고가 평소보다 늘었어요. 예방 관리를 확인해보세요.'),
+            Text(_adviceText),
             const SizedBox(height: 10),
             Text(_criteriaText, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
           ],
@@ -249,7 +262,8 @@ class _RegionalRiskBadge extends StatelessWidget {
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PestReferenceScreen()));
+              Navigator.of(context)
+                  .push(MaterialPageRoute(builder: (_) => PestReferenceScreen(initialType: category)));
             },
             child: const Text('예방 관리 확인'),
           ),
