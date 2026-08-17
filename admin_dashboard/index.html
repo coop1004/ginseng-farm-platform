@@ -59,6 +59,7 @@
       <a href="#overview" class="nav-item active" data-section="overview">📊 종합 현황</a>
       <a href="#map" class="nav-item" data-section="map">🗺️ 지역별 발생 지도</a>
       <a href="#farms" class="nav-item" data-section="farms">🌱 농가 모니터링</a>
+      <a href="#participation" class="nav-item" data-section="participation">🌟 농가 참여도 현황</a>
       <a href="#feed" class="nav-item" data-section="feed">🔔 실시간 진단 피드</a>
       <a href="#photos" class="nav-item" data-section="photos">🩺 병해충 사진 관리</a>
       <a href="#weather" class="nav-item" data-section="weather">🌤️ 기상 데이터</a>
@@ -339,6 +340,57 @@
               <tr>
                 <th>농장명</th><th>지역</th><th>시설구분</th><th>연차</th>
                 <th>최근진단</th><th>최근작업일</th><th>30일내 진단</th><th>위험도</th><th></th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="participation" class="section hidden">
+      <div class="panel">
+        <div class="panel-header">
+          <h2>조회 조건</h2>
+          <span class="panel-sub">아래 표가 선택한 조직·기간을 기준으로 계산됩니다</span>
+        </div>
+        <div class="weather-controls">
+          <label>대상 조직</label>
+          <select id="participationOrgSelect"></select>
+          <label>기간</label>
+          <select id="participationPeriod">
+            <option value="this_month">이번 달</option>
+            <option value="last_3_months" selected>최근 3개월</option>
+            <option value="this_year">올해</option>
+            <option value="all">전체 기간</option>
+            <option value="custom">사용자 지정</option>
+          </select>
+          <span id="participationCustomRange" class="hidden">
+            <label>시작일</label>
+            <input id="participationStartDate" type="date" />
+            <label>종료일</label>
+            <input id="participationEndDate" type="date" />
+            <button id="participationCustomApply" class="btn btn-ghost btn-sm">적용</button>
+          </span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <h2>농가별 참여도</h2>
+          <span class="panel-sub">진단 활용도 40% · 기록 성실도 40% · 정보 완성도 20%로 계산한 종합 참여도 점수 기준 정렬 · 컬럼 헤더를 클릭하면 정렬 기준을 바꿀 수 있습니다</span>
+          <button id="participationCsvBtn" class="btn btn-ghost btn-sm">⬇ CSV 다운로드</button>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table" id="participationTable">
+            <thead>
+              <tr>
+                <th data-sort="household_name">농가명</th>
+                <th data-sort="diagnosis_count">진단 요청 건수</th>
+                <th data-sort="worklog_count">작업일지 작성 건수</th>
+                <th data-sort="last_worklog_days_ago">최근 작성일</th>
+                <th data-sort="info_completeness_percent">정보 완성도</th>
+                <th data-sort="participation_score">종합 참여도 점수</th>
               </tr>
             </thead>
             <tbody></tbody>
@@ -893,8 +945,8 @@
 
 <div id="toast" class="toast hidden"></div>
 
-<script src="js/api.js?v=10"></script>
-<script src="js/dashboard.js?v=12"></script>
+<script src="js/api.js?v=11"></script>
+<script src="js/dashboard.js?v=13"></script>
 <script src="js/consultant.js?v=3"></script>
 <script>
   if ("serviceWorker" in navigator) {

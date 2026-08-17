@@ -297,6 +297,143 @@ def get_consultant_stats(
     return consultant_service.compute_stats(db, consultant, start=start, end=end)
 
 
+# 농가 참여도 종합점수 = 진단활용도*가중치 + 기록성실도*가중치 + 정보완성도*가중치 (합 100).
+# 정확한 값보다 "이 셋을 어떤 비율로 섞을지"가 중요한 튜닝 포인트라 여기 한 곳만 바꾸면 된다.
+PARTICIPATION_SCORE_WEIGHTS = {"diagnosis": 40, "record": 40, "completeness": 20}
+
+# 농장 "정보 완성도" 판단에 쓰는 필수 항목 목록. 여기 없는 필드(메모 등)는 완성도 계산에서
+# 제외한다 - 늘리거나 줄일 때 이 리스트만 바꾸면 된다.
+FARM_COMPLETENESS_FIELDS = ["crop_id", "cultivation_year", "region", "area_m2", "facility_type"]
+
+
+def _farm_completeness_percent(farm: models.Farm) -> float:
+    total = len(FARM_COMPLETENESS_FIELDS)
+    if total == 0:
+        return 0.0
+    filled = sum(1 for field in FARM_COMPLETENESS_FIELDS if getattr(farm, field) not in (None, "", 0))
+    return round((filled / total) * 100, 1)
+
+
+@router.get("/households/participation")
+def households_participation(
+    period: str = "last_3_months",
+    start_date: Optional[dt.date] = None,
+    end_date: Optional[dt.date] = None,
+    organization_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+    current_admin: models.AdminUser = Depends(get_current_admin),
+):
+    """농가별 참여도(진단 활용도/기록 성실도/정보 완성도) 집계 - "농가 참여도 현황" 화면용.
+    조직 스코프는 처방알림 브로드캐스트와 동일한 패턴을 재사용한다: org_scoped 관리자는
+    자기 조직으로 강제되고, platform_super 관리자는 organization_id를 반드시 명시해야
+    한다(생략 시 400 - 암묵적 전체 조직 노출 방지).
+
+    - 진단 활용도(diagnosis_count): 선택 기간 내 AI 진단 요청 건수(Diagnosis.created_at 기준 -
+      "농가가 이 기능을 실제로 얼마나 쓰는지"를 보는 지표라 병해충이 발생한 날짜(occurrence_date)가
+      아니라 실제로 진단을 요청한 시점을 기준으로 삼는다).
+    - 기록 성실도(worklog_count): 선택 기간 내 영농일지 작성 건수(WorkLog.work_date 기준).
+      last_worklog_days_ago(최근 작성일이 며칠 전인지)는 기간 필터와 무관하게 항상 전체
+      이력 기준 절대값이다 - "최근에 활동이 끊겼는지"가 핵심 신호라 조회 기간을 좁혔다고
+      마지막 활동일 자체가 숨겨지면 오히려 오해를 부르기 때문.
+    - 정보 완성도(info_completeness_percent): 농가 소속 농장들의 FARM_COMPLETENESS_FIELDS
+      채움 비율 평균.
+    - 종합 참여도 점수(participation_score): 진단 활용도/기록 성실도는 이번 조회 결과 안에서
+      최댓값 대비 상대 점수(0~100)로 정규화한 뒤, 정보 완성도(이미 0~100 백분율)와 함께
+      PARTICIPATION_SCORE_WEIGHTS 비율로 가중합한다."""
+    if current_admin.role == "org_scoped":
+        target_org_id = current_admin.organization_id
+    else:
+        if organization_id is None:
+            raise HTTPException(status_code=400, detail="대상 조직을 선택해주세요.")
+        target_org_id = organization_id
+
+    start, end = consultant_service.resolve_period_range(period, start_date, end_date)
+
+    farms = (
+        db.query(models.Farm)
+        .join(models.Household, models.Farm.household_id == models.Household.id)
+        .filter(models.Farm.organization_id == target_org_id, models.Household.status != "withdrawn")
+        .all()
+    )
+    if not farms:
+        return []
+
+    farm_ids = [f.id for f in farms]
+    household_id_by_farm_id = {f.id: f.household_id for f in farms}
+    farms_by_household: dict = {}
+    for f in farms:
+        farms_by_household.setdefault(f.household_id, []).append(f)
+
+    households = {
+        h.id: h
+        for h in db.query(models.Household).filter(models.Household.id.in_(list(farms_by_household.keys()))).all()
+    }
+
+    diag_query = db.query(models.Diagnosis).filter(models.Diagnosis.farm_id.in_(farm_ids))
+    if start is not None:
+        diag_query = diag_query.filter(models.Diagnosis.created_at >= start)
+    if end is not None:
+        diag_query = diag_query.filter(models.Diagnosis.created_at <= end)
+    diag_count_by_household: Counter = Counter()
+    for d in diag_query.all():
+        diag_count_by_household[household_id_by_farm_id[d.farm_id]] += 1
+
+    work_query = db.query(models.WorkLog).filter(models.WorkLog.farm_id.in_(farm_ids))
+    if start is not None:
+        work_query = work_query.filter(models.WorkLog.work_date >= start.date())
+    if end is not None:
+        work_query = work_query.filter(models.WorkLog.work_date <= end.date())
+    worklog_count_by_household: Counter = Counter()
+    for w in work_query.all():
+        worklog_count_by_household[household_id_by_farm_id[w.farm_id]] += 1
+
+    last_worklog_date_by_household: dict = {}
+    for w in db.query(models.WorkLog).filter(models.WorkLog.farm_id.in_(farm_ids)).all():
+        hid = household_id_by_farm_id[w.farm_id]
+        if hid not in last_worklog_date_by_household or w.work_date > last_worklog_date_by_household[hid]:
+            last_worklog_date_by_household[hid] = w.work_date
+
+    max_diag_count = max(diag_count_by_household.values(), default=0)
+    max_worklog_count = max(worklog_count_by_household.values(), default=0)
+
+    today = dt.date.today()
+    output = []
+    for hid, farms_of_household in farms_by_household.items():
+        household = households.get(hid)
+        if not household:
+            continue
+        diag_count = diag_count_by_household.get(hid, 0)
+        worklog_count = worklog_count_by_household.get(hid, 0)
+        last_worklog_date = last_worklog_date_by_household.get(hid)
+        completeness_values = [_farm_completeness_percent(f) for f in farms_of_household]
+        completeness_percent = round(sum(completeness_values) / len(completeness_values), 1) if completeness_values else 0.0
+
+        diagnosis_score = (diag_count / max_diag_count * 100) if max_diag_count else 0.0
+        record_score = (worklog_count / max_worklog_count * 100) if max_worklog_count else 0.0
+        participation_score = round(
+            diagnosis_score * PARTICIPATION_SCORE_WEIGHTS["diagnosis"] / 100
+            + record_score * PARTICIPATION_SCORE_WEIGHTS["record"] / 100
+            + completeness_percent * PARTICIPATION_SCORE_WEIGHTS["completeness"] / 100,
+            1,
+        )
+
+        output.append(
+            {
+                "household_id": hid,
+                "household_name": household.name,
+                "diagnosis_count": diag_count,
+                "worklog_count": worklog_count,
+                "last_worklog_date": last_worklog_date,
+                "last_worklog_days_ago": (today - last_worklog_date).days if last_worklog_date else None,
+                "info_completeness_percent": completeness_percent,
+                "participation_score": participation_score,
+            }
+        )
+
+    output.sort(key=lambda x: x["participation_score"], reverse=True)
+    return output
+
+
 @router.get("/households/{household_id}/consultants", response_model=List[schemas.ConsultantOut])
 def get_household_consultants(
     household_id: int, db: Session = Depends(get_db), _admin: models.AdminUser = Depends(get_current_admin)

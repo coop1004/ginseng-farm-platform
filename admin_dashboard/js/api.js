@@ -123,6 +123,14 @@ const Api = (() => {
     getMe: () => request("/api/admin/auth/me"),
     listAdmins: () => request("/api/admin/auth/list"),
     listOrganizations: () => request("/api/admin/organizations"),
+    getHouseholdParticipation: ({ period, startDate, endDate, organizationId } = {}) => {
+      const qs = new URLSearchParams();
+      if (period) qs.set("period", period);
+      if (startDate) qs.set("start_date", startDate);
+      if (endDate) qs.set("end_date", endDate);
+      if (organizationId) qs.set("organization_id", organizationId);
+      return request(`/api/admin/households/participation?${qs.toString()}`);
+    },
     changePassword: (currentPassword, newPassword) =>
       request("/api/admin/auth/change-password", {
         method: "POST",

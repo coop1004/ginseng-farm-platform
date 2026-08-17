@@ -71,6 +71,7 @@ function initNav() {
     overview: "종합 현황",
     map: "지역별 발생 지도",
     farms: "농가 모니터링",
+    participation: "농가 참여도 현황",
     feed: "실시간 진단 피드",
     photos: "병해충 사진 관리",
     weather: "기상 데이터",
@@ -99,6 +100,9 @@ function initNav() {
       }
       if (section === "community") {
         loadCommunityReports();
+      }
+      if (section === "participation") {
+        loadParticipationOrganizations().then(loadParticipationPage);
       }
       if (section === "consultant-activity") {
         loadConsultantActivityPage();
@@ -2078,6 +2082,136 @@ async function submitExpertDiagnosis() {
   }
 }
 
+// ---------- 농가 참여도 현황 ----------
+let participationState = {
+  period: "last_3_months",
+  startDate: null,
+  endDate: null,
+  sortField: "participation_score",
+  sortDir: "desc",
+  rows: [],
+};
+
+const PARTICIPATION_COLUMN_LABELS = {
+  household_name: "농가명",
+  diagnosis_count: "진단 요청 건수",
+  worklog_count: "작업일지 작성 건수",
+  last_worklog_days_ago: "최근 작성일",
+  info_completeness_percent: "정보 완성도",
+  participation_score: "종합 참여도 점수",
+};
+
+function loadParticipationOrganizations() {
+  const select = document.getElementById("participationOrgSelect");
+  if (select.options.length > 0) return Promise.resolve();
+  return Api.listOrganizations()
+    .then((orgs) => {
+      select.innerHTML = orgs.map((o) => `<option value="${o.id}">${o.name}</option>`).join("");
+    })
+    .catch((e) => showToast("조직 목록을 불러오지 못했습니다: " + e.message, true));
+}
+
+function loadParticipationPage() {
+  const orgId = document.getElementById("participationOrgSelect").value;
+  if (!orgId) {
+    showToast("대상 조직을 선택해주세요.", true);
+    return;
+  }
+  const { period, startDate, endDate } = participationState;
+  const tbody = document.querySelector("#participationTable tbody");
+  tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color: var(--gray-400);">불러오는 중…</td></tr>`;
+  Api.getHouseholdParticipation({ period, startDate, endDate, organizationId: orgId })
+    .then((rows) => {
+      participationState.rows = rows;
+      renderParticipationTable();
+    })
+    .catch((e) => {
+      if (e.isAuthError) {
+        showLoginScreen();
+        return;
+      }
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color: var(--gray-400);">불러오기 실패: ${e.message}</td></tr>`;
+    });
+}
+
+function sortedParticipationRows() {
+  const { sortField, sortDir, rows } = participationState;
+  return [...rows].sort((a, b) => {
+    if (sortField === "household_name") {
+      return sortDir === "asc"
+        ? a.household_name.localeCompare(b.household_name, "ko")
+        : b.household_name.localeCompare(a.household_name, "ko");
+    }
+    // 최근 작성일(일 전)은 값이 작을수록 "최근"이라 오름차순=최근순으로 느껴지도록 그대로 둔다.
+    // 기록 없음(null)은 정렬에서 항상 가장 뒤로 보낸다.
+    const av = a[sortField];
+    const bv = b[sortField];
+    if (av == null && bv == null) return 0;
+    if (av == null) return 1;
+    if (bv == null) return -1;
+    return sortDir === "asc" ? av - bv : bv - av;
+  });
+}
+
+function renderParticipationTable() {
+  const tbody = document.querySelector("#participationTable tbody");
+  const rows = sortedParticipationRows();
+  tbody.innerHTML = rows.length
+    ? rows
+        .map(
+          (r) => `<tr>
+        <td>${r.household_name}</td>
+        <td>${r.diagnosis_count}</td>
+        <td>${r.worklog_count}</td>
+        <td>${r.last_worklog_days_ago != null ? `${r.last_worklog_days_ago}일 전` : "기록 없음"}</td>
+        <td>${r.info_completeness_percent}%</td>
+        <td><strong>${r.participation_score}</strong></td>
+      </tr>`
+        )
+        .join("")
+    : `<tr><td colspan="6" style="text-align:center; color: var(--gray-400);">데이터가 없습니다.</td></tr>`;
+
+  document.querySelectorAll('#participationTable th[data-sort]').forEach((th) => {
+    const field = th.dataset.sort;
+    const label = PARTICIPATION_COLUMN_LABELS[field] || field;
+    th.textContent =
+      field === participationState.sortField
+        ? `${label} ${participationState.sortDir === "asc" ? "▲" : "▼"}`
+        : label;
+  });
+}
+
+function downloadParticipationCsv() {
+  const rows = sortedParticipationRows();
+  if (rows.length === 0) {
+    showToast("내려받을 데이터가 없습니다.", true);
+    return;
+  }
+  const header = ["농가명", "진단 요청 건수", "작업일지 작성 건수", "최근 작성일(일 전)", "정보 완성도(%)", "종합 참여도 점수"];
+  const csvRows = [
+    header,
+    ...rows.map((r) => [
+      r.household_name,
+      r.diagnosis_count,
+      r.worklog_count,
+      r.last_worklog_days_ago != null ? r.last_worklog_days_ago : "",
+      r.info_completeness_percent,
+      r.participation_score,
+    ]),
+  ];
+  const csv =
+    "﻿" + csvRows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\r\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `농가_참여도_현황_${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 // ---------- Load & bootstrap ----------
 async function loadAll() {
   try {
@@ -2316,6 +2450,42 @@ function init() {
     regionalStatsPeriodState.startDate = start || null;
     regionalStatsPeriodState.endDate = end || null;
     loadRegionalStats(currentRegionalCropFilterValue());
+  });
+
+  document.getElementById("participationOrgSelect").addEventListener("change", loadParticipationPage);
+  document.getElementById("participationPeriod").addEventListener("change", (e) => {
+    const val = e.target.value;
+    participationState.period = val;
+    document.getElementById("participationCustomRange").classList.toggle("hidden", val !== "custom");
+    if (val !== "custom") {
+      participationState.startDate = null;
+      participationState.endDate = null;
+      loadParticipationPage();
+    }
+  });
+  document.getElementById("participationCustomApply").addEventListener("click", () => {
+    const start = document.getElementById("participationStartDate").value;
+    const end = document.getElementById("participationEndDate").value;
+    if (!start && !end) {
+      showToast("시작일 또는 종료일을 선택해주세요.", true);
+      return;
+    }
+    participationState.startDate = start || null;
+    participationState.endDate = end || null;
+    loadParticipationPage();
+  });
+  document.getElementById("participationCsvBtn").addEventListener("click", downloadParticipationCsv);
+  document.querySelectorAll('#participationTable th[data-sort]').forEach((th) => {
+    th.addEventListener("click", () => {
+      const field = th.dataset.sort;
+      if (participationState.sortField === field) {
+        participationState.sortDir = participationState.sortDir === "asc" ? "desc" : "asc";
+      } else {
+        participationState.sortField = field;
+        participationState.sortDir = "desc";
+      }
+      renderParticipationTable();
+    });
   });
 
   document.getElementById("refreshBtn").addEventListener("click", loadAll);
