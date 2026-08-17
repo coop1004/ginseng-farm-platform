@@ -760,6 +760,36 @@
   </div>
 </div>
 
+<div id="consultantFinalDiagnosisModal" class="modal-backdrop hidden">
+  <div class="modal">
+    <h3>현장 확인 정정</h3>
+    <p class="modal-farm" id="consultantFinalDiagnosisSub"></p>
+    <p style="font-size:11.5px; color: var(--gray-500); background: var(--gray-50, #f5f6f8); border-radius:8px; padding:8px 10px; margin: 0 0 10px;">
+      저장하면 전문가 최종확인으로 기록되며 컨설턴트 활동 통계에 반영됩니다.
+    </p>
+    <label class="field-label">진단명(병해충명) *</label>
+    <input class="field-input" id="consultantFinalDiagnosisName" type="text" placeholder="AI 판단과 다르면 실제 진단명을 입력하세요" />
+    <label class="field-label">메모(선택)</label>
+    <textarea class="field-input" id="consultantFinalDiagnosisNote" rows="3" placeholder="현장 확인 소견 등"></textarea>
+    <div class="modal-actions">
+      <button id="consultantFinalDiagnosisCancel" class="btn btn-ghost">취소</button>
+      <button id="consultantFinalDiagnosisSubmit" class="btn btn-primary">저장</button>
+    </div>
+  </div>
+</div>
+
+<div id="consultantAiResultModal" class="modal-backdrop hidden">
+  <div class="modal">
+    <h3>AI 1차 진단 결과</h3>
+    <p class="modal-farm" id="consultantAiResultSub"></p>
+    <div id="consultantAiResultBody"></div>
+    <div class="modal-actions">
+      <button id="consultantAiResultClose" class="btn btn-ghost">닫기</button>
+      <button id="consultantAiResultCorrect" class="btn btn-primary">현장 확인 정정하기</button>
+    </div>
+  </div>
+</div>
+
 <div id="consultantStatsModal" class="modal-backdrop hidden">
   <div class="modal">
     <h3>컨설턴트 활동 통계</h3>
@@ -1028,7 +1058,7 @@
 
 <script src="js/api.js?v=13"></script>
 <script src="js/dashboard.js?v=17"></script>
-<script src="js/consultant.js?v=4"></script>
+<script src="js/consultant.js?v=5"></script>
 <script>
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));

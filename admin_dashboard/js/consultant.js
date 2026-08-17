@@ -300,6 +300,7 @@ function showConsultantHouseholdDetail(householdId) {
         </select>
         <label class="field-label">피해 부위 사진 (현장 촬영)</label>
         <input class="field-input" type="file" accept="image/*" capture="environment" id="c-diag-photo-${f.id}" />
+        <p style="font-size:11px; color: var(--gray-500); margin: 4px 0 0;">사진을 등록하면 AI가 자동으로 1차 진단합니다. 결과 확인 후 필요하면 정정해주세요.</p>
         <div class="modal-actions">
           <button class="btn btn-ghost btn-sm" data-cancel-new-diag="${f.id}">취소</button>
           <button class="btn btn-primary btn-sm" data-submit-new-diag="${f.id}">등록</button>
@@ -340,14 +341,17 @@ function loadConsultantFarmDiagnoses(farmId) {
         const finalText = d.final_disease_name
           ? `${d.final_disease_name} (${d.final_diagnosis_source === "consultant" ? "본인" : d.final_diagnosis_source})`
           : "-";
+        const estimatedMark = d.photo_taken_at_estimated
+          ? ` <span class="badge badge-mid" title="촬영시각 확인 불가로 업로드 시각 기준 발생일입니다">추정</span>`
+          : "";
         tr.innerHTML = `
-          <td>${d.occurrence_date}</td>
+          <td>${d.occurrence_date}${estimatedMark}</td>
           <td>${d.ai_disease_name || "-"}</td>
           <td>${d.ai_confidence != null ? Math.round(d.ai_confidence * 100) + "%" : "-"}</td>
           <td>${d.created_by_type === "consultant" ? `👤 ${d.created_by_consultant_name || "컨설턴트"}` : "농가"}</td>
           <td>${finalText}</td>
           <td>
-            <button class="btn btn-ghost btn-sm" data-edit-diag="${d.id}">현장 확인 정정</button>
+            <button class="btn btn-ghost btn-sm" data-edit-diag="${d.id}" data-name="${(d.final_disease_name || "").replace(/"/g, "&quot;")}" data-note="${(d.final_diagnosis_note || "").replace(/"/g, "&quot;")}">현장 확인 정정</button>
             <button class="btn btn-ghost btn-sm" data-comment-diag="${d.id}">💬 코멘트</button>
           </td>
         `;
@@ -360,7 +364,9 @@ function loadConsultantFarmDiagnoses(farmId) {
         tbody.appendChild(tr);
       });
       tbody.querySelectorAll("button[data-edit-diag]").forEach((btn) => {
-        btn.addEventListener("click", () => openConsultantFinalDiagnosisPrompt(btn.dataset.editDiag, farmId));
+        btn.addEventListener("click", () =>
+          openConsultantFinalDiagnosisModal(btn.dataset.editDiag, farmId, btn.dataset.name, btn.dataset.note)
+        );
       });
       tbody.querySelectorAll("button[data-comment-diag]").forEach((btn) => {
         btn.addEventListener("click", () => openConsultantCommentModal(btn.dataset.commentDiag));
@@ -392,16 +398,42 @@ function openConsultantDiagnosisDetailModal(diagnosisId) {
     });
 }
 
-async function openConsultantFinalDiagnosisPrompt(diagnosisId, farmId) {
-  const diseaseName = prompt("현장에서 확인한 진단명(병해충명)을 입력해주세요:");
-  if (!diseaseName) return;
-  const note = prompt("메모(선택, 없으면 빈 칸으로 확인):") || "";
+// ---------- 현장 확인 정정 (admin의 expertDiagnosisModal과 동일한 패턴) ----------
+let consultantFinalDiagnosisTargetId = null;
+let consultantFinalDiagnosisFarmId = null;
+
+function openConsultantFinalDiagnosisModal(diagnosisId, farmId, currentName, currentNote) {
+  consultantFinalDiagnosisTargetId = diagnosisId;
+  consultantFinalDiagnosisFarmId = farmId;
+  document.getElementById("consultantFinalDiagnosisSub").textContent = `진단 #${diagnosisId}`;
+  document.getElementById("consultantFinalDiagnosisName").value = currentName || "";
+  document.getElementById("consultantFinalDiagnosisNote").value = currentNote || "";
+  document.getElementById("consultantFinalDiagnosisModal").classList.remove("hidden");
+}
+
+function closeConsultantFinalDiagnosisModal() {
+  document.getElementById("consultantFinalDiagnosisModal").classList.add("hidden");
+  consultantFinalDiagnosisTargetId = null;
+  consultantFinalDiagnosisFarmId = null;
+}
+
+async function submitConsultantFinalDiagnosis() {
+  const name = document.getElementById("consultantFinalDiagnosisName").value.trim();
+  const note = document.getElementById("consultantFinalDiagnosisNote").value.trim();
+  if (!name) {
+    showToast("진단명을 입력해주세요.", true);
+    return;
+  }
+  const targetId = consultantFinalDiagnosisTargetId;
+  const farmId = consultantFinalDiagnosisFarmId;
   try {
-    await ConsultantApi.submitFinalDiagnosis(diagnosisId, diseaseName, note);
+    await ConsultantApi.submitFinalDiagnosis(targetId, name, note);
     showToast("현장 확인 진단이 반영되었습니다.");
-    loadConsultantFarmDiagnoses(farmId);
+    closeConsultantFinalDiagnosisModal();
+    if (farmId) loadConsultantFarmDiagnoses(farmId);
   } catch (e) {
     if (e.isAuthError) {
+      closeConsultantFinalDiagnosisModal();
       handleConsultantLogout();
       return;
     }
@@ -409,6 +441,7 @@ async function openConsultantFinalDiagnosisPrompt(diagnosisId, farmId) {
   }
 }
 
+// ---------- 새 진단 등록 + AI 1차 진단 결과 즉시 표시 ----------
 async function submitConsultantNewDiagnosis(farmId) {
   const type = document.getElementById(`c-diag-type-${farmId}`).value;
   const photoInput = document.getElementById(`c-diag-photo-${farmId}`);
@@ -423,11 +456,11 @@ async function submitConsultantNewDiagnosis(farmId) {
   formData.append("photos", file);
 
   try {
-    await ConsultantApi.createDiagnosis(formData);
-    showToast("새 진단이 등록되었습니다.");
+    const diagnosis = await ConsultantApi.createDiagnosis(formData);
     document.getElementById(`c-new-diag-form-${farmId}`).classList.add("hidden");
     photoInput.value = "";
     loadConsultantFarmDiagnoses(farmId);
+    openConsultantAiResultModal(diagnosis, farmId);
   } catch (e) {
     if (e.isAuthError) {
       handleConsultantLogout();
@@ -435,6 +468,27 @@ async function submitConsultantNewDiagnosis(farmId) {
     }
     showToast(`진단 등록 실패: ${e.message}`, true);
   }
+}
+
+function openConsultantAiResultModal(diagnosis, farmId) {
+  document.getElementById("consultantAiResultSub").textContent = `진단 #${diagnosis.id}`;
+  const confidenceText =
+    diagnosis.ai_confidence != null ? `확신도 ${Math.round(diagnosis.ai_confidence * 100)}%` : "확신도 정보 없음";
+  document.getElementById("consultantAiResultBody").innerHTML = `
+    <p style="font-size:15px; font-weight:700; margin-bottom:4px;">${diagnosis.ai_disease_name || "AI가 병해충을 특정하지 못했습니다"}</p>
+    <p style="font-size:12.5px; color: var(--gray-600);">${confidenceText}</p>
+    ${diagnosis.ai_symptoms ? `<p style="font-size:12.5px; color: var(--gray-600); margin-top:8px;">${diagnosis.ai_symptoms}</p>` : ""}
+    <p style="font-size:11.5px; color: var(--gray-400); margin-top:10px;">AI 1차 진단 결과입니다. 현장에서 확인한 실제 병해충명과 다르면 "현장 확인 정정하기"로 바로잡아주세요.</p>
+  `;
+  document.getElementById("consultantAiResultCorrect").onclick = () => {
+    closeConsultantAiResultModal();
+    openConsultantFinalDiagnosisModal(diagnosis.id, farmId, diagnosis.final_disease_name, diagnosis.final_diagnosis_note);
+  };
+  document.getElementById("consultantAiResultModal").classList.remove("hidden");
+}
+
+function closeConsultantAiResultModal() {
+  document.getElementById("consultantAiResultModal").classList.add("hidden");
 }
 
 // ---------- 코멘트 ----------
@@ -778,6 +832,15 @@ function initConsultant() {
   document.getElementById("consultantBackToHouseholds").addEventListener("click", backToConsultantHouseholdList);
   document.getElementById("consultantCommentCancel").addEventListener("click", closeConsultantCommentModal);
   document.getElementById("consultantCommentSubmit").addEventListener("click", submitConsultantComment);
+  document.getElementById("consultantFinalDiagnosisCancel").addEventListener("click", closeConsultantFinalDiagnosisModal);
+  document.getElementById("consultantFinalDiagnosisSubmit").addEventListener("click", submitConsultantFinalDiagnosis);
+  document.getElementById("consultantFinalDiagnosisModal").addEventListener("click", (e) => {
+    if (e.target.id === "consultantFinalDiagnosisModal") closeConsultantFinalDiagnosisModal();
+  });
+  document.getElementById("consultantAiResultClose").addEventListener("click", closeConsultantAiResultModal);
+  document.getElementById("consultantAiResultModal").addEventListener("click", (e) => {
+    if (e.target.id === "consultantAiResultModal") closeConsultantAiResultModal();
+  });
   document.getElementById("consultantPostSubmit").addEventListener("click", submitConsultantChannelPost);
   document.getElementById("consultantRegionStatsCropSelect").addEventListener("change", loadConsultantRegionStats);
   initConsultantNav();
