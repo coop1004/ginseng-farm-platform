@@ -241,6 +241,46 @@
         </div>
         <p class="panel-note" id="statWeatherNote"></p>
       </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <h2>경과 기록 현황</h2>
+          <span class="panel-sub">농가가 진단 상세에서 남긴 방제 경과 기록(자가평가)의 전체 누적 분포입니다</span>
+        </div>
+        <div class="cards-grid" id="followupStatsCards" style="margin-bottom: 8px;">
+          <div class="stat-card">
+            <div class="stat-icon icon-green">📈</div>
+            <div>
+              <div class="stat-value" id="statFollowupBetter">-</div>
+              <div class="stat-label">호전</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon icon-orange">➖</div>
+            <div>
+              <div class="stat-value" id="statFollowupSame">-</div>
+              <div class="stat-label">유지</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon icon-red">📉</div>
+            <div>
+              <div class="stat-value" id="statFollowupWorse">-</div>
+              <div class="stat-label">악화</div>
+            </div>
+          </div>
+        </div>
+        <p class="panel-note" id="followupStatsEmptyNote" style="display:none;">아직 등록된 경과 기록이 없습니다.</p>
+        <div class="table-wrap" id="followupStatsByNameWrap" style="display:none;">
+          <table class="data-table" id="followupStatsByNameTable">
+            <thead>
+              <tr><th>병명</th><th>호전</th><th>유지</th><th>악화</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p class="panel-note">자재·처방별 호전율 같은 교차 통계는 이후 데이터가 더 쌓이고 자재 기록 필드가 안정화되면 별도로 추가할 예정입니다.</p>
+      </div>
     </section>
 
     <section id="map" class="section hidden">

@@ -13,7 +13,10 @@ import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import '../services/gallery_saver.dart';
 import '../widgets/farm_selector.dart';
+import 'diagnosis_followup_screen.dart';
 import 'diagnosis_result_screen.dart';
+
+enum _FollowupChoice { attach, newDiagnosis }
 
 class DiagnosisFormScreen extends StatefulWidget {
   const DiagnosisFormScreen({super.key});
@@ -72,12 +75,76 @@ class _DiagnosisFormScreenState extends State<DiagnosisFormScreen> {
     if (picked != null) setState(() => _occurrenceDate = picked);
   }
 
+  /// 사진+농장이 준비된 시점에 이 농장에 최근(14일 이내) 활동이 있던 미해결 진단이
+  /// 있는지 확인해, 있으면 "이어서 기록"할지 "새로 진단받을지" 먼저 물어본다.
+  /// 후보 조회 자체가 실패해도(네트워크 등) 핵심 기능인 새 진단 등록은 막지 않는다.
+  Future<_FollowupChoice?> _checkUnresolvedCandidate() async {
+    List<RecentUnresolvedDiagnosis> candidates = [];
+    try {
+      candidates = await _api.getRecentUnresolvedDiagnoses(_farm!.id);
+    } catch (_) {
+      return _FollowupChoice.newDiagnosis;
+    }
+    if (candidates.isEmpty || !mounted) return _FollowupChoice.newDiagnosis;
+
+    final candidate = candidates.first;
+    final choice = await showDialog<_FollowupChoice>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('최근 진단이 있어요'),
+        content: Text(
+          '${_farm?.farmName ?? '이 농장'}에서 최근 등록한 "${candidate.diseaseName ?? candidate.diagnosisType}" '
+          '진단이 있습니다. 이번 사진을 그 진단의 경과 기록으로 이어붙일까요, 완전히 새로 진단받을까요?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(_FollowupChoice.attach),
+            child: const Text('① 경과 기록만 추가하기'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(_FollowupChoice.newDiagnosis),
+            child: const Text('② 새로 진단받기'),
+          ),
+        ],
+      ),
+    );
+    if (choice == _FollowupChoice.attach) {
+      await _submitAsFollowup(candidate);
+    }
+    return choice;
+  }
+
+  Future<void> _submitAsFollowup(RecentUnresolvedDiagnosis candidate) async {
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => DiagnosisFollowupScreen(
+          diagnosisId: candidate.id,
+          diagnosisLabel: candidate.diseaseName,
+          initialPhoto: _photos.first,
+        ),
+      ),
+    );
+    if (saved == true && mounted) {
+      final refreshed = await _api.getDiagnosis(candidate.id);
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => DiagnosisResultScreen(diagnosis: refreshed)),
+        );
+      }
+    }
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate() || _farm == null) return;
     if (_photos.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('피해 부위 사진을 1장 이상 업로드해주세요.')));
       return;
     }
+
+    final choice = await _checkUnresolvedCandidate();
+    if (choice != _FollowupChoice.newDiagnosis) return; // attach(이미 처리됨) 또는 다이얼로그 취소
+
     setState(() => _analyzing = true);
     try {
       final result = await _api.createDiagnosis(

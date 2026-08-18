@@ -18,7 +18,11 @@ from app.services.auth_service import (
     hash_password,
     verify_password,
 )
-from app.services.diagnosis_service import build_corrected_reference, to_response as diagnosis_to_response
+from app.services.diagnosis_service import (
+    build_corrected_reference,
+    initial_photo_paths,
+    to_response as diagnosis_to_response,
+)
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -840,7 +844,7 @@ def admin_diagnoses(
         out.farm_name = d.farm.farm_name if d.farm else None
         out.household_name = d.farm.household.name if d.farm and d.farm.household else None
         out.region = d.farm.region if d.farm else None
-        out.photo_paths = [p.photo_path for p in d.photos] if d.photos else ([d.photo_path] if d.photo_path else [])
+        out.photo_paths = initial_photo_paths(d) or ([d.photo_path] if d.photo_path else [])
         out.created_by_consultant_name = d.created_by_consultant.name if d.created_by_consultant else None
         results.append(out)
     return results
@@ -887,7 +891,7 @@ def admin_final_diagnosis(
     out.farm_name = d.farm.farm_name if d.farm else None
     out.household_name = d.farm.household.name if d.farm and d.farm.household else None
     out.region = d.farm.region if d.farm else None
-    out.photo_paths = [p.photo_path for p in d.photos] if d.photos else ([d.photo_path] if d.photo_path else [])
+    out.photo_paths = initial_photo_paths(d) or ([d.photo_path] if d.photo_path else [])
     return out
 
 
@@ -1091,6 +1095,41 @@ def recent_activity_feed(
         }
         for d in diagnoses
     ]
+
+
+@router.get("/followup-stats")
+def followup_stats(db: Session = Depends(get_db), _admin: models.AdminUser = Depends(get_current_admin)):
+    """방제 경과 기록(진단 상세의 "경과 기록 추가") 현황 요약 - 전체 누적 기준
+    outcome(호전/유지/악화) 분포와 병명별 분포만 제공한다. 복잡한 기간·필터는 두지
+    않는다. 어떤 자재를 썼을 때 호전율이 높은지 같은 자재별 교차 통계는 이번 범위에
+    포함하지 않는다 - 진단에 실제 사용된 자재/처방이 어느 필드에 안정적으로 기록되는지
+    아직 확인되지 않았고, followup 데이터 자체도 아직 쌓이지 않아 지금 만들어도 의미
+    있는 결과가 나오지 않는다. 데이터가 쌓이고 자재 필드 연결이 확인된 뒤 별도로
+    진행할 사안이다."""
+    followups = (
+        db.query(models.DiagnosisPhoto)
+        .filter(models.DiagnosisPhoto.phase == "followup", models.DiagnosisPhoto.outcome.isnot(None))
+        .all()
+    )
+    outcome_counts = Counter(f.outcome for f in followups)
+    by_name: dict = {}
+    for f in followups:
+        d = f.diagnosis
+        if not d:
+            continue
+        name = d.final_disease_name or d.ai_disease_name
+        if not name:
+            continue
+        by_name.setdefault(name, Counter())[f.outcome] += 1
+
+    return {
+        "total_followups": len(followups),
+        "outcome_counts": {label: outcome_counts.get(label, 0) for label in ("호전", "유지", "악화")},
+        "by_disease_name": [
+            {"name": name, "outcome_counts": {label: counts.get(label, 0) for label in ("호전", "유지", "악화")}}
+            for name, counts in sorted(by_name.items(), key=lambda kv: sum(kv[1].values()), reverse=True)
+        ],
+    }
 
 
 @router.post("/notifications", response_model=schemas.NotificationOut)

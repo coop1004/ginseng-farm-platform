@@ -10,6 +10,7 @@ import '../providers/farm_provider.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
+import 'diagnosis_followup_screen.dart' show outcomeBadgeLabel, outcomeColor, outcomeIcon;
 import 'diagnosis_form_screen.dart';
 import 'diagnosis_result_screen.dart';
 
@@ -240,6 +241,29 @@ class _DiagnosisCard extends StatelessWidget {
                       '${item.farmName ?? ''} · ${item.cropName} · ${DateFormat('yyyy.MM.dd').format(item.occurrenceDate)}',
                       style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
                     ),
+                    if (item.latestFollowupOutcome != null) ...[
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: outcomeColor(item.latestFollowupOutcome!).withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(outcomeIcon(item.latestFollowupOutcome!),
+                                size: 11, color: outcomeColor(item.latestFollowupOutcome!)),
+                            const SizedBox(width: 3),
+                            Text(outcomeBadgeLabel(item.latestFollowupOutcome!),
+                                style: TextStyle(
+                                    fontSize: 10.5,
+                                    color: outcomeColor(item.latestFollowupOutcome!),
+                                    fontWeight: FontWeight.w700)),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

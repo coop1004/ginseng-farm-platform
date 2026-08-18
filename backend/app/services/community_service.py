@@ -10,6 +10,7 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 
 from app import models
+from app.services.diagnosis_service import initial_photo_paths
 
 REPORT_HIDE_THRESHOLD = 3
 
@@ -153,9 +154,11 @@ def create_diagnosis_share(
     """농가가 본인 진단을 옵트인으로 커뮤니티에 공유한다. 원본 Diagnosis 행은 건드리지
     않고 새 게시글을 만드는 방식이라, 이 함수가 호출되기 전까지는 어떤 진단도 공개되지
     않는다. 정확한 GPS/위치 정보는 절대 복사하지 않는다(개인정보 보호)."""
-    photo_paths = [p.photo_path for p in diagnosis.photos] if diagnosis.photos else (
-        [diagnosis.photo_path] if diagnosis.photo_path else []
-    )
+    # 커뮤니티에는 등록 시점 피해 사진(initial)만 공유한다 - 방제 경과 기록(followup)은
+    # 사진이 없을 수도 있고(공유 시 photo_paths_json에 null이 섞이는 문제), 농가가 이
+    # 진단을 공유하기로 선택한 시점 이후에 남긴 후속 사진까지 자동으로 공개되는 것도
+    # 의도한 동작이 아니다.
+    photo_paths = initial_photo_paths(diagnosis) or ([diagnosis.photo_path] if diagnosis.photo_path else [])
     post = models.CommunityPost(
         title=title,
         body=body,

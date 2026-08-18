@@ -290,6 +290,25 @@ class TreatmentItem(BaseModel):
     note: Optional[str] = None
 
 
+class DiagnosisPhotoOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    phase: str
+    photo_path: Optional[str] = None
+    outcome: Optional[str] = None
+    note: Optional[str] = None
+    days_since_treatment: Optional[int] = None
+    created_at: dt.datetime
+
+
+class RecentUnresolvedDiagnosisOut(BaseModel):
+    id: int
+    diagnosis_type: str
+    disease_name: Optional[str] = None
+    occurrence_date: dt.date
+    last_activity_at: dt.datetime
+
+
 class DiagnosisCreateResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
@@ -300,6 +319,11 @@ class DiagnosisCreateResponse(BaseModel):
     occurrence_date: dt.date
     photo_path: Optional[str] = None
     photo_paths: List[str] = []
+    # 초기 사진(phase=initial) + 방제 경과 기록(phase=followup)을 시간순으로 모두 담은
+    # 타임라인. photo_paths는 기존 화면 호환을 위해 그대로 두고, 상세화면의 경과 타임라인
+    # UI는 이 필드를 쓴다.
+    photo_timeline: List[DiagnosisPhotoOut] = []
+    latest_followup_outcome: Optional[str] = None
 
     gps_lat: Optional[float] = None
     gps_lng: Optional[float] = None

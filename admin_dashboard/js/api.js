@@ -90,6 +90,7 @@ const Api = (() => {
       if (cropId) qs.set("crop_id", cropId);
       return request(`/api/admin/regional-stats/breakdown?${qs.toString()}`);
     },
+    getFollowupStats: () => request("/api/admin/followup-stats"),
     listReferences: () => request("/api/admin/reference"),
     createReference: (payload) =>
       request("/api/admin/reference", { method: "POST", body: JSON.stringify(payload) }),

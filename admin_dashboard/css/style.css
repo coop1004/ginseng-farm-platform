@@ -134,6 +134,7 @@ body {
 .icon-blue { background: #e3ecf9; }
 .icon-orange { background: #fdebd8; }
 .icon-purple { background: #f0e2f7; }
+.icon-red { background: #fbe3e3; }
 .stat-value { font-size: 22px; font-weight: 800; color: var(--gray-800); }
 .stat-label { font-size: 12px; color: var(--gray-600); margin-top: 2px; }
 .stat-sub { color: var(--gray-400); font-weight: 500; }

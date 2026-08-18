@@ -233,6 +233,36 @@ function renderSummary(summary) {
   renderAiAccuracyChart(summary.ai_vs_actual);
 }
 
+function renderFollowupStats(stats) {
+  const oc = stats.outcome_counts || {};
+  document.getElementById("statFollowupBetter").textContent = oc["호전"] ?? 0;
+  document.getElementById("statFollowupSame").textContent = oc["유지"] ?? 0;
+  document.getElementById("statFollowupWorse").textContent = oc["악화"] ?? 0;
+
+  const emptyNote = document.getElementById("followupStatsEmptyNote");
+  const byNameWrap = document.getElementById("followupStatsByNameWrap");
+  const tbody = document.querySelector("#followupStatsByNameTable tbody");
+  if (!stats.total_followups) {
+    emptyNote.style.display = "";
+    byNameWrap.style.display = "none";
+    return;
+  }
+  emptyNote.style.display = "none";
+  byNameWrap.style.display = "";
+  tbody.innerHTML = "";
+  (stats.by_disease_name || []).forEach((row) => {
+    const oc2 = row.outcome_counts || {};
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td><strong>${row.name}</strong></td>
+      <td>${oc2["호전"] ?? 0}</td>
+      <td>${oc2["유지"] ?? 0}</td>
+      <td>${oc2["악화"] ?? 0}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
 function renderTypeChart(byType) {
   const ctx = document.getElementById("typeChart");
   const labels = Object.keys(byType);
@@ -2477,17 +2507,20 @@ async function loadAll() {
       if (el) populateCropSelect(el);
     });
 
-    const [summary, farmsAll, householdFarms, regional, feed, notifications, diagnoses] = await Promise.all([
-      Api.getStatsSummary({ ...statsSummaryPeriodState, cropId }),
-      Api.getFarmsOverview(), // 항상 전체 품목 - 기상/브로드캐스트 화면용 (currentFarms)
-      Api.getFarmsOverview(cropId), // 농가 모니터링 화면 전용, 품목 필터 적용
-      Api.getRegionalStats(cropId, regionalStatsPeriodState),
-      Api.getFeed(30, cropId),
-      Api.getNotifications(),
-      Api.getAdminDiagnoses({ limit: 200, crop_id: cropId }),
-    ]);
+    const [summary, farmsAll, householdFarms, regional, feed, notifications, diagnoses, followupStats] =
+      await Promise.all([
+        Api.getStatsSummary({ ...statsSummaryPeriodState, cropId }),
+        Api.getFarmsOverview(), // 항상 전체 품목 - 기상/브로드캐스트 화면용 (currentFarms)
+        Api.getFarmsOverview(cropId), // 농가 모니터링 화면 전용, 품목 필터 적용
+        Api.getRegionalStats(cropId, regionalStatsPeriodState),
+        Api.getFeed(30, cropId),
+        Api.getNotifications(),
+        Api.getAdminDiagnoses({ limit: 200, crop_id: cropId }),
+        Api.getFollowupStats(),
+      ]);
     currentFarms = farmsAll;
     renderSummary(summary);
+    renderFollowupStats(followupStats);
     renderHouseholdsTable(householdFarms);
     renderMap(regional);
     renderRegionTable(regional);

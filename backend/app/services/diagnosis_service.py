@@ -16,6 +16,8 @@ from app.services import exif_service, gemini_service, reference_service, weathe
 
 LOW_CONFIDENCE_THRESHOLD = 0.6
 
+FOLLOWUP_OUTCOMES = ("호전", "유지", "악화")
+
 
 def determine_status(ai_result: dict) -> str:
     """AI 응답의 출처(_source)와 확신도(confidence)를 보고 관리자가 개입해야 하는
@@ -41,9 +43,22 @@ def save_upload(file: UploadFile) -> str:
     return filename
 
 
+def initial_photo_paths(d: models.Diagnosis) -> list:
+    """photo_paths는 기존 화면(농가앱, 관리자 갤러리, PDF 등)이 "등록 시점 피해 사진
+    목록"으로 써온 필드라, followup(경과 기록 - 사진 없을 수 있음)을 섞지 않고 initial
+    사진만, 그것도 실제 경로가 있는 것만 남긴다. followup에 photo_path=None이 섞여
+    들어오면 List[str] 응답 스키마 검증에서 그대로 깨지므로, photo_paths를 만드는 모든
+    곳(diagnosis.py/admin.py)이 d.photos를 직접 나열하지 않고 이 함수를 거치게 한다."""
+    return [p.photo_path for p in d.photos if p.phase == "initial" and p.photo_path]
+
+
 def to_response(d: models.Diagnosis) -> dict:
     eco = json.loads(d.eco_treatments_json) if d.eco_treatments_json else []
     chem = json.loads(d.chemical_treatments_json) if d.chemical_treatments_json else []
+    photo_timeline = sorted(d.photos, key=lambda p: p.created_at or dt.datetime.min) if d.photos else []
+    latest_followup = next(
+        (p for p in reversed(photo_timeline) if p.phase == "followup" and p.outcome), None
+    )
     return {
         "id": d.id,
         "farm_id": d.farm_id,
@@ -52,7 +67,9 @@ def to_response(d: models.Diagnosis) -> dict:
         "crop_name": d.crop_name,
         "occurrence_date": d.occurrence_date,
         "photo_path": d.photo_path,
-        "photo_paths": [p.photo_path for p in d.photos] if d.photos else ([d.photo_path] if d.photo_path else []),
+        "photo_paths": initial_photo_paths(d) or ([d.photo_path] if d.photo_path else []),
+        "photo_timeline": photo_timeline,
+        "latest_followup_outcome": latest_followup.outcome if latest_followup else None,
         "gps_lat": d.gps_lat,
         "gps_lng": d.gps_lng,
         "gps_estimated": d.gps_estimated,
@@ -191,6 +208,34 @@ async def create_diagnosis_record(
     db.commit()
     db.refresh(diagnosis)
     return diagnosis
+
+
+def add_followup(
+    db: Session,
+    diagnosis: models.Diagnosis,
+    outcome: str,
+    note: Optional[str] = None,
+    days_since_treatment: Optional[int] = None,
+    photo: Optional[UploadFile] = None,
+) -> models.DiagnosisPhoto:
+    """방제 경과 기록(같은 진단에 이어붙이는 사후 확인) 저장. 새 Diagnosis 레코드를
+    만들지 않으므로 지역 통계 카운팅(farm_id 기준)에 영향을 주지 않는다. 사진은
+    선택사항 - 자가평가(outcome)만 남기는 경우도 지원한다."""
+    if outcome not in FOLLOWUP_OUTCOMES:
+        raise ValueError(f"outcome은 {', '.join(FOLLOWUP_OUTCOMES)} 중 하나여야 합니다.")
+    photo_path = save_upload(photo) if (photo is not None and photo.filename) else None
+    followup = models.DiagnosisPhoto(
+        diagnosis_id=diagnosis.id,
+        photo_path=photo_path,
+        phase="followup",
+        outcome=outcome,
+        note=note,
+        days_since_treatment=days_since_treatment,
+    )
+    db.add(followup)
+    db.commit()
+    db.refresh(followup)
+    return followup
 
 
 def add_comment(

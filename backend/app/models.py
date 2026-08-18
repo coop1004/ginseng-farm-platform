@@ -315,15 +315,24 @@ class Diagnosis(Base):
 
 
 class DiagnosisPhoto(Base):
-    """진단 1건에 여러 장의 피해 사진을 첨부할 수 있도록 하는 자식 테이블.
+    """진단 1건에 여러 장의 사진을 첨부할 수 있도록 하는 자식 테이블.
     Diagnosis.photo_path는 기존 화면(관리자 갤러리 썸네일, PDF 등) 호환을 위해
-    첫 번째 사진 경로를 그대로 유지한다."""
+    첫 번째 사진 경로를 그대로 유지한다.
+
+    phase="initial"은 진단 등록 시점에 함께 올라간 피해 사진(기존 동작), phase="followup"은
+    등록 이후 같은 진단에 이어 붙이는 방제 경과 기록이다 - 새 Diagnosis 레코드를 만들지
+    않으므로 지역 통계(카운팅 로직)에 영향을 주지 않는다. followup은 사진 없이 자가평가만
+    남기는 경우도 지원해야 해서 photo_path를 nullable로 둔다."""
 
     __tablename__ = "diagnosis_photos"
 
     id = Column(Integer, primary_key=True, index=True)
     diagnosis_id = Column(Integer, ForeignKey("diagnoses.id"), nullable=False)
-    photo_path = Column(String(255), nullable=False)
+    photo_path = Column(String(255), nullable=True)
+    phase = Column(String(20), nullable=False, default="initial")  # initial / followup
+    outcome = Column(String(10), nullable=True)  # 호전 / 유지 / 악화 (followup만 사용)
+    note = Column(Text, nullable=True)
+    days_since_treatment = Column(Integer, nullable=True)  # 방제 후 며칠째 (followup만 사용)
     created_at = Column(DateTime, default=dt.datetime.utcnow)
 
     diagnosis = relationship("Diagnosis", back_populates="photos")

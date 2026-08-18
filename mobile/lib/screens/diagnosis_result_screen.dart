@@ -5,6 +5,7 @@ import '../models/diagnosis.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import 'community_post_detail_screen.dart';
+import 'diagnosis_followup_screen.dart';
 
 class DiagnosisResultScreen extends StatefulWidget {
   final Diagnosis diagnosis;
@@ -17,6 +18,7 @@ class DiagnosisResultScreen extends StatefulWidget {
 }
 
 class _DiagnosisResultScreenState extends State<DiagnosisResultScreen> {
+  final _api = ApiService();
   late Diagnosis diagnosis;
   bool _submittingFeedback = false;
   bool _submittingFinal = false;
@@ -335,6 +337,8 @@ class _DiagnosisResultScreenState extends State<DiagnosisResultScreen> {
           const SizedBox(height: 14),
           _buildFinalDiagnosisCard(),
           const SizedBox(height: 14),
+          _buildFollowupCard(),
+          const SizedBox(height: 14),
           if (diagnosis.aiSymptoms != null)
             Card(
               child: Padding(
@@ -442,6 +446,73 @@ class _DiagnosisResultScreenState extends State<DiagnosisResultScreen> {
                 ),
               ],
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _addFollowup() async {
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => DiagnosisFollowupScreen(
+          diagnosisId: diagnosis.id,
+          diagnosisLabel: diagnosis.effectiveDiseaseName,
+        ),
+      ),
+    );
+    if (saved == true) {
+      final refreshed = await _api.getDiagnosis(diagnosis.id);
+      if (mounted) setState(() => diagnosis = refreshed);
+    }
+  }
+
+  Widget _buildFollowupCard() {
+    final timeline = diagnosis.photoTimeline;
+    final hasFollowups = timeline.any((e) => e.phase == 'followup');
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.timeline_outlined, size: 17, color: AppColors.green),
+                const SizedBox(width: 6),
+                const Expanded(
+                  child: Text('방제 경과 기록', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                ),
+                TextButton.icon(
+                  onPressed: _addFollowup,
+                  icon: const Icon(Icons.add_a_photo_outlined, size: 16),
+                  label: const Text('경과 기록 추가'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            if (!hasFollowups)
+              const Text('방제 후 경과(호전/유지/악화)를 남겨보세요. 사진 없이 자가평가만 남길 수도 있습니다.',
+                  style: TextStyle(fontSize: 12, color: AppColors.textSecondary))
+            else
+              FutureBuilder<List<String>>(
+                future: Future.wait(timeline.map((e) => _api.photoUrlAsync(e.photoPath))),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                    );
+                  }
+                  final urls = snapshot.data!;
+                  return Column(
+                    children: [
+                      for (var i = 0; i < timeline.length; i++)
+                        DiagnosisTimelineTile(entry: timeline[i], photoUrl: (_) => urls[i]),
+                    ],
+                  );
+                },
+              ),
           ],
         ),
       ),

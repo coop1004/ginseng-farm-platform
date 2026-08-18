@@ -28,10 +28,50 @@ def _add_column_if_missing(inspector, table: str, column: str, ddl_type: str) ->
             conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {ddl_type}"))
 
 
+def _relax_diagnosis_photos_photo_path_nullable() -> None:
+    """diagnosis_photos.photo_path가 기존에 NOT NULL이면(구버전 스키마), SQLite가
+    ALTER TABLE로 컬럼 제약을 직접 풀 수 없으므로(ALTER COLUMN 미지원) 테이블을
+    통째로 재생성해 nullable로 바꾼다. 방제 경과 기록(followup)은 사진 없이 자가평가만
+    남기는 경우도 있어야 하기 때문에 필요하다 - 새로 만들어진 DB는 모델 정의상 이미
+    nullable이라 아무 것도 하지 않고 바로 반환한다."""
+    inspector = inspect(engine)
+    if "diagnosis_photos" not in inspector.get_table_names():
+        return
+    col = next((c for c in inspector.get_columns("diagnosis_photos") if c["name"] == "photo_path"), None)
+    if col is None or col["nullable"]:
+        return
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE diagnosis_photos RENAME TO diagnosis_photos_old"))
+        conn.execute(
+            text(
+                """
+                CREATE TABLE diagnosis_photos (
+                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    diagnosis_id INTEGER NOT NULL,
+                    photo_path VARCHAR(255),
+                    created_at DATETIME,
+                    FOREIGN KEY(diagnosis_id) REFERENCES diagnoses (id)
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO diagnosis_photos (id, diagnosis_id, photo_path, created_at)
+                SELECT id, diagnosis_id, photo_path, created_at FROM diagnosis_photos_old
+                """
+            )
+        )
+        conn.execute(text("DROP TABLE diagnosis_photos_old"))
+
+
 def run_light_migrations():
     """Base.metadata.create_all은 새 테이블만 만들 뿐 기존 테이블에 컬럼을 추가하지
     않는다. 별도 마이그레이션 도구(alembic 등) 없이 운영 중이라, 이미 배포된 테이블에
     새 컬럼이 필요할 때는 여기서 존재 여부를 확인하고 없으면 ALTER TABLE로 추가한다."""
+    # 컬럼 추가(_add_column_if_missing)보다 먼저, 테이블 재생성이 필요한 처리부터 끝낸다.
+    _relax_diagnosis_photos_photo_path_nullable()
     inspector = inspect(engine)
     _add_column_if_missing(inspector, "admin_users", "is_protected", "BOOLEAN NOT NULL DEFAULT 0")
     _add_column_if_missing(inspector, "notifications", "broadcast_group", "VARCHAR(40)")
@@ -74,3 +114,9 @@ def run_light_migrations():
     _add_column_if_missing(inspector, "consultant_users", "phone", "VARCHAR(30)")
     # 계정 정지/탈퇴 처리 - 기존 농가는 전부 active로 즉시 백필된다.
     _add_column_if_missing(inspector, "households", "status", "VARCHAR(20) NOT NULL DEFAULT 'active'")
+    # 진단 경과 기록(방제 전/후 사진 + 자가평가). DEFAULT 'initial'로 추가하면 기존에
+    # 저장돼 있던 사진들(전부 등록 시점 사진)이 자동으로 phase="initial"로 백필된다.
+    _add_column_if_missing(inspector, "diagnosis_photos", "phase", "VARCHAR(20) NOT NULL DEFAULT 'initial'")
+    _add_column_if_missing(inspector, "diagnosis_photos", "outcome", "VARCHAR(10)")
+    _add_column_if_missing(inspector, "diagnosis_photos", "note", "TEXT")
+    _add_column_if_missing(inspector, "diagnosis_photos", "days_since_treatment", "INTEGER")

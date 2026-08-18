@@ -285,6 +285,12 @@ class ApiService {
     return list.map((e) => Diagnosis.fromJson(e)).toList();
   }
 
+  Future<Diagnosis> getDiagnosis(int diagnosisId) async {
+    final res = await http.get(await _uri('/api/diagnoses/$diagnosisId'), headers: await _authHeaders());
+    _checkResponse(res);
+    return Diagnosis.fromJson(jsonDecode(utf8.decode(res.bodyBytes)));
+  }
+
   Future<Diagnosis> submitDiagnosisFeedback({required int diagnosisId, required bool correct}) async {
     final res = await http.patch(
       await _uri('/api/diagnoses/$diagnosisId/feedback'),
@@ -339,6 +345,39 @@ class ApiService {
     );
     _checkResponse(res);
     return Diagnosis.fromJson(jsonDecode(utf8.decode(res.bodyBytes)));
+  }
+
+  Future<List<RecentUnresolvedDiagnosis>> getRecentUnresolvedDiagnoses(int farmId) async {
+    final res = await http.get(
+      await _uri('/api/diagnoses/recent-unresolved', {'farm_id': farmId}),
+      headers: await _authHeaders(),
+    );
+    _checkResponse(res);
+    final list = jsonDecode(utf8.decode(res.bodyBytes)) as List<dynamic>;
+    return list.map((e) => RecentUnresolvedDiagnosis.fromJson(e)).toList();
+  }
+
+  Future<DiagnosisPhotoEntry> addDiagnosisFollowup({
+    required int diagnosisId,
+    required String outcome,
+    String? note,
+    int? daysSinceTreatment,
+    File? photo,
+  }) async {
+    final res = await _sendMultipartWithRetry(() async {
+      final uri = await _uri('/api/diagnoses/$diagnosisId/photos');
+      final request = http.MultipartRequest('POST', uri)
+        ..headers.addAll(await _authHeaders())
+        ..fields['outcome'] = outcome;
+      if (note != null && note.isNotEmpty) request.fields['note'] = note;
+      if (daysSinceTreatment != null) request.fields['days_since_treatment'] = daysSinceTreatment.toString();
+      if (photo != null) {
+        request.files.add(await http.MultipartFile.fromPath('photo', photo.path));
+      }
+      return request;
+    });
+    _checkResponse(res);
+    return DiagnosisPhotoEntry.fromJson(jsonDecode(utf8.decode(res.bodyBytes)));
   }
 
   Future<List<DiagnosisComment>> getDiagnosisComments(int diagnosisId) async {
