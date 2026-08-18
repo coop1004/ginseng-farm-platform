@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
-from app.database import Base, SessionLocal, engine, run_light_migrations
+from app.database import Base, SessionLocal, backfill_farm_cultivation_start_date, engine, run_light_migrations
 from app.routers import (
     admin,
     auth,
@@ -85,6 +85,12 @@ def on_startup():
         seed_administrative_regions_if_empty(db)
         backfill_crop_ids_if_missing(db)
         seed_if_empty(db)
+        # run_light_migrations()는 이 시딩보다 먼저(모듈 임포트 시점) 실행되므로, 완전히
+        # 빈 DB(신규 배포/디스크 리셋 직후)에서는 그 시점에 farms 테이블이 아직 비어있어
+        # cultivation_start_date 백필 대상이 하나도 없다 - seed_if_empty가 cultivation_year만
+        # 채운 채로 농장을 새로 만들고 난 뒤라서, 여기서 한 번 더 호출해 그 시딩된 농장까지
+        # 확실히 백필한다(이미 채워진 행은 건드리지 않아 재호출해도 안전).
+        backfill_farm_cultivation_start_date()
         seed_admin_if_empty(db)
         ensure_protected_admin(db)
         seed_treatment_references_if_empty(db)

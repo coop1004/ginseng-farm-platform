@@ -68,7 +68,7 @@ def _relax_diagnosis_photos_photo_path_nullable() -> None:
         conn.execute(text("DROP TABLE diagnosis_photos_old"))
 
 
-def _backfill_farm_cultivation_start_date() -> None:
+def backfill_farm_cultivation_start_date() -> None:
     """기존 cultivation_year(레거시 "N년근")만 있고 정확한 정식일이 없는 농장은,
     "오늘 연도 - cultivation_year + 1"년의 4월 1일(봄 정식 시기 관행에 맞춘 임의 날짜)로
     cultivation_start_date를 근사 채움하고 cultivation_start_date_estimated=True로
@@ -159,4 +159,4 @@ def run_light_migrations():
     _add_column_if_missing(inspector, "farms", "cultivation_start_date_estimated", "BOOLEAN NOT NULL DEFAULT 0")
     # 농장 소프트 삭제 - 하드 삭제 시 cascade로 사라지는 Diagnosis/WorkLog 이력을 보존하기 위함.
     _add_column_if_missing(inspector, "farms", "is_active", "BOOLEAN NOT NULL DEFAULT 1")
-    _backfill_farm_cultivation_start_date()
+    backfill_farm_cultivation_start_date()
