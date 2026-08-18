@@ -264,6 +264,30 @@ class ApiService {
     return WorkLog.fromJson(jsonDecode(utf8.decode(res.bodyBytes)));
   }
 
+  Future<WorkLog> updateWorkLog({
+    required int id,
+    DateTime? workDate,
+    double? workAreaM2,
+    String? content,
+  }) async {
+    final body = <String, dynamic>{};
+    if (workDate != null) body['work_date'] = _dateStr(workDate);
+    if (workAreaM2 != null) body['work_area_m2'] = workAreaM2;
+    if (content != null) body['content'] = content;
+    final res = await http.patch(
+      await _uri('/api/work-logs/$id'),
+      headers: {...await _authHeaders(), 'Content-Type': 'application/json'},
+      body: jsonEncode(body),
+    );
+    _checkResponse(res);
+    return WorkLog.fromJson(jsonDecode(utf8.decode(res.bodyBytes)));
+  }
+
+  Future<void> deleteWorkLog(int id) async {
+    final res = await http.delete(await _uri('/api/work-logs/$id'), headers: await _authHeaders());
+    _checkResponse(res);
+  }
+
   // ---------- Diagnosis ----------
   Future<List<Diagnosis>> getDiagnoses({
     int? farmId,

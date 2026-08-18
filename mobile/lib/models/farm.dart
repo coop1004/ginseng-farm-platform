@@ -14,7 +14,11 @@ class Farm {
   final double areaPyeong;
   final double areaM2;
   final String facilityType;
-  final int cultivationYear;
+  final int cultivationYear; // 레거시 - cultivationStartDate로 대체됨
+  final DateTime? cultivationStartDate;
+  final bool cultivationStartDateEstimated;
+  final int cultivationYearComputed;
+  final bool isActive;
   final String? phone;
   final String? memo;
   final DateTime createdAt;
@@ -36,6 +40,10 @@ class Farm {
     required this.areaM2,
     required this.facilityType,
     required this.cultivationYear,
+    this.cultivationStartDate,
+    this.cultivationStartDateEstimated = false,
+    this.cultivationYearComputed = 1,
+    this.isActive = true,
     this.phone,
     this.memo,
     required this.createdAt,
@@ -59,6 +67,11 @@ class Farm {
       areaM2: (json['area_m2'] as num?)?.toDouble() ?? 0,
       facilityType: json['facility_type'] ?? '노지',
       cultivationYear: json['cultivation_year'] ?? 1,
+      cultivationStartDate:
+          json['cultivation_start_date'] != null ? DateTime.tryParse(json['cultivation_start_date']) : null,
+      cultivationStartDateEstimated: json['cultivation_start_date_estimated'] ?? false,
+      cultivationYearComputed: json['cultivation_year_computed'] ?? 1,
+      isActive: json['is_active'] ?? true,
       phone: json['phone'],
       memo: json['memo'],
       createdAt: DateTime.parse(json['created_at']),
@@ -76,6 +89,9 @@ class Farm {
       'area_m2': areaM2,
       'facility_type': facilityType,
       'cultivation_year': cultivationYear,
+      if (cultivationStartDate != null)
+        'cultivation_start_date':
+            '${cultivationStartDate!.year.toString().padLeft(4, '0')}-${cultivationStartDate!.month.toString().padLeft(2, '0')}-${cultivationStartDate!.day.toString().padLeft(2, '0')}',
       'phone': phone,
       'memo': memo,
       'crop_id': cropId,

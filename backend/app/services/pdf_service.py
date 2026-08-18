@@ -17,6 +17,7 @@ from reportlab.platypus import (
 from reportlab.lib.styles import ParagraphStyle
 
 from app.models import Diagnosis, Farm, WorkLog
+from app.services.farm_service import compute_cultivation_year
 
 pdfmetrics.registerFont(UnicodeCIDFont("HYSMyeongJo-Medium"))
 
@@ -63,7 +64,7 @@ def generate_farm_report_pdf(
             "시설구분",
             farm.facility_type,
         ],
-        ["연차", f"{farm.cultivation_year}년근", "", ""],
+        ["연차", f"{compute_cultivation_year(farm.cultivation_start_date, farm.cultivation_year)}년근", "", ""],
     ]
     ft = Table(farm_table_data, colWidths=[25 * mm, 60 * mm, 25 * mm, 60 * mm])
     ft.setStyle(

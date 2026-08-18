@@ -9,6 +9,7 @@ from app import models, schemas
 from app.database import get_db
 from app.deps import ensure_farm_access, get_current_household_id, get_household_crop_ids
 from app.seed import get_ginseng_crop_id
+from app.services.farm_service import compute_cultivation_year
 
 router = APIRouter(prefix="/api/farms", tags=["farms"])
 
@@ -31,6 +32,7 @@ def _to_out(f: models.Farm) -> dict:
         "household_name": f.household.name if f.household else None,
         "crop_name": f.crop.name_kr if f.crop else None,
         "growth_stage_name": f.growth_stage.name_kr if f.growth_stage else None,
+        "cultivation_year_computed": compute_cultivation_year(f.cultivation_start_date, f.cultivation_year),
     }
 
 
@@ -60,9 +62,11 @@ def create_farm(
 
 @router.get("", response_model=List[schemas.FarmOut])
 def list_farms(household_id: int = Depends(get_current_household_id), db: Session = Depends(get_db)):
+    # 소프트 삭제된(is_active=False) 농장은 목록에서 제외한다 - 진단/영농일지 이력은
+    # 그대로 남아있고, 그쪽 조회 엔드포인트는 이 필터의 영향을 받지 않는다.
     farms = (
         db.query(models.Farm)
-        .filter(models.Farm.household_id == household_id)
+        .filter(models.Farm.household_id == household_id, models.Farm.is_active.is_(True))
         .order_by(models.Farm.created_at.desc())
         .all()
     )
@@ -93,6 +97,10 @@ def update_farm(
     updates = payload.model_dump(exclude_unset=True)
     if updates.get("crop_id") is not None:
         _ensure_crop_registered(updates["crop_id"], household_crop_ids)
+    # 정식일을 이번 요청에서 직접 수정했다면, 농가가 방금 확인/정정한 실제 값이므로
+    # 마이그레이션 근사치 플래그를 해제한다.
+    if "cultivation_start_date" in updates:
+        farm.cultivation_start_date_estimated = False
     for key, value in updates.items():
         setattr(farm, key, value)
     db.commit()
@@ -102,11 +110,15 @@ def update_farm(
 
 @router.delete("/{farm_id}")
 def delete_farm(farm_id: int, household_id: int = Depends(get_current_household_id), db: Session = Depends(get_db)):
+    """소프트 삭제 - Farm.diagnoses/work_logs가 cascade delete-orphan으로 걸려 있어
+    하드 삭제하면 그 농장의 진단·영농일지 이력이 통째로 사라진다(최근 수정한 지역 통계
+    카운팅 로직도 그 이력을 기준으로 계산하므로 영향을 받는다). is_active만 끄고
+    실제 행은 보존해, 이력 조회는 그대로 되면서 목록/통계 화면에서만 빠지게 한다."""
     farm = db.query(models.Farm).filter(models.Farm.id == farm_id).first()
     if not farm:
         raise HTTPException(status_code=404, detail="농장을 찾을 수 없습니다.")
     ensure_farm_access(farm, household_id)
-    db.delete(farm)
+    farm.is_active = False
     db.commit()
     return {"ok": True}
 

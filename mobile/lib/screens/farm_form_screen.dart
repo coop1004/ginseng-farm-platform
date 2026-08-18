@@ -28,6 +28,8 @@ class _FarmFormScreenState extends State<FarmFormScreen> {
 
   String _facilityType = facilityTypes.first;
   int _cultivationYear = 1;
+  DateTime? _cultivationStartDate;
+  bool _cultivationStartDateEstimated = false;
   bool _saving = false;
 
   List<Crop> _crops = [];
@@ -71,6 +73,8 @@ class _FarmFormScreenState extends State<FarmFormScreen> {
     _memo = TextEditingController(text: f?.memo ?? '');
     _facilityType = f?.facilityType ?? facilityTypes.first;
     _cultivationYear = f?.cultivationYear ?? 1;
+    _cultivationStartDate = f?.cultivationStartDate;
+    _cultivationStartDateEstimated = f?.cultivationStartDateEstimated ?? false;
     _selectedGrowthStageId = f?.growthStageId;
 
     _areaPyeong.addListener(_syncAreaFromPyeong);
@@ -165,8 +169,28 @@ class _FarmFormScreenState extends State<FarmFormScreen> {
     super.dispose();
   }
 
+  Future<void> _pickCultivationStartDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _cultivationStartDate ?? now,
+      firstDate: DateTime(now.year - 20),
+      lastDate: now,
+    );
+    if (picked != null) {
+      setState(() {
+        _cultivationStartDate = picked;
+        _cultivationStartDateEstimated = false; // 직접 고른 값이니 추정치 표시 해제
+      });
+    }
+  }
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_isGinseng && _cultivationStartDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('정식일을 선택해주세요.')));
+      return;
+    }
     setState(() => _saving = true);
     try {
       final farm = Farm(
@@ -183,6 +207,7 @@ class _FarmFormScreenState extends State<FarmFormScreen> {
         areaM2: double.tryParse(_areaM2.text) ?? 0,
         facilityType: _facilityType,
         cultivationYear: _cultivationYear,
+        cultivationStartDate: _cultivationStartDate,
         phone: _phone.text.trim().isEmpty ? null : _phone.text.trim(),
         memo: _memo.text.trim().isEmpty ? null : _memo.text.trim(),
         createdAt: widget.farm?.createdAt ?? DateTime.now(),
@@ -291,19 +316,38 @@ class _FarmFormScreenState extends State<FarmFormScreen> {
               onChanged: (v) => setState(() => _facilityType = v ?? _facilityType),
             ),
             const SizedBox(height: 12),
-            // 인삼은 '연차(1~6년근)' 개념으로, 그 외 작물은 실제 생육단계(정식기/생육기 등)로 관리한다.
+            // 인삼은 정식일을 저장해 재배연차를 자동계산하고, 그 외 작물은 실제
+            // 생육단계(정식기/생육기 등)로 관리한다.
             if (_isGinseng) ...[
-              Text('연차 (1~6년근)', style: TextStyle(fontSize: 12.5, color: Colors.grey.shade700)),
-              Wrap(
-                spacing: 8,
-                children: List.generate(6, (i) => i + 1)
-                    .map((y) => ChoiceChip(
-                          label: Text('$y년근'),
-                          selected: _cultivationYear == y,
-                          onSelected: (_) => setState(() => _cultivationYear = y),
-                        ))
-                    .toList(),
+              InkWell(
+                onTap: _pickCultivationStartDate,
+                child: InputDecorator(
+                  decoration: const InputDecoration(
+                    labelText: '정식일 *',
+                    prefixIcon: Icon(Icons.event_outlined),
+                    suffixIcon: Icon(Icons.edit_calendar_outlined),
+                  ),
+                  child: Text(_cultivationStartDate != null
+                      ? '${_cultivationStartDate!.year}년 ${_cultivationStartDate!.month}월 ${_cultivationStartDate!.day}일'
+                      : '선택해주세요'),
+                ),
               ),
+              if (_cultivationStartDate != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    '재배 ${(DateTime.now().year - _cultivationStartDate!.year) + 1}년차로 계산됩니다.',
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                  ),
+                ),
+              if (_cultivationStartDateEstimated)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    '⚠ 기존 "N년근" 값으로 역산한 근사치입니다. 정확한 정식일로 다시 확인해주세요.',
+                    style: TextStyle(fontSize: 11, color: Colors.orange.shade800, fontWeight: FontWeight.w600),
+                  ),
+                ),
             ] else if (_growthStages.isNotEmpty)
               DropdownButtonFormField<int>(
                 value: _selectedGrowthStageId,

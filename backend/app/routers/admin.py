@@ -311,7 +311,7 @@ PARTICIPATION_SCORE_WEIGHTS = {"diagnosis": 40, "record": 40, "completeness": 20
 
 # 농장 "정보 완성도" 판단에 쓰는 필수 항목 목록. 여기 없는 필드(메모 등)는 완성도 계산에서
 # 제외한다 - 늘리거나 줄일 때 이 리스트만 바꾸면 된다.
-FARM_COMPLETENESS_FIELDS = ["crop_id", "cultivation_year", "region", "area_m2", "facility_type"]
+FARM_COMPLETENESS_FIELDS = ["crop_id", "cultivation_start_date", "region", "area_m2", "facility_type"]
 
 
 def _farm_completeness_percent(farm: models.Farm) -> float:

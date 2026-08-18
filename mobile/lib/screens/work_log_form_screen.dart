@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../models/farm.dart';
+import '../models/work_log.dart';
 import '../providers/crop_provider.dart';
 import '../providers/farm_provider.dart';
 import '../services/api_service.dart';
@@ -14,7 +15,8 @@ import '../services/gallery_saver.dart';
 import '../widgets/farm_selector.dart';
 
 class WorkLogFormScreen extends StatefulWidget {
-  const WorkLogFormScreen({super.key});
+  final WorkLog? log;
+  const WorkLogFormScreen({super.key, this.log});
 
   @override
   State<WorkLogFormScreen> createState() => _WorkLogFormScreenState();
@@ -31,12 +33,25 @@ class _WorkLogFormScreenState extends State<WorkLogFormScreen> {
   File? _photo;
   bool _saving = false;
 
+  bool get _isEdit => widget.log != null;
+
   @override
   void initState() {
     super.initState();
     final activeCropId = context.read<CropProvider>().activeCrop?.id;
     final farms = context.read<FarmProvider>().forCrop(activeCropId);
-    if (farms.isNotEmpty) {
+    final log = widget.log;
+    if (log != null) {
+      _date = log.workDate;
+      _contentCtrl.text = log.content;
+      _areaCtrl.text = log.workAreaM2.toStringAsFixed(0);
+      for (final f in farms) {
+        if (f.id == log.farmId) {
+          _farm = f;
+          break;
+        }
+      }
+    } else if (farms.isNotEmpty) {
       _farm = farms.first;
       _areaCtrl.text = _farm!.areaM2.toStringAsFixed(0);
     }
@@ -79,13 +94,22 @@ class _WorkLogFormScreenState extends State<WorkLogFormScreen> {
     if (!_formKey.currentState!.validate() || _farm == null) return;
     setState(() => _saving = true);
     try {
-      await _api.createWorkLog(
-        farmId: _farm!.id,
-        workDate: _date,
-        workAreaM2: double.tryParse(_areaCtrl.text) ?? _farm!.areaM2,
-        content: _contentCtrl.text.trim(),
-        photo: _photo,
-      );
+      if (_isEdit) {
+        await _api.updateWorkLog(
+          id: widget.log!.id,
+          workDate: _date,
+          workAreaM2: double.tryParse(_areaCtrl.text) ?? _farm!.areaM2,
+          content: _contentCtrl.text.trim(),
+        );
+      } else {
+        await _api.createWorkLog(
+          farmId: _farm!.id,
+          workDate: _date,
+          workAreaM2: double.tryParse(_areaCtrl.text) ?? _farm!.areaM2,
+          content: _contentCtrl.text.trim(),
+          photo: _photo,
+        );
+      }
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('저장 실패: $e')));
@@ -100,7 +124,7 @@ class _WorkLogFormScreenState extends State<WorkLogFormScreen> {
     final farms = context.watch<FarmProvider>().forCrop(activeCropId);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('영농작업 기록')),
+      appBar: AppBar(title: Text(_isEdit ? '영농작업 기록 수정' : '영농작업 기록')),
       body: farms.isEmpty
           ? const Padding(
               padding: EdgeInsets.all(24),
@@ -111,7 +135,10 @@ class _WorkLogFormScreenState extends State<WorkLogFormScreen> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
                 children: [
-                  _PhotoPicker(photo: _photo, onPick: _pickPhoto, onClear: () => setState(() => _photo = null)),
+                  if (_isEdit)
+                    _ExistingPhotoPreview(photoPath: widget.log!.photoPath, api: _api)
+                  else
+                    _PhotoPicker(photo: _photo, onPick: _pickPhoto, onClear: () => setState(() => _photo = null)),
                   const SizedBox(height: 16),
                   InkWell(
                     onTap: _pickDate,
@@ -121,7 +148,13 @@ class _WorkLogFormScreenState extends State<WorkLogFormScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  FarmSelector(farms: farms, value: _farm, onChanged: _onFarmChanged),
+                  if (_isEdit)
+                    InputDecorator(
+                      decoration: const InputDecoration(labelText: '농장', prefixIcon: Icon(Icons.grass_outlined)),
+                      child: Text(_farm?.farmName ?? '-'),
+                    )
+                  else
+                    FarmSelector(farms: farms, value: _farm, onChanged: _onFarmChanged),
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _areaCtrl,
@@ -147,11 +180,36 @@ class _WorkLogFormScreenState extends State<WorkLogFormScreen> {
                             height: 20,
                             width: 20,
                             child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                        : const Text('작업기록 저장'),
+                        : Text(_isEdit ? '수정 저장' : '작업기록 저장'),
                   ),
                 ],
               ),
             ),
+    );
+  }
+}
+
+/// 수정 화면에서는 사진 교체를 지원하지 않고(범위 최소화), 기존 사진이 있으면
+/// 읽기 전용으로만 보여준다.
+class _ExistingPhotoPreview extends StatelessWidget {
+  final String? photoPath;
+  final ApiService api;
+  const _ExistingPhotoPreview({required this.photoPath, required this.api});
+
+  @override
+  Widget build(BuildContext context) {
+    if (photoPath == null || photoPath!.isEmpty) return const SizedBox.shrink();
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: FutureBuilder<String>(
+        future: api.photoUrlAsync(photoPath),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return Container(height: 180, width: double.infinity, color: Colors.grey.shade200);
+          }
+          return Image.network(snapshot.data!, height: 180, width: double.infinity, fit: BoxFit.cover);
+        },
+      ),
     );
   }
 }

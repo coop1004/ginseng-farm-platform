@@ -213,7 +213,16 @@ class Farm(Base):
     area_pyeong = Column(Float, default=0)
     area_m2 = Column(Float, default=0)
     facility_type = Column(String(20), default="노지")  # 노지 / 해가림 / 스마트팜
-    cultivation_year = Column(Integer, default=1)  # 1~6년근 (인삼 전용 개념, 손대지 않음)
+    cultivation_year = Column(Integer, default=1)  # 레거시 - cultivation_start_date로 대체됨, 폴백용으로만 남겨둠
+    # 정식일(달력 기준 재배연차 계산의 원천 데이터) - "N년근" 문자열 자체는 저장하지 않고
+    # 화면 표시 시점에 compute_cultivation_year()로 계산한다.
+    cultivation_start_date = Column(Date, nullable=True)
+    # True면 cultivation_start_date가 실제 정식일이 아니라 레거시 cultivation_year 값으로
+    # 역산한 근사치다(마이그레이션 백필) - 농가가 직접 수정하면 False로 해제된다.
+    cultivation_start_date_estimated = Column(Boolean, default=False, nullable=False)
+    # 소프트 삭제 - 농장을 지워도 연결된 Diagnosis/WorkLog 이력(cascade delete-orphan 대상)이
+    # 함께 사라지지 않도록, 실제로 행을 지우지 않고 목록/통계 화면에서만 제외한다.
+    is_active = Column(Boolean, default=True, nullable=False)
     phone = Column(String(30), nullable=True)
     memo = Column(Text, nullable=True)
     created_at = Column(DateTime, default=dt.datetime.utcnow)

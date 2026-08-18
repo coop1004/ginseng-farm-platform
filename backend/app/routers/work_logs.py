@@ -103,12 +103,37 @@ def get_work_log(log_id: int, household_id: int = Depends(get_current_household_
     return _to_out(w)
 
 
-@router.delete("/{log_id}")
-def delete_work_log(log_id: int, household_id: int = Depends(get_current_household_id), db: Session = Depends(get_db)):
+@router.patch("/{log_id}", response_model=schemas.WorkLogOut)
+def update_work_log(
+    log_id: int,
+    payload: schemas.WorkLogUpdate,
+    household_id: int = Depends(get_current_household_id),
+    db: Session = Depends(get_db),
+):
     w = db.query(models.WorkLog).filter(models.WorkLog.id == log_id).first()
     if not w:
         raise HTTPException(status_code=404, detail="작업일지를 찾을 수 없습니다.")
     ensure_farm_access(w.farm, household_id)
+    updates = payload.model_dump(exclude_unset=True)
+    for key, value in updates.items():
+        setattr(w, key, value)
+    db.commit()
+    db.refresh(w)
+    return _to_out(w)
+
+
+@router.delete("/{log_id}")
+def delete_work_log(log_id: int, household_id: int = Depends(get_current_household_id), db: Session = Depends(get_db)):
+    """영농일지는 하드 삭제(진단과 달리 지역 통계 등 다른 집계가 걸려 있지 않음). 사진이
+    있으면 레코드와 함께 디스크의 파일도 정리한다."""
+    w = db.query(models.WorkLog).filter(models.WorkLog.id == log_id).first()
+    if not w:
+        raise HTTPException(status_code=404, detail="작업일지를 찾을 수 없습니다.")
+    ensure_farm_access(w.farm, household_id)
+    if w.photo_path:
+        full_path = os.path.join(settings.upload_dir, w.photo_path)
+        if os.path.isfile(full_path):
+            os.remove(full_path)
     db.delete(w)
     db.commit()
     return {"ok": True}

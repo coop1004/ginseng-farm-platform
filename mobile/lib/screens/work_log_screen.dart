@@ -146,7 +146,7 @@ class _WorkLogScreenState extends State<WorkLogScreen> {
                           : ListView.builder(
                               padding: const EdgeInsets.fromLTRB(16, 12, 16, 90),
                               itemCount: visibleLogs.length,
-                              itemBuilder: (context, i) => _WorkLogCard(log: visibleLogs[i]),
+                              itemBuilder: (context, i) => _WorkLogCard(log: visibleLogs[i], onChanged: _load),
                             ),
             ),
           ),
@@ -156,47 +156,103 @@ class _WorkLogScreenState extends State<WorkLogScreen> {
   }
 }
 
-class _WorkLogCard extends StatelessWidget {
+class _WorkLogCard extends StatefulWidget {
   final WorkLog log;
-  const _WorkLogCard({required this.log});
+  final VoidCallback onChanged;
+  const _WorkLogCard({required this.log, required this.onChanged});
+
+  @override
+  State<_WorkLogCard> createState() => _WorkLogCardState();
+}
+
+class _WorkLogCardState extends State<_WorkLogCard> {
+  final _api = ApiService();
+  bool _deleting = false;
+
+  Future<void> _openEdit() async {
+    final updated = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => WorkLogFormScreen(log: widget.log)),
+    );
+    if (updated == true) widget.onChanged();
+  }
+
+  Future<void> _confirmAndDelete() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('작업일지 삭제'),
+        content: const Text('이 작업일지를 삭제할까요? 삭제하면 되돌릴 수 없습니다.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('취소')),
+          FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('삭제')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    setState(() => _deleting = true);
+    try {
+      await _api.deleteWorkLog(widget.log.id);
+      widget.onChanged();
+    } catch (e) {
+      if (mounted) {
+        setState(() => _deleting = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('삭제 실패: $e')));
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final log = widget.log;
     final dateStr = DateFormat('yyyy.MM.dd (E)', 'ko_KR').format(log.workDate);
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 6,
-              height: 46,
-              decoration: BoxDecoration(color: Colors.green.shade400, borderRadius: BorderRadius.circular(4)),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(dateStr, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5)),
-                      const Spacer(),
-                      if (log.farmName != null)
-                        Text(log.farmName!, style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary)),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Text(log.content, style: const TextStyle(fontSize: 13.5)),
-                  const SizedBox(height: 4),
-                  Text('작업면적 ${log.workAreaM2.toStringAsFixed(0)}㎡',
-                      style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary)),
-                ],
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: _deleting ? null : _openEdit,
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 6,
+                height: 46,
+                decoration: BoxDecoration(color: Colors.green.shade400, borderRadius: BorderRadius.circular(4)),
               ),
-            ),
-          ],
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(dateStr, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5)),
+                        const Spacer(),
+                        if (log.farmName != null)
+                          Text(log.farmName!, style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary)),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(log.content, style: const TextStyle(fontSize: 13.5)),
+                    const SizedBox(height: 4),
+                    Text('작업면적 ${log.workAreaM2.toStringAsFixed(0)}㎡',
+                        style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary)),
+                  ],
+                ),
+              ),
+              _deleting
+                  ? const Padding(
+                      padding: EdgeInsets.all(8),
+                      child: SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+                    )
+                  : IconButton(
+                      icon: const Icon(Icons.delete_outline, size: 20, color: AppColors.textSecondary),
+                      tooltip: '삭제',
+                      onPressed: _confirmAndDelete,
+                    ),
+            ],
+          ),
         ),
       ),
     );

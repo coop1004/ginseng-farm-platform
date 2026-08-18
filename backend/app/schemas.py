@@ -223,7 +223,8 @@ class FarmBase(BaseModel):
     area_pyeong: float = 0
     area_m2: float = 0
     facility_type: str = "노지"
-    cultivation_year: int = 1
+    cultivation_year: int = 1  # 레거시 - cultivation_start_date로 대체됨
+    cultivation_start_date: Optional[dt.date] = None
     phone: Optional[str] = None
     memo: Optional[str] = None
 
@@ -244,6 +245,7 @@ class FarmUpdate(BaseModel):
     area_m2: Optional[float] = None
     facility_type: Optional[str] = None
     cultivation_year: Optional[int] = None
+    cultivation_start_date: Optional[dt.date] = None
     phone: Optional[str] = None
     memo: Optional[str] = None
     crop_id: Optional[int] = None
@@ -259,6 +261,9 @@ class FarmOut(FarmBase):
     crop_name: Optional[str] = None
     growth_stage_id: Optional[int] = None
     growth_stage_name: Optional[str] = None
+    cultivation_start_date_estimated: bool = False
+    cultivation_year_computed: int = 1
+    is_active: bool = True
     created_at: dt.datetime
 
 
@@ -272,6 +277,12 @@ class WorkLogBase(BaseModel):
 
 class WorkLogCreate(WorkLogBase):
     pass
+
+
+class WorkLogUpdate(BaseModel):
+    work_date: Optional[dt.date] = None
+    work_area_m2: Optional[float] = None
+    content: Optional[str] = None
 
 
 class WorkLogOut(WorkLogBase):

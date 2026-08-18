@@ -16,6 +16,7 @@ from app.config import settings
 from app.database import get_db
 from app.deps import ensure_farm_access
 from app.services.auth_service import decode_access_token
+from app.services.farm_service import compute_cultivation_year
 from app.services.pdf_service import generate_farm_report_pdf
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
@@ -150,7 +151,7 @@ def export_my_data(
                         f.address,
                         f.area_m2,
                         f.facility_type,
-                        f.cultivation_year,
+                        compute_cultivation_year(f.cultivation_start_date, f.cultivation_year),
                         f.created_at,
                     ]
                     for f in farms
