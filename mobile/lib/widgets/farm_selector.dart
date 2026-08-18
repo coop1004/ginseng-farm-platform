@@ -13,11 +13,16 @@ class FarmSelector extends StatelessWidget {
   Widget build(BuildContext context) {
     return DropdownButtonFormField<int>(
       value: value?.id,
+      // isExpanded 없이는 내부 Row가 mainAxisSize.min이라 Text에 폭 제약이 전혀
+      // 없어져 overflow:ellipsis가 있어도 실제로는 잘리지 않고 화면 밖으로
+      // 넘쳐(RenderFlex overflow) 버린다 - 긴 농장명("금산 3호 필지(스마트팜)")에서만
+      // 드러나는 잠재 버그였다.
+      isExpanded: true,
       decoration: const InputDecoration(labelText: '농장 선택', prefixIcon: Icon(Icons.grass)),
       items: farms
           .map((f) => DropdownMenuItem(
                 value: f.id,
-                child: Text('${f.farmName} (${f.address})', overflow: TextOverflow.ellipsis),
+                child: Text('${f.farmName} (${f.address})', overflow: TextOverflow.ellipsis, maxLines: 1),
               ))
           .toList(),
       onChanged: (id) {

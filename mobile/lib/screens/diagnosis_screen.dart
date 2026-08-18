@@ -110,7 +110,8 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
                     decoration: const InputDecoration(labelText: '농장'),
                     items: [
                       const DropdownMenuItem<int?>(value: null, child: Text('전체')),
-                      ...farms.map((f) => DropdownMenuItem<int?>(value: f.id, child: Text(f.farmName))),
+                      ...farms.map((f) => DropdownMenuItem<int?>(
+                          value: f.id, child: Text(f.farmName, overflow: TextOverflow.ellipsis, maxLines: 1))),
                     ],
                     onChanged: (id) {
                       setState(() => _filterFarm = id == null ? null : farms.firstWhere((f) => f.id == id));

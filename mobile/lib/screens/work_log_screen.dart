@@ -96,10 +96,12 @@ class _WorkLogScreenState extends State<WorkLogScreen> {
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
             child: DropdownButtonFormField<int?>(
               value: _filterFarm?.id,
+              isExpanded: true,
               decoration: const InputDecoration(labelText: '농장 필터', prefixIcon: Icon(Icons.filter_alt_outlined)),
               items: [
                 const DropdownMenuItem<int?>(value: null, child: Text('전체 농장')),
-                ...farms.map((f) => DropdownMenuItem<int?>(value: f.id, child: Text(f.farmName))),
+                ...farms.map((f) => DropdownMenuItem<int?>(
+                    value: f.id, child: Text(f.farmName, overflow: TextOverflow.ellipsis, maxLines: 1))),
               ],
               onChanged: (id) {
                 setState(() => _filterFarm = id == null ? null : farms.firstWhere((f) => f.id == id));
