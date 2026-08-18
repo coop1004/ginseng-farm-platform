@@ -934,14 +934,16 @@ def compute_regional_stats(
                 "longitude": farm.longitude,
                 "total": 0,
                 "by_type": Counter(),
-                "by_name": Counter(),
+                # 병명별로는 진단 건수가 아니라 "이 병명이 발생한 고유 farm_id 집합"을 모아둔다 -
+                # top_issue가 한 농장의 반복 재등록으로 왜곡되지 않도록 아래에서 집합 크기로 순위를 매긴다.
+                "by_name_farms": {},
                 "by_crop": Counter(),
             }
         region_data[region]["total"] += 1
         region_data[region]["by_type"][d.diagnosis_type] += 1
         effective_name = d.final_disease_name or d.ai_disease_name
         if effective_name:
-            region_data[region]["by_name"][effective_name] += 1
+            region_data[region]["by_name_farms"].setdefault(effective_name, set()).add(d.farm_id)
         crop_name = farm.crop.name_kr if farm.crop else d.crop_name
         if crop_name:
             region_data[region]["by_crop"][crop_name] += 1
@@ -953,6 +955,8 @@ def compute_regional_stats(
         # 전부 뭉개서 반환한다 - 세부 항목 중 하나라도 그대로 노출되면 역산으로 전체 건수를
         # 유추할 수 있으므로 total만 감추고 나머지는 그대로 두는 방식은 쓰지 않는다.
         suppressed = total < REGIONAL_STATS_MIN_SAMPLE_SIZE
+        by_name_counts = {name: len(farm_ids) for name, farm_ids in data["by_name_farms"].items()}
+        top_issue = max(by_name_counts, key=by_name_counts.get) if by_name_counts else None
         output.append(
             {
                 "region": region,
@@ -962,7 +966,7 @@ def compute_regional_stats(
                 "total_display": f"{REGIONAL_STATS_MIN_SAMPLE_SIZE}건 미만" if suppressed else f"{total}건",
                 "by_type": {} if suppressed else dict(data["by_type"]),
                 "by_crop": {} if suppressed else dict(data["by_crop"]),
-                "top_issue": None if suppressed else (data["by_name"].most_common(1)[0][0] if data["by_name"] else None),
+                "top_issue": None if suppressed else top_issue,
                 "suppressed": suppressed,
             }
         )
@@ -1016,36 +1020,42 @@ def regional_stats_breakdown(
     recent_cutoff = today - dt.timedelta(days=REGIONAL_TREND_WINDOW_DAYS)
     previous_cutoff = today - dt.timedelta(days=REGIONAL_TREND_WINDOW_DAYS * 2)
 
+    # 진단 건수가 아니라 "이 병명이 발생한 고유 farm_id 집합"을 기간별로 모아둔다 - 같은
+    # 농장이 같은 병명을 여러 번 재등록해도 배지 숫자·증감 추이가 1건으로만 잡히게 하기 위함.
+    # 클릭 시 보이는 개별 진단 리스트(/api/admin/diagnoses)는 이 dedup과 별개로 그대로 둔다.
     by_name: dict = {}
     for d in diagnoses:
         name = d.final_disease_name or d.ai_disease_name
         entry = by_name.setdefault(
-            name, {"name": name, "diagnosis_type": d.diagnosis_type, "total": 0, "recent": 0, "previous": 0}
+            name,
+            {"name": name, "diagnosis_type": d.diagnosis_type, "farm_ids": set(), "recent_farm_ids": set(), "previous_farm_ids": set()},
         )
-        entry["total"] += 1
+        entry["farm_ids"].add(d.farm_id)
         occ = d.occurrence_date
         if occ is None:
             continue
         if recent_cutoff < occ <= today:
-            entry["recent"] += 1
+            entry["recent_farm_ids"].add(d.farm_id)
         elif previous_cutoff < occ <= recent_cutoff:
-            entry["previous"] += 1
+            entry["previous_farm_ids"].add(d.farm_id)
 
     output = []
     for data in by_name.values():
-        total = data["total"]
+        total = len(data["farm_ids"])
         suppressed = total < threshold
-        change = data["recent"] - data["previous"]
+        recent = len(data["recent_farm_ids"])
+        previous = len(data["previous_farm_ids"])
+        change = recent - previous
         direction = "up" if change > 0 else ("down" if change < 0 else "flat")
         output.append(
             {
                 "name": data["name"],
                 "diagnosis_type": data["diagnosis_type"],
                 "total": total,
-                "total_display": f"{threshold}건 미만" if suppressed else f"{total}건",
+                "total_display": f"{threshold}개 농장 미만" if suppressed else f"{total}개 농장",
                 "suppressed": suppressed,
-                "recent_count": None if suppressed else data["recent"],
-                "previous_count": None if suppressed else data["previous"],
+                "recent_count": None if suppressed else recent,
+                "previous_count": None if suppressed else previous,
                 "change": None if suppressed else change,
                 "trend_direction": None if suppressed else direction,
             }

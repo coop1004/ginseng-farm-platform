@@ -149,13 +149,17 @@ def get_regional_risk_signal(
         .all()
     )
 
-    counts: dict = {}
+    # 같은 농장(farm_id)이 같은 병명을 며칠 안에 재등록해도 1건으로만 잡히도록, 진단
+    # 레코드 개수가 아니라 "이 병명이 발생한 고유 농장 수"를 센다 - 그래야 한 농장의
+    # 반복 재등록이 이웃 농가에게 마치 여러 농장에서 퍼진 것처럼 잘못된 신호를 주지 않는다.
+    farm_ids_by_name: dict = {}
     type_by_name: dict = {}
     for d in diagnoses:
         name = d.final_disease_name or d.ai_disease_name
-        counts[name] = counts.get(name, 0) + 1
+        farm_ids_by_name.setdefault(name, set()).add(d.farm_id)
         type_by_name[name] = d.diagnosis_type
 
+    counts = {name: len(farm_ids) for name, farm_ids in farm_ids_by_name.items()}
     max_count = max(counts.values(), default=0)
     level: Optional[str] = None
     if max_count >= FARMER_RISK_ALERT_MIN_COUNT:
