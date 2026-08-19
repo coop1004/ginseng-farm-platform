@@ -13,6 +13,7 @@ import '../providers/farm_provider.dart';
 import '../services/api_service.dart';
 import '../services/gallery_saver.dart';
 import '../widgets/farm_selector.dart';
+import '../widgets/voice_note_sheet.dart';
 
 class WorkLogFormScreen extends StatefulWidget {
   final WorkLog? log;
@@ -90,8 +91,10 @@ class _WorkLogFormScreenState extends State<WorkLogFormScreen> {
     }
   }
 
-  Future<void> _save() async {
-    if (!_formKey.currentState!.validate() || _farm == null) return;
+  /// 실제 저장 호출만 담당하고 화면 전환은 하지 않는다 - 수동 "저장" 버튼과 음성 확인
+  /// 완료 시점(voice_note_sheet) 양쪽에서 이 메서드 하나를 공유해서 쓴다.
+  Future<bool> _performSave(String content) async {
+    if (_farm == null) return false;
     setState(() => _saving = true);
     try {
       if (_isEdit) {
@@ -99,23 +102,45 @@ class _WorkLogFormScreenState extends State<WorkLogFormScreen> {
           id: widget.log!.id,
           workDate: _date,
           workAreaM2: double.tryParse(_areaCtrl.text) ?? _farm!.areaM2,
-          content: _contentCtrl.text.trim(),
+          content: content,
         );
       } else {
         await _api.createWorkLog(
           farmId: _farm!.id,
           workDate: _date,
           workAreaM2: double.tryParse(_areaCtrl.text) ?? _farm!.areaM2,
-          content: _contentCtrl.text.trim(),
+          content: content,
           photo: _photo,
         );
       }
-      if (mounted) Navigator.of(context).pop(true);
+      return true;
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('저장 실패: $e')));
+      return false;
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate() || _farm == null) return;
+    final ok = await _performSave(_contentCtrl.text.trim());
+    if (ok && mounted) Navigator.of(context).pop(true);
+  }
+
+  Future<void> _openVoiceInput() async {
+    if (_farm == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('먼저 농장을 선택해주세요.')));
+      return;
+    }
+    final saved = await showVoiceNoteSheet(
+      context,
+      onTextRecognized: (text) {
+        if (mounted) setState(() => _contentCtrl.text = text);
+      },
+      onSaveRequested: _performSave,
+    );
+    if (saved == true && mounted) Navigator.of(context).pop(true);
   }
 
   @override
@@ -166,11 +191,27 @@ class _WorkLogFormScreenState extends State<WorkLogFormScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _contentCtrl,
-                    maxLines: 5,
-                    decoration: const InputDecoration(labelText: '작업내용 *', alignLabelWithHint: true),
-                    validator: (v) => (v == null || v.trim().isEmpty) ? '작업내용을 입력해주세요.' : null,
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: _contentCtrl,
+                          maxLines: 5,
+                          decoration: const InputDecoration(labelText: '작업내용 *', alignLabelWithHint: true),
+                          validator: (v) => (v == null || v.trim().isEmpty) ? '작업내용을 입력해주세요.' : null,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: IconButton.filledTonal(
+                          onPressed: _saving ? null : _openVoiceInput,
+                          icon: const Icon(Icons.mic_outlined),
+                          tooltip: '음성으로 입력',
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 24),
                   ElevatedButton(
