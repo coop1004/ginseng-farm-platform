@@ -189,6 +189,7 @@ class _DiagnosisResultScreenState extends State<DiagnosisResultScreen> {
               const SizedBox(height: 10),
               DropdownButtonFormField<String>(
                 value: visibility,
+                isDense: false,
                 itemHeight: null,
                 decoration: const InputDecoration(labelText: '공개 범위'),
                 items: [

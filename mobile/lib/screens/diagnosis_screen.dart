@@ -108,6 +108,7 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
                   child: DropdownButtonFormField<int?>(
                     value: _filterFarm?.id,
                     isExpanded: true,
+                    isDense: false,
                     itemHeight: null,
                     decoration: const InputDecoration(labelText: '농장'),
                     items: [
@@ -125,6 +126,7 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
                   child: DropdownButtonFormField<String?>(
                     value: _filterType,
                     isExpanded: true,
+                    isDense: false,
                     itemHeight: null,
                     decoration: const InputDecoration(labelText: '유형'),
                     items: [
