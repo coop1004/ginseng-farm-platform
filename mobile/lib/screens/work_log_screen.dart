@@ -100,9 +100,8 @@ class _WorkLogScreenState extends State<WorkLogScreen> {
               itemHeight: null, // 한글 항목 아랫부분이 고정 48dp 높이에 잘리는 것 방지
               decoration: const InputDecoration(labelText: '농장 필터', prefixIcon: Icon(Icons.filter_alt_outlined)),
               items: [
-                const DropdownMenuItem<int?>(value: null, child: Text('전체 농장')),
-                ...farms.map((f) => DropdownMenuItem<int?>(
-                    value: f.id, child: Text(f.farmName, overflow: TextOverflow.ellipsis, maxLines: 1))),
+                DropdownMenuItem<int?>(value: null, child: dropdownItemText('전체 농장')),
+                ...farms.map((f) => DropdownMenuItem<int?>(value: f.id, child: dropdownItemText(f.farmName))),
               ],
               onChanged: (id) {
                 setState(() => _filterFarm = id == null ? null : farms.firstWhere((f) => f.id == id));

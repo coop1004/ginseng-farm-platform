@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../models/diagnosis.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/common.dart';
 import 'community_post_detail_screen.dart';
 import 'diagnosis_followup_screen.dart';
 
@@ -190,9 +191,9 @@ class _DiagnosisResultScreenState extends State<DiagnosisResultScreen> {
                 value: visibility,
                 itemHeight: null,
                 decoration: const InputDecoration(labelText: '공개 범위'),
-                items: const [
-                  DropdownMenuItem(value: 'public', child: Text('전체 농가에게 공개')),
-                  DropdownMenuItem(value: 'consultant_scope', child: Text('같은 컨설턴트 담당 농가끼리만')),
+                items: [
+                  DropdownMenuItem(value: 'public', child: dropdownItemText('전체 농가에게 공개')),
+                  DropdownMenuItem(value: 'consultant_scope', child: dropdownItemText('같은 컨설턴트 담당 농가끼리만')),
                 ],
                 onChanged: (v) => setDialogState(() => visibility = v ?? 'public'),
               ),

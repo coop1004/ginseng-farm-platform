@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/farm.dart';
+import 'common.dart';
 
 class FarmSelector extends StatelessWidget {
   final List<Farm> farms;
@@ -27,7 +28,7 @@ class FarmSelector extends StatelessWidget {
       items: farms
           .map((f) => DropdownMenuItem(
                 value: f.id,
-                child: Text('${f.farmName} (${f.address})', overflow: TextOverflow.ellipsis, maxLines: 1),
+                child: dropdownItemText('${f.farmName} (${f.address})'),
               ))
           .toList(),
       onChanged: (id) {

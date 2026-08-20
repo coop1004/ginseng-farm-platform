@@ -111,9 +111,8 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
                     itemHeight: null,
                     decoration: const InputDecoration(labelText: '농장'),
                     items: [
-                      const DropdownMenuItem<int?>(value: null, child: Text('전체')),
-                      ...farms.map((f) => DropdownMenuItem<int?>(
-                          value: f.id, child: Text(f.farmName, overflow: TextOverflow.ellipsis, maxLines: 1))),
+                      DropdownMenuItem<int?>(value: null, child: dropdownItemText('전체')),
+                      ...farms.map((f) => DropdownMenuItem<int?>(value: f.id, child: dropdownItemText(f.farmName))),
                     ],
                     onChanged: (id) {
                       setState(() => _filterFarm = id == null ? null : farms.firstWhere((f) => f.id == id));
@@ -129,8 +128,8 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
                     itemHeight: null,
                     decoration: const InputDecoration(labelText: '유형'),
                     items: [
-                      const DropdownMenuItem<String?>(value: null, child: Text('전체')),
-                      ...diagnosisTypes.map((t) => DropdownMenuItem<String?>(value: t, child: Text(t))),
+                      DropdownMenuItem<String?>(value: null, child: dropdownItemText('전체')),
+                      ...diagnosisTypes.map((t) => DropdownMenuItem<String?>(value: t, child: dropdownItemText(t))),
                     ],
                     onChanged: (t) {
                       setState(() => _filterType = t);

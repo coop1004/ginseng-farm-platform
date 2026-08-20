@@ -6,6 +6,7 @@ import '../models/crop.dart';
 import '../models/farm.dart';
 import '../providers/crop_provider.dart';
 import '../services/api_service.dart';
+import '../widgets/common.dart';
 
 class FarmFormScreen extends StatefulWidget {
   final Farm? farm;
@@ -251,7 +252,8 @@ class _FarmFormScreenState extends State<FarmFormScreen> {
                 items: _crops
                     .map((c) => DropdownMenuItem(
                           value: c.id,
-                          child: Text('${c.iconEmoji ?? ''} ${c.nameKr}${c.isSampleData ? ' (샘플)' : ''}'.trim()),
+                          child: dropdownItemText(
+                              '${c.iconEmoji ?? ''} ${c.nameKr}${c.isSampleData ? ' (샘플)' : ''}'.trim()),
                         ))
                     .toList(),
                 onChanged: (id) => _onCropChanged(_findCrop(id)),
@@ -284,7 +286,7 @@ class _FarmFormScreenState extends State<FarmFormScreen> {
                 items: _regions
                     .map((r) => DropdownMenuItem(
                           value: r.id,
-                          child: Text('${r.sido} ${r.sigungu}', overflow: TextOverflow.ellipsis),
+                          child: dropdownItemText('${r.sido} ${r.sigungu}'),
                         ))
                     .toList(),
                 onChanged: (id) => setState(() => _selectedRegionId = id),
@@ -315,7 +317,7 @@ class _FarmFormScreenState extends State<FarmFormScreen> {
               value: _facilityType,
               itemHeight: null,
               decoration: const InputDecoration(labelText: '시설구분', prefixIcon: Icon(Icons.roofing_outlined)),
-              items: facilityTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+              items: facilityTypes.map((t) => DropdownMenuItem(value: t, child: dropdownItemText(t))).toList(),
               onChanged: (v) => setState(() => _facilityType = v ?? _facilityType),
             ),
             const SizedBox(height: 12),
@@ -357,7 +359,7 @@ class _FarmFormScreenState extends State<FarmFormScreen> {
                 itemHeight: null,
                 decoration: const InputDecoration(labelText: '생육단계', prefixIcon: Icon(Icons.timeline_outlined)),
                 items: _growthStages
-                    .map((s) => DropdownMenuItem(value: s.id, child: Text(s.nameKr)))
+                    .map((s) => DropdownMenuItem(value: s.id, child: dropdownItemText(s.nameKr)))
                     .toList(),
                 onChanged: (v) => setState(() => _selectedGrowthStageId = v),
               ),

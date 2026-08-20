@@ -2,6 +2,26 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 
+/// 드롭다운 항목(DropdownMenuItem)의 한글 텍스트가 기본 줄 높이에서 받침
+/// 아랫부분이 살짝 잘리는 걸 막기 위한 공용 래퍼. DropdownButtonFormField의
+/// itemHeight: null과 함께 써서, 항목 렌더링 박스 자체에 위아래 여유를 준다.
+Widget dropdownItemText(
+  String text, {
+  TextStyle? style,
+  TextOverflow overflow = TextOverflow.ellipsis,
+  int maxLines = 1,
+}) {
+  return Padding(
+    padding: const EdgeInsets.symmetric(vertical: 6),
+    child: Text(
+      text,
+      overflow: overflow,
+      maxLines: maxLines,
+      style: (style ?? const TextStyle()).copyWith(height: 1.3),
+    ),
+  );
+}
+
 class LoadingView extends StatelessWidget {
   const LoadingView({super.key});
   @override

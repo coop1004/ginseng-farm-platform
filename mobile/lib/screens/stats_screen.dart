@@ -104,9 +104,8 @@ class _StatsScreenState extends State<StatsScreen> {
               itemHeight: null,
               decoration: const InputDecoration(labelText: '농장 선택 (전체 또는 개별)', prefixIcon: Icon(Icons.grass)),
               items: [
-                const DropdownMenuItem<int?>(value: null, child: Text('전체 농장 통계')),
-                ...farms.map((f) => DropdownMenuItem<int?>(
-                    value: f.id, child: Text(f.farmName, overflow: TextOverflow.ellipsis, maxLines: 1))),
+                DropdownMenuItem<int?>(value: null, child: dropdownItemText('전체 농장 통계')),
+                ...farms.map((f) => DropdownMenuItem<int?>(value: f.id, child: dropdownItemText(f.farmName))),
               ],
               onChanged: (id) {
                 setState(() => _filterFarm = id == null ? null : farms.firstWhere((f) => f.id == id));
