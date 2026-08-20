@@ -246,6 +246,7 @@ class _FarmFormScreenState extends State<FarmFormScreen> {
             else if (_crops.isNotEmpty) ...[
               DropdownButtonFormField<int>(
                 value: _selectedCrop?.id,
+                itemHeight: null,
                 decoration: const InputDecoration(labelText: '작물 *', prefixIcon: Icon(Icons.eco_outlined)),
                 items: _crops
                     .map((c) => DropdownMenuItem(
@@ -278,6 +279,7 @@ class _FarmFormScreenState extends State<FarmFormScreen> {
               DropdownButtonFormField<int>(
                 value: _selectedRegionId,
                 isExpanded: true,
+                itemHeight: null,
                 decoration: const InputDecoration(labelText: '지역(시/군/구)', prefixIcon: Icon(Icons.map_outlined)),
                 items: _regions
                     .map((r) => DropdownMenuItem(
@@ -311,6 +313,7 @@ class _FarmFormScreenState extends State<FarmFormScreen> {
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
               value: _facilityType,
+              itemHeight: null,
               decoration: const InputDecoration(labelText: '시설구분', prefixIcon: Icon(Icons.roofing_outlined)),
               items: facilityTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
               onChanged: (v) => setState(() => _facilityType = v ?? _facilityType),
@@ -351,6 +354,7 @@ class _FarmFormScreenState extends State<FarmFormScreen> {
             ] else if (_growthStages.isNotEmpty)
               DropdownButtonFormField<int>(
                 value: _selectedGrowthStageId,
+                itemHeight: null,
                 decoration: const InputDecoration(labelText: '생육단계', prefixIcon: Icon(Icons.timeline_outlined)),
                 items: _growthStages
                     .map((s) => DropdownMenuItem(value: s.id, child: Text(s.nameKr)))

@@ -101,6 +101,7 @@ class _StatsScreenState extends State<StatsScreen> {
             DropdownButtonFormField<int?>(
               value: _filterFarm?.id,
               isExpanded: true,
+              itemHeight: null,
               decoration: const InputDecoration(labelText: '농장 선택 (전체 또는 개별)', prefixIcon: Icon(Icons.grass)),
               items: [
                 const DropdownMenuItem<int?>(value: null, child: Text('전체 농장 통계')),

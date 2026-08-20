@@ -188,6 +188,7 @@ class _DiagnosisResultScreenState extends State<DiagnosisResultScreen> {
               const SizedBox(height: 10),
               DropdownButtonFormField<String>(
                 value: visibility,
+                itemHeight: null,
                 decoration: const InputDecoration(labelText: '공개 범위'),
                 items: const [
                   DropdownMenuItem(value: 'public', child: Text('전체 농가에게 공개')),

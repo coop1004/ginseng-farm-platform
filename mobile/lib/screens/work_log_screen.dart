@@ -97,6 +97,7 @@ class _WorkLogScreenState extends State<WorkLogScreen> {
             child: DropdownButtonFormField<int?>(
               value: _filterFarm?.id,
               isExpanded: true,
+              itemHeight: null, // 한글 항목 아랫부분이 고정 48dp 높이에 잘리는 것 방지
               decoration: const InputDecoration(labelText: '농장 필터', prefixIcon: Icon(Icons.filter_alt_outlined)),
               items: [
                 const DropdownMenuItem<int?>(value: null, child: Text('전체 농장')),
