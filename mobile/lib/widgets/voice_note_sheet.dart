@@ -68,12 +68,13 @@ class _VoiceNoteSheetState extends State<_VoiceNoteSheet> {
   bool _ttsSpeaking = false;
   Timer? _confirmTimeoutTimer;
   String? _saveError;
+  String _unavailableMessage = '지금은 음성 입력을 쓸 수 없어요.';
 
   @override
   void initState() {
     super.initState();
-    _tts.setLanguage('ko-KR');
-    _tts.awaitSpeakCompletion(true);
+    unawaited(_tts.awaitSpeakCompletion(true));
+    unawaited(_tts.setLanguage('ko-KR'));
   }
 
   @override
@@ -140,12 +141,16 @@ class _VoiceNoteSheetState extends State<_VoiceNoteSheet> {
         if (mounted) setState(() => _stage = _Stage.unavailable);
         return;
       }
-      // 로케일을 하드코딩하지 않고, 기기가 실제로 지원하는 목록에서 한국어를 찾는다.
-      try {
-        final locales = await _speech.locales();
-        final ko = locales.where((l) => l.localeId.toLowerCase().startsWith('ko'));
-        if (ko.isNotEmpty) _localeId = ko.first.localeId;
-      } catch (_) {}
+      final hasKorean = await _resolveKoreanLocale();
+      if (!hasKorean) {
+        if (mounted) {
+          setState(() {
+            _unavailableMessage = '이 기기에서는 음성인식을 지원하지 않습니다.';
+            _stage = _Stage.unavailable;
+          });
+        }
+        return;
+      }
     }
 
     if (!mounted) return;
@@ -157,14 +162,38 @@ class _VoiceNoteSheetState extends State<_VoiceNoteSheet> {
         setState(() => _recognizedText = result.recognizedWords);
         if (result.finalResult) _onRecordingFinished();
       },
+      localeId: _localeId,
       listenOptions: stt.SpeechListenOptions(
         cancelOnError: true,
         partialResults: true,
         listenFor: const Duration(seconds: 30),
         pauseFor: const Duration(seconds: 3),
-        localeId: _localeId,
       ),
     );
+  }
+
+  /// 기기가 지원하는 로케일 목록에서 한국어 항목을 찾아 [_localeId]를 정확한 형식으로
+  /// 맞춘다. 이전 코드는 이 값을 SpeechListenOptions 안에만 넣었는데, 실제로는 그 값이
+  /// 사용되기 전에 목록 조회 자체가 비어 있거나 실패하면 _localeId가 null로 남아
+  /// listen()이 기기 기본 로케일(한국어가 아닐 수 있음)로 인식을 시도하는 게 원인이었다.
+  /// 그래서 먼저 표준값('ko_KR')으로 채워두고, 목록 조회가 성공하면 기기가 실제로
+  /// 보고하는 정확한 ID로 덮어쓴다 - 목록 조회 자체는 됐는데 한국어가 정말 하나도 없는
+  /// 경우에만 false를 반환해 음성인식 자체를 접게 한다.
+  Future<bool> _resolveKoreanLocale() async {
+    _localeId = 'ko_KR';
+    try {
+      final locales = await _speech.locales();
+      if (locales.isEmpty) return true; // 목록 조회가 사실상 실패 - 표준값으로 시도
+      final ko = locales.where((l) {
+        final id = l.localeId.toLowerCase();
+        return id == 'ko' || id.startsWith('ko_') || id.startsWith('ko-');
+      });
+      if (ko.isEmpty) return false; // 목록은 왔는데 한국어가 정말 없음
+      _localeId = ko.first.localeId;
+      return true;
+    } catch (_) {
+      return true; // 목록 조회 자체가 예외 - 표준값('ko_KR')으로 시도
+    }
   }
 
   void _handleRecordingError(SpeechRecognitionError error) {
@@ -195,6 +224,9 @@ class _VoiceNoteSheetState extends State<_VoiceNoteSheet> {
       _stage = _Stage.review;
       _ttsSpeaking = true;
     });
+    // initState의 setLanguage는 await 없이 던져놓은 호출이라, 이 시점까진 충분한 시간이
+    // 지났겠지만 확실히 하기 위해 첫 발화 직전에 한 번 더(idempotent) 확인해서 기다린다.
+    await _tts.setLanguage('ko-KR');
     await _tts.speak('이렇게 입력하셨어요: $_recognizedText. 저장할까요?');
     if (!mounted) return;
     setState(() => _ttsSpeaking = false);
@@ -215,12 +247,12 @@ class _VoiceNoteSheetState extends State<_VoiceNoteSheet> {
         if (!result.finalResult) return;
         _handleConfirmationSpeech(result.recognizedWords);
       },
+      localeId: _localeId,
       listenOptions: stt.SpeechListenOptions(
         cancelOnError: true,
         partialResults: false,
         listenFor: const Duration(seconds: 10),
         pauseFor: const Duration(seconds: 3),
-        localeId: _localeId,
       ),
     );
   }
@@ -327,7 +359,7 @@ class _VoiceNoteSheetState extends State<_VoiceNoteSheet> {
       case _Stage.saveFailed:
         return _SaveFailedPanel(message: _saveError ?? '저장에 실패했어요.', onRetry: _confirmAndSave, onClose: _close);
       case _Stage.unavailable:
-        return _UnavailablePanel(onClose: _close);
+        return _UnavailablePanel(message: _unavailableMessage, onClose: _close);
     }
   }
 }
@@ -552,8 +584,9 @@ class _SaveFailedPanel extends StatelessWidget {
 }
 
 class _UnavailablePanel extends StatelessWidget {
+  final String message;
   final VoidCallback onClose;
-  const _UnavailablePanel({required this.onClose});
+  const _UnavailablePanel({required this.message, required this.onClose});
 
   @override
   Widget build(BuildContext context) {
@@ -562,7 +595,7 @@ class _UnavailablePanel extends StatelessWidget {
       children: [
         Icon(Icons.mic_off_outlined, size: 44, color: Colors.grey.shade600),
         const SizedBox(height: 10),
-        const Text('지금은 음성 입력을 쓸 수 없어요.', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+        Text(message, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
         const SizedBox(height: 4),
         const Text('직접 입력해주세요.', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
         const SizedBox(height: 16),
