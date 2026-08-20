@@ -173,14 +173,19 @@ class _VoiceNoteSheetState extends State<_VoiceNoteSheet> {
   }
 
   /// 기기가 지원하는 로케일 목록에서 한국어 항목을 찾아 [_localeId]를 정확한 형식으로
-  /// 맞춘다. 이전 코드는 이 값을 SpeechListenOptions 안에만 넣었는데, 실제로는 그 값이
-  /// 사용되기 전에 목록 조회 자체가 비어 있거나 실패하면 _localeId가 null로 남아
-  /// listen()이 기기 기본 로케일(한국어가 아닐 수 있음)로 인식을 시도하는 게 원인이었다.
-  /// 그래서 먼저 표준값('ko_KR')으로 채워두고, 목록 조회가 성공하면 기기가 실제로
-  /// 보고하는 정확한 ID로 덮어쓴다 - 목록 조회 자체는 됐는데 한국어가 정말 하나도 없는
-  /// 경우에만 false를 반환해 음성인식 자체를 접게 한다.
+  /// 맞춘다.
+  ///
+  /// 실제 원인은 두 겹이었다: (1) 이전 코드는 이 값을 SpeechListenOptions 안에만
+  /// 넣었는데 listen()의 상위 localeId 파라미터가 우선이라 전달이 안 됐었고(1차 수정),
+  /// (2) speech_to_text 6.6.2의 안드로이드 네이티브 코드(SpeechToTextPlugin.kt)는
+  /// locales()가 "ko_KR"처럼 밑줄(Java Locale 형식)로 보고한 값을 변환 없이 그대로
+  /// RecognizerIntent.EXTRA_LANGUAGE에 넣는데, 안드로이드 음성인식 서비스는 BCP-47
+  /// 하이픈 형식("ko-KR")을 기대한다 - 밑줄 형식은 조용히 무시되고 기기 기본 로케일
+  /// (영어일 수 있음)로 인식되는 게 진짜 원인이었다. 그래서 여기서 밑줄을 하이픈으로
+  /// 바꿔서 넘긴다. 목록 조회가 실패/비어 있어도 표준값('ko-KR')으로는 시도해보고,
+  /// 목록 조회 자체는 됐는데 한국어가 정말 하나도 없는 경우에만 false를 반환한다.
   Future<bool> _resolveKoreanLocale() async {
-    _localeId = 'ko_KR';
+    _localeId = 'ko-KR';
     try {
       final locales = await _speech.locales();
       if (locales.isEmpty) return true; // 목록 조회가 사실상 실패 - 표준값으로 시도
@@ -189,10 +194,10 @@ class _VoiceNoteSheetState extends State<_VoiceNoteSheet> {
         return id == 'ko' || id.startsWith('ko_') || id.startsWith('ko-');
       });
       if (ko.isEmpty) return false; // 목록은 왔는데 한국어가 정말 없음
-      _localeId = ko.first.localeId;
+      _localeId = ko.first.localeId.replaceAll('_', '-');
       return true;
     } catch (_) {
-      return true; // 목록 조회 자체가 예외 - 표준값('ko_KR')으로 시도
+      return true; // 목록 조회 자체가 예외 - 표준값('ko-KR')으로 시도
     }
   }
 
