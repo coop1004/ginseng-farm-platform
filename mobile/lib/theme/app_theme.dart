@@ -72,12 +72,13 @@ ThemeData buildAppTheme() {
         borderRadius: BorderRadius.circular(10),
         borderSide: const BorderSide(color: AppColors.green, width: 1.5),
       ),
-      // vertical 12는 Flutter의 InputDecorator 레이아웃 계산에서 입력창(드롭다운 포함)
-      // 박스의 실제 세로 여유를 정하는 값이다 - 한글, 특히 받침 있는 글자는 라틴
-      // 문자보다 렌더링에 필요한 세로 공간이 조금 더 커서, 이 값이 빠듯하면 드롭다운
-      // 선택값 표시에서 글자 아랫부분(심하면 위아래 모두)이 잘려 보이는 게 실측
-      // 확인됐다. 16으로 늘려 앱 전역 모든 입력창에 여유를 준다.
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+      // vertical을 12->16으로 늘렸던 이전 시도는 실기기에서 효과가 없었다(사용자
+      // 재확인 결과 동일하게 잘림) - 즉 박스 높이 자체가 부모 제약으로 이미 상한이
+      // 걸려있어 padding을 늘려도 박스가 더 커지지 않고, 그 안에서 라벨(위쪽에 별도
+      // 공간 차지)과 실제 값 텍스트가 나눠 쓸 수 있는 여유만 그대로였던 것으로 보인다.
+      // 그래서 반대로 padding을 줄여(특히 라벨이 이미 자기 몫을 쓰는 위쪽을 더 많이)
+      // 값 텍스트가 쓸 수 있는 실질 공간을 넓히는 방향으로 수정한다.
+      contentPadding: const EdgeInsets.fromLTRB(14, 6, 14, 10),
     ),
     // elevation 0(그림자 없음)이라 카드가 페이지 배경(#F7F8F7)과 거의 같은 흰색 위에
     // 놓이면 경계가 거의 안 보였다(명암비 1.06:1). 배경을 더 어둡게 하는 대신, 이미
