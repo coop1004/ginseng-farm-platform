@@ -230,7 +230,14 @@ class _WorkLogCardState extends State<_WorkLogCard> {
                         Text(dateStr, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5)),
                         const Spacer(),
                         if (log.farmName != null)
-                          Text(log.farmName!, style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary)),
+                          Flexible(
+                            child: Text(
+                              log.farmName!,
+                              style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
+                          ),
                       ],
                     ),
                     const SizedBox(height: 6),
