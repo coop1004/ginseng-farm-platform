@@ -11,12 +11,15 @@ class FarmSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // (B) 후보 수정 - TextStyle의 height를 명시적으로 크게 지정. titleMedium 기본값
-    // (height: 1.50)을 기반으로 하되 2.0으로 올려서, "줄간격 자체가 부족해서 잘린다"는
-    // 가설을 직접 겨냥해 검증한다. fontFamily는 건드리지 않는다(이번엔 height만으로
-    // 해결되는지 먼저 확인하는 단계).
+    // (B) 후보 수정 3차 - height를 더 올리는 대신 fontFamily를 명시한다. 이 앱은
+    // pubspec.yaml에 번들 폰트가 전혀 없어(fonts: 섹션 없음) 테마 기본값인 Roboto를
+    // 그대로 쓰는데, Roboto는 한글 글리프가 없어 실제로는 폰트 폴백이 일어난다 -
+    // 레이아웃(줄 높이)은 Roboto 지표로 계산되고 실제로 그려지는 건 폴백 폰트라
+    // 지표가 안 맞을 수 있다는 가설을 검증한다. 'sans-serif'는 안드로이드 시스템
+    // 기본 산세리프 폰트를 직접 가리켜(한글 포함) 폴백을 거치지 않게 한다.
+    // height는 순수하게 fontFamily 효과만 보기 위해 테마 기본값(1.50)으로 되돌린다.
     final baseStyle = Theme.of(context).textTheme.titleMedium;
-    final candidateStyle = baseStyle?.copyWith(height: 2.0) ?? const TextStyle(height: 2.0);
+    final candidateStyle = (baseStyle ?? const TextStyle()).copyWith(fontFamily: 'sans-serif', height: 1.5);
 
     return DropdownButtonFormField<int>(
       value: value?.id,
